@@ -1455,7 +1455,8 @@ export function BlueprintWorkbench() {
     }
   };
 
-  const handleSolidifyGhostNode = (ghost: GhostNode) => {    if (!graph) {
+  const handleSolidifyGhostNode = (ghost: GhostNode) => {
+    if (!graph) {
       return;
     }
 
