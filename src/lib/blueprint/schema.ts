@@ -102,6 +102,33 @@ export const nodeVerificationSchema = z.object({
 });
 export type NodeVerification = z.infer<typeof nodeVerificationSchema>;
 
+export const mcpToolSchema = z.object({
+  name: z.string(),
+  description: z.string().optional(),
+  inputSchema: z.record(z.string(), z.unknown()).optional()
+});
+export type McpTool = z.infer<typeof mcpToolSchema>;
+
+export const mcpServerConfigSchema = z.object({
+  serverUrl: z.string().min(1),
+  label: z.string().optional(),
+  headers: z.record(z.string(), z.string()).optional(),
+  enabledTools: z.array(z.string()).optional()
+});
+export type McpServerConfig = z.infer<typeof mcpServerConfigSchema>;
+
+export const mcpToolResultContentSchema = z.object({
+  type: z.string(),
+  text: z.string().optional()
+});
+export type McpToolResultContent = z.infer<typeof mcpToolResultContentSchema>;
+
+export const mcpToolResultSchema = z.object({
+  content: z.array(mcpToolResultContentSchema),
+  isError: z.boolean().optional()
+});
+export type McpToolResult = z.infer<typeof mcpToolResultSchema>;
+
 export const blueprintNodeSchema = z.object({
   id: z.string(),
   kind: nodeKindSchema,
@@ -119,7 +146,7 @@ export const blueprintNodeSchema = z.object({
   specDraft: z.string().optional(),
   implementationDraft: z.string().optional(),
   lastVerification: nodeVerificationSchema.optional(),
-  mcpServers: z.array(z.lazy(() => mcpServerConfigSchema)).optional()
+  mcpServers: z.array(mcpServerConfigSchema).optional()
 });
 export type BlueprintNode = z.input<typeof blueprintNodeSchema>;
 
@@ -387,33 +414,6 @@ export const runtimeExecutionResultSchema = z.object({
   error: z.string().optional()
 });
 export type RuntimeExecutionResult = z.infer<typeof runtimeExecutionResultSchema>;
-
-export const mcpToolSchema = z.object({
-  name: z.string(),
-  description: z.string().optional(),
-  inputSchema: z.record(z.string(), z.unknown()).optional()
-});
-export type McpTool = z.infer<typeof mcpToolSchema>;
-
-export const mcpServerConfigSchema = z.object({
-  serverUrl: z.string().min(1),
-  label: z.string().optional(),
-  headers: z.record(z.string(), z.string()).optional(),
-  enabledTools: z.array(z.string()).optional()
-});
-export type McpServerConfig = z.infer<typeof mcpServerConfigSchema>;
-
-export const mcpToolResultContentSchema = z.object({
-  type: z.string(),
-  text: z.string().optional()
-});
-export type McpToolResultContent = z.infer<typeof mcpToolResultContentSchema>;
-
-export const mcpToolResultSchema = z.object({
-  content: z.array(mcpToolResultContentSchema),
-  isError: z.boolean().optional()
-});
-export type McpToolResult = z.infer<typeof mcpToolResultSchema>;
 
 export const emptyContract = (): CodeContract => ({
   summary: "",
