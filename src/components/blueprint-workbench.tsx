@@ -1044,21 +1044,37 @@ export function BlueprintWorkbench() {
       return;
     }
 
-    // Add the ghost node as a real node
-    let nextGraph = addNodeToGraph(graph, {
-      kind: ghost.kind,
-      name: ghost.name,
-      summary: ghost.summary
-    });
+    let nextGraph = graph;
+    let targetNodeId: string | null = null;
+
+    // If a node with the same identity already exists, reuse it instead of overwriting.
+    const existingNode = graph.nodes.find(
+      (n) => n.kind === ghost.kind && n.name === ghost.name
+    );
+
+    if (existingNode) {
+      targetNodeId = existingNode.id;
+    } else {
+      // Add the ghost node as a new real node
+      nextGraph = addNodeToGraph(graph, {
+        kind: ghost.kind,
+        name: ghost.name,
+        summary: ghost.summary
+      });
+
+      const createdNode = nextGraph.nodes.find(
+        (n) => n.kind === ghost.kind && n.name === ghost.name
+      );
+      targetNodeId = createdNode ? createdNode.id : null;
+    }
 
     // Add the suggested edge if both endpoints exist in the new graph
     if (ghost.suggestedEdge) {
       const fromExists = nextGraph.nodes.some((n) => n.id === ghost.suggestedEdge!.from);
-      const newNodeId = nextGraph.nodes[nextGraph.nodes.length - 1]?.id;
-      if (fromExists && newNodeId) {
+      if (fromExists && targetNodeId) {
         nextGraph = addEdgeToGraph(nextGraph, {
           from: ghost.suggestedEdge.from,
-          to: newNodeId,
+          to: targetNodeId,
           kind: ghost.suggestedEdge.kind
         });
       }
@@ -1067,7 +1083,7 @@ export function BlueprintWorkbench() {
     setGraph(nextGraph);
     // Remove the solidified ghost from suggestions
     setGhostSuggestions((current) => current.filter((g) => g.id !== ghost.id));
-    setSelectedNodeId(nextGraph.nodes[nextGraph.nodes.length - 1]?.id ?? null);
+    setSelectedNodeId(targetNodeId);
   };
 
   const renderSection = (title: string, items: string[]) => (
