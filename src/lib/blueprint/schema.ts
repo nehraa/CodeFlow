@@ -417,6 +417,27 @@ export const runtimeExecutionResultSchema = z.object({
 });
 export type RuntimeExecutionResult = z.infer<typeof runtimeExecutionResultSchema>;
 
+export const ghostNodeSchema = z.object({
+  id: z.string(),
+  kind: nodeKindSchema,
+  name: z.string(),
+  summary: z.string(),
+  reason: z.string(),
+  suggestedEdge: z
+    .object({
+      from: z.string(),
+      to: z.string(),
+      kind: edgeKindSchema
+    })
+    .optional()
+});
+export type GhostNode = z.infer<typeof ghostNodeSchema>;
+
+export const ghostSuggestionsResponseSchema = z.object({
+  suggestions: z.array(ghostNodeSchema)
+});
+export type GhostSuggestionsResponse = z.infer<typeof ghostSuggestionsResponseSchema>;
+
 export const emptyContract = (): CodeContract => ({
   summary: "",
   responsibilities: [],

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { buildDetailFlow, buildFlowEdges, buildFlowNodes } from "@/lib/blueprint/flow-view";
-import type { BlueprintGraph } from "@/lib/blueprint/schema";
+import { buildDetailFlow, buildFlowEdges, buildFlowNodes, buildGhostFlowNodes } from "@/lib/blueprint/flow-view";
+import type { BlueprintGraph, GhostNode } from "@/lib/blueprint/schema";
 import { emptyContract } from "@/lib/blueprint/schema";
 
 const graph: BlueprintGraph = {
@@ -120,5 +120,60 @@ describe("flow-view", () => {
     expect(detail?.items.some((item) => item.label === "Task Module")).toBe(true);
     expect(detail?.items.some((item) => item.label === "saveTask")).toBe(true);
     expect(detail?.items.some((item) => item.label === "taskStore: TaskRepository")).toBe(true);
+  });
+});
+
+describe("buildGhostFlowNodes", () => {
+  const existingFlowNodes = buildFlowNodes(graph);
+
+  const ghosts: GhostNode[] = [
+    {
+      id: "ghost:auth-middleware",
+      kind: "module",
+      name: "Auth Middleware",
+      summary: "Authentication middleware.",
+      reason: "APIs need auth.",
+      suggestedEdge: { from: "api:post-tasks", to: "ghost:auth-middleware", kind: "calls" }
+    },
+    {
+      id: "ghost:error-handler",
+      kind: "module",
+      name: "Error Handler",
+      summary: "Centralised error handling.",
+      reason: "Error handling is essential.",
+      suggestedEdge: undefined
+    }
+  ];
+
+  it("builds ghost flow nodes with ghost data flag set", () => {
+    const ghostFlowNodes = buildGhostFlowNodes(ghosts, existingFlowNodes);
+
+    expect(ghostFlowNodes).toHaveLength(2);
+    expect(ghostFlowNodes[0].data.ghost).toBe(true);
+    expect(ghostFlowNodes[0].data.ghostReason).toBe("APIs need auth.");
+    expect(ghostFlowNodes[0].id).toBe("ghost:auth-middleware");
+    expect(ghostFlowNodes[0].data.label).toBe("Auth Middleware");
+  });
+
+  it("positions ghost nodes to the right of existing nodes", () => {
+    const ghostFlowNodes = buildGhostFlowNodes(ghosts, existingFlowNodes);
+    const maxExistingX = Math.max(...existingFlowNodes.map((n) => n.position.x));
+
+    for (const ghostNode of ghostFlowNodes) {
+      expect(ghostNode.position.x).toBeGreaterThan(maxExistingX);
+    }
+  });
+
+  it("renders ghost nodes with semi-transparent styling", () => {
+    const ghostFlowNodes = buildGhostFlowNodes(ghosts, existingFlowNodes);
+
+    expect(ghostFlowNodes[0].style?.opacity).toBeLessThan(1);
+    expect(String(ghostFlowNodes[0].style?.border)).toContain("dashed");
+  });
+
+  it("returns empty array when given no ghost nodes", () => {
+    const ghostFlowNodes = buildGhostFlowNodes([], existingFlowNodes);
+
+    expect(ghostFlowNodes).toHaveLength(0);
   });
 });

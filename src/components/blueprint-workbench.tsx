@@ -24,6 +24,7 @@ import type {
   ConflictReport,
   ExecutionMode,
   ExportResult,
+  GhostNode,
   GraphBranch,
   McpServerConfig,
   McpTool,
@@ -103,6 +104,11 @@ type MetricsResponse = {
 type MermaidResponse = {
   diagram?: string;
   format?: string;
+  error?: string;
+};
+
+type GhostSuggestionsApiResponse = {
+  suggestions?: GhostNode[];
   error?: string;
 };
 
@@ -232,6 +238,7 @@ export function BlueprintWorkbench() {
   const [smellReport, setSmellReport] = useState<SmellReport | null>(null);
   const [graphMetrics, setGraphMetrics] = useState<GraphMetrics | null>(null);
   const [mermaidDiagram, setMermaidDiagram] = useState<string | null>(null);
+  const [ghostSuggestions, setGhostSuggestions] = useState<GhostNode[]>([]);
   const [showMcpPanel, setShowMcpPanel] = useState(false);
   const [mcpServerUrl, setMcpServerUrl] = useState("");
   const [mcpHeadersJson, setMcpHeadersJson] = useState("{}");
@@ -530,6 +537,7 @@ export function BlueprintWorkbench() {
       setShowEditPanel(false);
       setShowPromptPanel(false);
       setExportResult(null);
+      setGhostSuggestions([]);
       setStatusTone("success");
       setStatusTitle("Blueprint ready");
       setStatusDetail(
@@ -1164,6 +1172,38 @@ export function BlueprintWorkbench() {
     }
   };
 
+  const handleSuggestGhostNodes = async () => {
+    if (!graph) {
+      setError("Build a blueprint before requesting ghost node suggestions.");
+      return;
+    }
+
+    setBusyLabel("Suggesting ghost nodes");
+    setError(null);
+
+    try {
+      const response = await fetch("/api/ghost-nodes", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          graph,
+          nvidiaApiKey: nvidiaApiKey.trim() || undefined
+        })
+      });
+      const body = (await response.json()) as GhostSuggestionsApiResponse;
+
+      if (!response.ok) {
+        throw new Error(body.error || "Failed to generate ghost node suggestions.");
+      }
+
+      setGhostSuggestions(body.suggestions ?? []);
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Failed to generate ghost node suggestions.");
+    } finally {
+      setBusyLabel(null);
+    }
+  };
+
   const parseMcpHeaders = (): Record<string, string> | undefined => {
     const raw = mcpHeadersJson.trim();
     if (!raw) {
@@ -1319,6 +1359,48 @@ export function BlueprintWorkbench() {
     );
   };
 
+  const handleSolidifyGhostNode = (ghost: GhostNode) => {
+    if (!graph) {
+      return;
+    }
+
+    let nextGraph = graph;
+    let targetNodeId: string | null = null;
+
+    const existingNode = graph.nodes.find(
+      (n) => n.kind === ghost.kind && n.name === ghost.name
+    );
+
+    if (existingNode) {
+      targetNodeId = existingNode.id;
+    } else {
+      nextGraph = addNodeToGraph(graph, {
+        kind: ghost.kind,
+        name: ghost.name,
+        summary: ghost.summary
+      });
+
+      const createdNode = nextGraph.nodes.find(
+        (n) => n.kind === ghost.kind && n.name === ghost.name
+      );
+      targetNodeId = createdNode ? createdNode.id : null;
+    }
+
+    if (ghost.suggestedEdge) {
+      const fromExists = nextGraph.nodes.some((n) => n.id === ghost.suggestedEdge.from);
+      if (fromExists && targetNodeId) {
+        nextGraph = addEdgeToGraph(nextGraph, {
+          from: ghost.suggestedEdge.from,
+          to: targetNodeId,
+          kind: ghost.suggestedEdge.kind
+        });
+      }
+    }
+
+    setGraph(nextGraph);
+    setGhostSuggestions((current) => current.filter((g) => g.id !== ghost.id));
+    setSelectedNodeId(targetNodeId);
+  };
   const handleSwitchToBranch = (branch: GraphBranch) => {
     setGraph(branch.graph);
     setActiveBranchId(branch.id);
@@ -1610,6 +1692,14 @@ export function BlueprintWorkbench() {
           <button disabled={isBusy || !graph} onClick={() => void handleRunAnalysis()} type="button">
             {busyLabel === "Analyzing architecture" ? "Analyzing..." : "Analyze"}
           </button>
+          <button disabled={isBusy || !graph} onClick={() => void handleSuggestGhostNodes()} type="button">
+            {busyLabel === "Suggesting ghost nodes" ? "Suggesting..." : "Suggest nodes"}
+          </button>
+          {ghostSuggestions.length > 0 ? (
+            <button onClick={() => setGhostSuggestions([])} type="button">
+              Clear ghosts ({ghostSuggestions.length})
+            </button>
+          ) : null}
           <button disabled={!graph} onClick={() => setShowMcpPanel((current) => !current)} type="button">
             {showMcpPanel ? "Hide MCP" : "MCP"}
           </button>
@@ -2122,6 +2212,8 @@ export function BlueprintWorkbench() {
             edges={detailFlow?.edges}
             onNodeDoubleClick={handleGraphDoubleClick}
             onSelect={handleGraphSelect}
+            ghostNodes={drilldownRootNode ? undefined : ghostSuggestions}
+            onGhostNodeClick={handleSolidifyGhostNode}
             heatmapData={drilldownRootNode ? undefined : heatmapData}
           />
         </section>
