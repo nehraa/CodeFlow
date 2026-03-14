@@ -41,8 +41,18 @@ const observabilityPath = (projectName: string): string =>
 const branchDirForProject = (projectName: string): string =>
   path.join(getStoreRoot(), "branches", slugify(projectName));
 
-const branchPath = (projectName: string, branchId: string): string =>
-  path.join(branchDirForProject(projectName), `${branchId}.json`);
+const branchPath = (projectName: string, branchId: string): string => {
+  const branchDir = branchDirForProject(projectName);
+  const safeBranchId = path.basename(branchId);
+  const resolvedPath = path.resolve(branchDir, `${safeBranchId}.json`);
+
+  // Ensure the resolved path stays within the branch directory
+  if (!resolvedPath.startsWith(branchDir + path.sep)) {
+    throw new Error("Invalid branch ID");
+  }
+
+  return resolvedPath;
+};
 
 const ensureDir = async (dirPath: string): Promise<void> => {
   await fs.mkdir(dirPath, { recursive: true });
