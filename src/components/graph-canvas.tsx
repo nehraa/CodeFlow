@@ -3,8 +3,8 @@
 import type { Edge, Node } from "@xyflow/react";
 import { Background, Controls, MiniMap, ReactFlow, ReactFlowProvider } from "@xyflow/react";
 
-import type { BlueprintGraph } from "@/lib/blueprint/schema";
-import { buildFlowEdges, buildFlowNodes } from "@/lib/blueprint/flow-view";
+import type { BlueprintGraph, GhostNode } from "@/lib/blueprint/schema";
+import { buildFlowEdges, buildFlowNodes, buildGhostFlowNodes } from "@/lib/blueprint/flow-view";
 import type { FlowNodeData } from "@/lib/blueprint/flow-view";
 
 type GraphCanvasProps = {
@@ -15,6 +15,8 @@ type GraphCanvasProps = {
   edges?: Edge[];
   onNodeDoubleClick?: (nodeId: string) => void;
   emptyMessage?: string;
+  ghostNodes?: GhostNode[];
+  onGhostNodeClick?: (ghost: GhostNode) => void;
 };
 
 export function GraphCanvas({
@@ -24,9 +26,14 @@ export function GraphCanvas({
   nodes,
   edges,
   onNodeDoubleClick,
-  emptyMessage
+  emptyMessage,
+  ghostNodes,
+  onGhostNodeClick
 }: GraphCanvasProps) {
-  const flowNodes = nodes ?? (graph ? buildFlowNodes(graph, selectedNodeId ?? undefined) : []);
+  const baseFlowNodes = nodes ?? (graph ? buildFlowNodes(graph, selectedNodeId ?? undefined) : []);
+  const ghostFlowNodes =
+    ghostNodes && ghostNodes.length > 0 ? buildGhostFlowNodes(ghostNodes, baseFlowNodes) : [];
+  const flowNodes = [...baseFlowNodes, ...ghostFlowNodes];
   const flowEdges = edges ?? (graph ? buildFlowEdges(graph) : []);
 
   if (!graph && flowNodes.length === 0) {
@@ -36,6 +43,18 @@ export function GraphCanvas({
       </div>
     );
   }
+
+  const handleNodeClick = (_: React.MouseEvent, node: Node<FlowNodeData>) => {
+    if (node.data.ghost && onGhostNodeClick) {
+      const ghost = ghostNodes?.find((g) => g.id === node.id);
+      if (ghost) {
+        onGhostNodeClick(ghost);
+        return;
+      }
+    }
+
+    onSelect(node.id);
+  };
 
   return (
     <ReactFlowProvider>
@@ -48,7 +67,7 @@ export function GraphCanvas({
           nodes={flowNodes}
           edges={flowEdges}
           className="graph-flow"
-          onNodeClick={(_, node) => onSelect(node.id)}
+          onNodeClick={handleNodeClick}
           onNodeDoubleClick={(_, node) => onNodeDoubleClick?.(node.id)}
         >
           <MiniMap pannable zoomable />
