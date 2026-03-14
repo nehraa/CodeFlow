@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { blueprintGraphSchema, nodeKindSchema, edgeKindSchema } from "@/lib/blueprint/schema";
+import { blueprintGraphSchema, nodeKindSchema, edgeKindSchema, ghostNodeSchema, ghostSuggestionsResponseSchema } from "@/lib/blueprint/schema";
 import { getNvidiaKeySource, requestNvidiaChatCompletion, resolveNvidiaApiKey } from "@/lib/blueprint/nvidia";
 import type { BlueprintGraph, GhostNode } from "@/lib/blueprint/schema";
 
@@ -10,24 +10,9 @@ const requestSchema = z.object({
   nvidiaApiKey: z.string().optional()
 });
 
-const aiGhostNodeSchema = z.object({
-  id: z.string(),
-  kind: nodeKindSchema,
-  name: z.string(),
-  summary: z.string(),
-  reason: z.string(),
-  suggestedEdge: z
-    .object({
-      from: z.string(),
-      to: z.string(),
-      kind: edgeKindSchema
-    })
-    .optional()
-});
+const aiGhostNodeSchema = ghostNodeSchema;
 
-const aiGhostResponseSchema = z.object({
-  suggestions: z.array(aiGhostNodeSchema).default([])
-});
+const aiGhostResponseSchema = ghostSuggestionsResponseSchema;
 
 const GHOST_SYSTEM_PROMPT = `You are a software architecture assistant. Given an existing architecture blueprint, suggest 2-4 probable next architectural components that would complement the existing design.
 
