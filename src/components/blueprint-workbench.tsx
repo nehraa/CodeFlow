@@ -21,6 +21,8 @@ import type {
   ConflictReport,
   ExecutionMode,
   ExportResult,
+  McpServerConfig,
+  McpTool,
   ObservabilityLog,
   PersistedSession,
   RiskReport,
@@ -110,6 +112,19 @@ type CodeSuggestionResponse = {
   notes: string[];
 };
 
+type McpToolsResponse = {
+  tools?: McpTool[];
+  error?: string;
+};
+
+type McpInvokeResponse = {
+  result?: {
+    content: Array<{ type: string; text?: string }>;
+    isError?: boolean;
+  };
+  error?: string;
+};
+
 type StatusTone = "info" | "success" | "danger";
 
 const tracesSchema = z.array(traceSpanSchema);
@@ -192,6 +207,14 @@ export function BlueprintWorkbench() {
   const [smellReport, setSmellReport] = useState<SmellReport | null>(null);
   const [graphMetrics, setGraphMetrics] = useState<GraphMetrics | null>(null);
   const [mermaidDiagram, setMermaidDiagram] = useState<string | null>(null);
+  const [showMcpPanel, setShowMcpPanel] = useState(false);
+  const [mcpServerUrl, setMcpServerUrl] = useState("");
+  const [mcpHeadersJson, setMcpHeadersJson] = useState("{}");
+  const [mcpToolName, setMcpToolName] = useState("");
+  const [mcpToolArgsJson, setMcpToolArgsJson] = useState("{}");
+  const [availableMcpTools, setAvailableMcpTools] = useState<McpTool[]>([]);
+  const [mcpInvokeResult, setMcpInvokeResult] = useState<string | null>(null);
+  const [mcpError, setMcpError] = useState<string | null>(null);
 
   const selectedNode = graph?.nodes.find((node) => node.id === selectedNodeId) ?? null;
   const drilldownNodeId = drilldownStack.at(-1) ?? null;
@@ -999,8 +1022,135 @@ export function BlueprintWorkbench() {
     }
   };
 
-  const renderSection = (title: string, items: string[]) => (
-    <div className="callout" key={title}>
+  const parseMcpHeaders = (): Record<string, string> | undefined => {
+    try {
+      const parsed = JSON.parse(mcpHeadersJson.trim() || "{}") as Record<string, string>;
+      return Object.keys(parsed).length ? parsed : undefined;
+    } catch {
+      return undefined;
+    }
+  };
+
+  const parseMcpArgs = (): Record<string, unknown> => {
+    try {
+      return JSON.parse(mcpToolArgsJson.trim() || "{}") as Record<string, unknown>;
+    } catch {
+      return {};
+    }
+  };
+
+  const handleListMcpTools = async () => {
+    if (!mcpServerUrl.trim()) {
+      setMcpError("Enter an MCP server URL first.");
+      return;
+    }
+
+    setBusyLabel("Listing MCP tools");
+    setMcpError(null);
+    setAvailableMcpTools([]);
+    setMcpInvokeResult(null);
+
+    try {
+      const response = await fetch("/api/mcp/tools", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ serverUrl: mcpServerUrl.trim(), headers: parseMcpHeaders() })
+      });
+      const body = (await response.json()) as McpToolsResponse;
+
+      if (!response.ok) {
+        throw new Error(body.error ?? "Failed to list MCP tools.");
+      }
+
+      setAvailableMcpTools(body.tools ?? []);
+      if (body.tools?.length) {
+        setMcpToolName(body.tools[0]?.name ?? "");
+      }
+    } catch (caughtError) {
+      setMcpError(caughtError instanceof Error ? caughtError.message : "Failed to list MCP tools.");
+    } finally {
+      setBusyLabel(null);
+    }
+  };
+
+  const handleInvokeMcpTool = async () => {
+    if (!mcpServerUrl.trim() || !mcpToolName.trim()) {
+      setMcpError("Enter a server URL and tool name.");
+      return;
+    }
+
+    setBusyLabel("Invoking MCP tool");
+    setMcpError(null);
+    setMcpInvokeResult(null);
+
+    try {
+      const response = await fetch("/api/mcp/invoke", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          serverUrl: mcpServerUrl.trim(),
+          toolName: mcpToolName.trim(),
+          args: parseMcpArgs(),
+          headers: parseMcpHeaders()
+        })
+      });
+      const body = (await response.json()) as McpInvokeResponse;
+
+      if (!response.ok) {
+        throw new Error(body.error ?? "Failed to invoke MCP tool.");
+      }
+
+      const text =
+        body.result?.content
+          .filter((item) => item.type === "text" && item.text)
+          .map((item) => item.text as string)
+          .join("\n") ?? "(empty result)";
+
+      setMcpInvokeResult(body.result?.isError ? `Error: ${text}` : text);
+    } catch (caughtError) {
+      setMcpError(caughtError instanceof Error ? caughtError.message : "Failed to invoke MCP tool.");
+    } finally {
+      setBusyLabel(null);
+    }
+  };
+
+  const handleSaveMcpServerToNode = () => {
+    if (!graph || !selectedNodeId || !mcpServerUrl.trim()) {
+      return;
+    }
+
+    const headers = parseMcpHeaders();
+    const newServer: McpServerConfig = {
+      serverUrl: mcpServerUrl.trim(),
+      label: mcpServerUrl.trim(),
+      ...(headers ? { headers } : {})
+    };
+
+    setGraph(
+      updateNode(graph, selectedNodeId, (node) => ({
+        ...node,
+        mcpServers: [
+          ...(node.mcpServers ?? []).filter((s) => s.serverUrl !== newServer.serverUrl),
+          newServer
+        ]
+      }))
+    );
+  };
+
+  const handleRemoveMcpServerFromNode = (serverUrl: string) => {
+    if (!graph || !selectedNodeId) {
+      return;
+    }
+
+    setGraph(
+      updateNode(graph, selectedNodeId, (node) => ({
+        ...node,
+        mcpServers: (node.mcpServers ?? []).filter((s) => s.serverUrl !== serverUrl)
+      }))
+    );
+  };
+
+  const renderSection = (title: string, items: string[]) => (    <div className="callout" key={title}>
       <h3>{title}</h3>
       {items.length ? items.map((item) => <p key={`${title}:${item}`}>{item}</p>) : <p>None.</p>}
     </div>
@@ -1204,6 +1354,9 @@ export function BlueprintWorkbench() {
           </button>
           <button disabled={isBusy || !graph} onClick={() => void handleRunAnalysis()} type="button">
             {busyLabel === "Analyzing architecture" ? "Analyzing..." : "Analyze"}
+          </button>
+          <button disabled={!graph} onClick={() => setShowMcpPanel((current) => !current)} type="button">
+            {showMcpPanel ? "Hide MCP" : "MCP"}
           </button>
         </div>
       </header>
@@ -1658,6 +1811,147 @@ export function BlueprintWorkbench() {
         </aside>
       ) : null}
 
+      {showMcpPanel ? (
+        <aside className="floating-panel mcp-panel">
+          <div className="floating-panel-header">
+            <h2>MCP Clients</h2>
+            <button onClick={() => setShowMcpPanel(false)} type="button">
+              Close
+            </button>
+          </div>
+
+          <div className="callout">
+            <h3>MCP Server</h3>
+            <p>Connect this node to any MCP-compatible server to invoke tools like GitHub search, Slack notifier, or a research agent.</p>
+            <label className="field">
+              <span>Server URL</span>
+              <input
+                aria-label="MCP server URL"
+                onChange={(event) => setMcpServerUrl(event.target.value)}
+                placeholder="http://localhost:3001/mcp"
+                value={mcpServerUrl}
+              />
+            </label>
+            <label className="field">
+              <span>Headers (JSON)</span>
+              <textarea
+                aria-label="MCP headers JSON"
+                onChange={(event) => setMcpHeadersJson(event.target.value)}
+                placeholder='{"Authorization": "Bearer token"}'
+                rows={3}
+                value={mcpHeadersJson}
+              />
+            </label>
+            <div className="button-row">
+              <button
+                disabled={isBusy || !mcpServerUrl.trim()}
+                onClick={() => void handleListMcpTools()}
+                type="button"
+              >
+                {busyLabel === "Listing MCP tools" ? "Listing..." : "List tools"}
+              </button>
+              {selectedNodeId ? (
+                <button
+                  disabled={!mcpServerUrl.trim()}
+                  onClick={handleSaveMcpServerToNode}
+                  type="button"
+                >
+                  Save to node
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          {selectedNode?.mcpServers?.length ? (
+            <div className="callout">
+              <h3>Configured servers for &quot;{selectedNode.name}&quot;</h3>
+              {selectedNode.mcpServers.map((server) => (
+                <div key={server.serverUrl} className="mcp-server-item">
+                  <p>{server.label ?? server.serverUrl}</p>
+                  <div className="button-row">
+                    <button
+                      onClick={() => setMcpServerUrl(server.serverUrl)}
+                      type="button"
+                    >
+                      Load
+                    </button>
+                    <button
+                      onClick={() => handleRemoveMcpServerFromNode(server.serverUrl)}
+                      type="button"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {availableMcpTools.length ? (
+            <div className="callout">
+              <h3>Available tools ({availableMcpTools.length})</h3>
+              {availableMcpTools.map((tool) => (
+                <div key={tool.name} className="mcp-tool-item">
+                  <p>
+                    <strong>{tool.name}</strong>
+                    {tool.description ? ` — ${tool.description}` : ""}
+                  </p>
+                  <button
+                    onClick={() => setMcpToolName(tool.name)}
+                    type="button"
+                  >
+                    Select
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          <div className="callout">
+            <h3>Invoke tool</h3>
+            <label className="field">
+              <span>Tool name</span>
+              <input
+                aria-label="MCP tool name"
+                onChange={(event) => setMcpToolName(event.target.value)}
+                placeholder="search_github"
+                value={mcpToolName}
+              />
+            </label>
+            <label className="field">
+              <span>Arguments (JSON)</span>
+              <textarea
+                aria-label="MCP tool arguments JSON"
+                onChange={(event) => setMcpToolArgsJson(event.target.value)}
+                placeholder='{"query": "typescript MCP client"}'
+                rows={4}
+                value={mcpToolArgsJson}
+              />
+            </label>
+            <button
+              disabled={isBusy || !mcpServerUrl.trim() || !mcpToolName.trim()}
+              onClick={() => void handleInvokeMcpTool()}
+              type="button"
+            >
+              {busyLabel === "Invoking MCP tool" ? "Invoking..." : "Invoke tool"}
+            </button>
+          </div>
+
+          {mcpError ? (
+            <div className="callout danger-callout">
+              <p>{mcpError}</p>
+            </div>
+          ) : null}
+
+          {mcpInvokeResult ? (
+            <div className="callout">
+              <h3>Tool result</h3>
+              <pre className="mcp-result">{mcpInvokeResult}</pre>
+            </div>
+          ) : null}
+        </aside>
+      ) : null}
+
       {showInspector && (selectedNode || (drilldownRootNode && selectedDetailItem)) ? (
         <aside className="floating-panel inspector-panel">
           <div className="floating-panel-header">
@@ -1792,6 +2086,7 @@ export function BlueprintWorkbench() {
                     <p>Calls: {contract.calls.length}</p>
                     <p>Errors: {contract.errors.length}</p>
                     <p>Trace status: {selectedNode.traceState?.status ?? "idle"}</p>
+                    <p>MCP servers: {selectedNode.mcpServers?.length ?? 0}</p>
                     {selectedNode.lastVerification ? (
                       <>
                         <p>Last verification: {selectedNode.lastVerification.status}</p>
