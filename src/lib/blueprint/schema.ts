@@ -112,7 +112,9 @@ export type McpTool = z.infer<typeof mcpToolSchema>;
 export const mcpServerConfigSchema = z.object({
   serverUrl: z.string().min(1),
   label: z.string().optional(),
-  headers: z.record(z.string(), z.string()).optional(),
+  // Reference or label for headers/credentials configuration.
+  // Actual secret header values must be managed outside persisted blueprints.
+  headersRef: z.string().optional(),
   enabledTools: z.array(z.string()).optional()
 });
 export type McpServerConfig = z.infer<typeof mcpServerConfigSchema>;
