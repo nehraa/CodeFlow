@@ -20,9 +20,11 @@ import type {
   ApprovalRecord,
   BlueprintGraph,
   BlueprintNode,
+  BranchDiff,
   ConflictReport,
   ExecutionMode,
   ExportResult,
+  GraphBranch,
   McpServerConfig,
   McpTool,
   ObservabilityLog,
@@ -112,6 +114,21 @@ type CodeSuggestionResponse = {
   summary: string;
   code: string;
   notes: string[];
+};
+
+type BranchListResponse = {
+  branches?: GraphBranch[];
+  error?: string;
+};
+
+type BranchCreateResponse = {
+  branch?: GraphBranch;
+  error?: string;
+};
+
+type BranchDiffResponse = {
+  diff?: BranchDiff;
+  error?: string;
 };
 
 type McpToolsResponse = {
@@ -223,6 +240,15 @@ export function BlueprintWorkbench() {
   const [availableMcpTools, setAvailableMcpTools] = useState<McpTool[]>([]);
   const [mcpInvokeResult, setMcpInvokeResult] = useState<string | null>(null);
   const [mcpError, setMcpError] = useState<string | null>(null);
+
+  // ── Time-Travel Branching ──────────────────────────────────────────────
+  const [branches, setBranches] = useState<GraphBranch[]>([]);
+  const [showBranchPanel, setShowBranchPanel] = useState(false);
+  const [newBranchName, setNewBranchName] = useState("");
+  const [newBranchDescription, setNewBranchDescription] = useState("");
+  const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
+  const [branchDiff, setBranchDiff] = useState<BranchDiff | null>(null);
+  const [diffTargetBranchId, setDiffTargetBranchId] = useState<string | null>(null);
 
   const selectedNode = graph?.nodes.find((node) => node.id === selectedNodeId) ?? null;
   const drilldownNodeId = drilldownStack.at(-1) ?? null;
@@ -1077,10 +1103,69 @@ export function BlueprintWorkbench() {
     }
   };
 
+  const handleLoadBranches = async () => {
+    if (!graph) return;
+    try {
+      const response = await fetch(
+        `/api/branches?projectName=${encodeURIComponent(graph.projectName)}`
+      );
+      const body = (await response.json()) as BranchListResponse;
+      if (response.ok && body.branches) {
+        setBranches(body.branches);
+      }
+    } catch {
+      // silently ignore load errors
+    }
+  };
+
+  const handleCreateBranch = async () => {
+    if (!graph) {
+      setError("Build a blueprint before creating a branch.");
+      return;
+    }
+    if (!newBranchName.trim()) {
+      setError("Branch name is required.");
+      return;
+    }
+
+    setBusyLabel("Creating branch");
+    setError(null);
+
+    try {
+      const response = await fetch("/api/branches", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          graph,
+          name: newBranchName.trim(),
+          description: newBranchDescription.trim() || undefined,
+          parentBranchId: activeBranchId ?? undefined
+        })
+      });
+      const body = (await response.json()) as BranchCreateResponse;
+
+      if (!response.ok) {
+        throw new Error(body.error ?? "Failed to create branch.");
+      }
+
+      if (body.branch) {
+        setBranches((current) => [...current, body.branch]);
+        setActiveBranchId(body.branch.id);
+        setNewBranchName("");
+        setNewBranchDescription("");
+        setStatusTitle("Branch created");
+        setStatusDetail(`"${body.branch.name}" branch saved as a snapshot of the current graph.`);
+        setStatusTone("success");
+      }
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Failed to create branch.");
+    } finally {
+      setBusyLabel(null);
+    }
+  };
+
   const parseMcpHeaders = (): Record<string, string> | undefined => {
     const raw = mcpHeadersJson.trim();
-
-    // Treat empty/whitespace-only input as "no headers".
     if (!raw) {
       return undefined;
     }
@@ -1092,7 +1177,6 @@ export function BlueprintWorkbench() {
       throw new Error("MCP headers must be valid JSON.");
     }
 
-    // Ensure we have a plain object (not null/array/etc.).
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
       throw new Error("MCP headers must be a JSON object whose values are strings.");
     }
@@ -1235,6 +1319,78 @@ export function BlueprintWorkbench() {
     );
   };
 
+  const handleSwitchToBranch = (branch: GraphBranch) => {
+    setGraph(branch.graph);
+    setActiveBranchId(branch.id);
+    setBranchDiff(null);
+    setDiffTargetBranchId(null);
+    setStatusTitle(`Switched to branch "${branch.name}"`);
+    setStatusDetail("The graph has been replaced with the branch snapshot.");
+    setStatusTone("info");
+  };
+
+  const handleDeleteBranch = async (branchId: string) => {
+    if (!graph) return;
+
+    try {
+      const response = await fetch(
+        `/api/branches/${branchId}?projectName=${encodeURIComponent(graph.projectName)}`,
+        { method: "DELETE" }
+      );
+
+      if (response.ok) {
+        setBranches((current) => current.filter((b) => b.id !== branchId));
+        if (activeBranchId === branchId) {
+          setActiveBranchId(null);
+        }
+        if (diffTargetBranchId === branchId) {
+          setBranchDiff(null);
+          setDiffTargetBranchId(null);
+        }
+      }
+    } catch {
+      // silently ignore
+    }
+  };
+
+  const handleDiffBranch = async (targetBranch: GraphBranch) => {
+    if (!graph) {
+      setError("Build a blueprint before diffing branches.");
+      return;
+    }
+
+    setBusyLabel("Computing branch diff");
+    setError(null);
+    setBranchDiff(null);
+    setDiffTargetBranchId(targetBranch.id);
+
+    try {
+      const response = await fetch("/api/branches/diff", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          baseGraph: graph,
+          compareGraph: targetBranch.graph,
+          baseId: activeBranchId ?? "current",
+          compareId: targetBranch.id
+        })
+      });
+      const body = (await response.json()) as BranchDiffResponse;
+
+      if (!response.ok) {
+        throw new Error(body.error ?? "Failed to compute diff.");
+      }
+
+      if (body.diff) {
+        setBranchDiff(body.diff);
+        setShowBranchPanel(true);
+      }
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Branch diff failed.");
+    } finally {
+      setBusyLabel(null);
+    }
+  };
   const renderSection = (title: string, items: string[]) => (
     <div className="callout" key={title}>
       <h3>{title}</h3>
@@ -1416,6 +1572,19 @@ export function BlueprintWorkbench() {
           {graph ? (
             <button onClick={() => setShowEditPanel((current) => !current)} type="button">
               {showEditPanel ? "Hide edit" : "Edit graph"}
+            </button>
+          ) : null}
+          {graph ? (
+            <button
+              onClick={() => {
+                setShowBranchPanel((current) => !current);
+                if (!showBranchPanel) {
+                  void handleLoadBranches();
+                }
+              }}
+              type="button"
+            >
+              {showBranchPanel ? "Hide branches" : `Branches${branches.length ? ` (${branches.length})` : ""}`}
             </button>
           ) : null}
         </div>
@@ -1708,6 +1877,154 @@ export function BlueprintWorkbench() {
           <button disabled={isBusy} onClick={handleAddEdge} type="button">
             Add edge
           </button>
+        </section>
+      ) : null}
+
+      {showBranchPanel && graph ? (
+        <section className="floating-panel branch-panel">
+          <div className="floating-panel-header">
+            <h2>Time-Travel Branches</h2>
+            <button onClick={() => setShowBranchPanel(false)} type="button">
+              Hide
+            </button>
+          </div>
+          <p className="lead">
+            Snapshot the current graph as a named branch to safely experiment with &#x2018;what if&#x2019; scenarios.
+            Switch back to any branch at any time, or compare two branches side-by-side.
+          </p>
+
+          <div className="callout">
+            <h3>Create a new branch</h3>
+            <label className="field">
+              <span>Branch name</span>
+              <input
+                value={newBranchName}
+                onChange={(event) => setNewBranchName(event.target.value)}
+                placeholder="e.g. swap-postgres-for-mongo"
+              />
+            </label>
+            <label className="field">
+              <span>Description (optional)</span>
+              <input
+                value={newBranchDescription}
+                onChange={(event) => setNewBranchDescription(event.target.value)}
+                placeholder="What are you experimenting with?"
+              />
+            </label>
+            <button
+              disabled={isBusy || !newBranchName.trim()}
+              onClick={() => void handleCreateBranch()}
+              type="button"
+            >
+              {busyLabel === "Creating branch" ? "Creating..." : "Save as branch"}
+            </button>
+          </div>
+
+          {branches.length > 0 ? (
+            <div className="callout">
+              <h3>Saved branches</h3>
+              {branches.map((branch) => (
+                <div key={branch.id} className="branch-item">
+                  <div className="branch-item-header">
+                    <span className="branch-name">
+                      {activeBranchId === branch.id ? "★ " : ""}
+                      {branch.name}
+                    </span>
+                    <small className="branch-meta">
+                      {new Date(branch.createdAt).toLocaleString()} · {branch.graph.nodes.length} nodes
+                    </small>
+                  </div>
+                  {branch.description ? <p className="branch-description">{branch.description}</p> : null}
+                  <div className="button-row">
+                    <button
+                      disabled={isBusy}
+                      onClick={() => handleSwitchToBranch(branch)}
+                      type="button"
+                    >
+                      Switch to this branch
+                    </button>
+                    <button
+                      disabled={isBusy}
+                      onClick={() => void handleDiffBranch(branch)}
+                      type="button"
+                    >
+                      {busyLabel === "Computing branch diff" && diffTargetBranchId === branch.id
+                        ? "Comparing..."
+                        : "Diff vs current"}
+                    </button>
+                    <button
+                      disabled={isBusy}
+                      onClick={() => void handleDeleteBranch(branch.id)}
+                      type="button"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="callout">
+              <p>No branches yet. Use &#x201C;Save as branch&#x201D; to snapshot the current graph.</p>
+            </div>
+          )}
+
+          {branchDiff ? (
+            <div className="callout">
+              <h3>Branch diff</h3>
+              <p>
+                Comparing <strong>current graph</strong> against branch{" "}
+                <strong>{branches.find((b) => b.id === diffTargetBranchId)?.name ?? diffTargetBranchId}</strong>
+              </p>
+              <p>
+                {branchDiff.addedNodes} added · {branchDiff.removedNodes} removed ·{" "}
+                {branchDiff.modifiedNodes} modified · {branchDiff.addedEdges} edges added ·{" "}
+                {branchDiff.removedEdges} edges removed
+              </p>
+              {branchDiff.impactedNodeIds.length > 0 ? (
+                <p>
+                  <strong>Impacted nodes:</strong> {branchDiff.impactedNodeIds.join(", ")}
+                </p>
+              ) : (
+                <p>No impacted nodes — graphs are identical.</p>
+              )}
+              {branchDiff.nodeDiffs.filter((d) => d.kind !== "unchanged").length > 0 ? (
+                <div className="branch-diff-list">
+                  {branchDiff.nodeDiffs
+                    .filter((d) => d.kind !== "unchanged")
+                    .map((diff) => (
+                      <div key={diff.nodeId} className={`diff-item diff-${diff.kind}`}>
+                        <span className="diff-badge">{diff.kind.toUpperCase()}</span>
+                        <span className="diff-node-name">{diff.name}</span>
+                        {diff.impactedEdgeCount > 0 ? (
+                          <small className="diff-impact">
+                            {diff.impactedEdgeCount} edge{diff.impactedEdgeCount === 1 ? "" : "s"} affected
+                          </small>
+                        ) : null}
+                      </div>
+                    ))}
+                </div>
+              ) : null}
+              {branchDiff.edgeDiffs.filter((d) => d.diffKind !== "unchanged").length > 0 ? (
+                <div className="branch-diff-list">
+                  <h4>Edge changes</h4>
+                  {branchDiff.edgeDiffs
+                    .filter((d) => d.diffKind !== "unchanged")
+                    .map((diff, index) => (
+                      <div key={`${diff.from}-${diff.to}-${index}`} className={`diff-item diff-${diff.diffKind}`}>
+                        <span className="diff-badge">{diff.diffKind.toUpperCase()}</span>
+                        <span className="diff-node-name">
+                          {diff.from} →[{diff.edgeKind}]→ {diff.to}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              ) : null}
+              <button onClick={() => setBranchDiff(null)} type="button">
+                Clear diff
+              </button>
+            </div>
+          ) : null}
         </section>
       ) : null}
 
