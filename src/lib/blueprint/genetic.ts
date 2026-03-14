@@ -12,7 +12,11 @@ import { computeGraphMetrics } from "@/lib/blueprint/metrics";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
-/** Benchmark weights that control how fitness is computed. */
+/**
+ * Benchmark weights used to compute the aggregate fitness score.
+ * All weights must sum to 1.0 so that fitness remains in the [0, 100] range
+ * — it is a weighted average of four 0–100 subscores.
+ */
 const BENCHMARK_WEIGHTS = {
   scalability: 0.30,
   estimatedCostScore: 0.20,
@@ -281,7 +285,9 @@ export const benchmarkVariant = (graph: BlueprintGraph, style: ArchitectureStyle
   // ── Scalability: isolation between components is key.
   // Higher component count relative to nodes = better isolation = more scalable.
   // Microservices and serverless score better here.
-  const isolationRatio = nodeCount === 0 ? 0 : components / nodeCount;
+  // Note: components ≤ nodeCount always (each component has at least one node),
+  // so isolationRatio is bounded to [0, 1].
+  const isolationRatio = components / nodeCount;
   const scalabilityBase =
     style === "serverless" ? 80
     : style === "microservices" ? 70

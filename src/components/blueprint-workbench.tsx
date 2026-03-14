@@ -3298,47 +3298,52 @@ export function BlueprintWorkbench() {
           ) : null}
 
           {tournamentResult ? (
-            <>
-              <div className="callout">
-                <h3>🏆 Winner: {tournamentResult.variants.find((v) => v.id === tournamentResult.winnerId)?.style}</h3>
-                <p className="status-meta">{tournamentResult.summary}</p>
-                <p className="status-meta">
-                  {tournamentResult.generationCount} generation{tournamentResult.generationCount !== 1 ? "s" : ""} · {tournamentResult.populationSize} variants · evolved {new Date(tournamentResult.evolvedAt).toLocaleTimeString()}
-                </p>
-              </div>
+            (() => {
+              const winner = tournamentResult.variants.find((v) => v.id === tournamentResult.winnerId);
+              return (
+                <>
+                  <div className="callout">
+                    <h3>🏆 Winner: {winner?.style}</h3>
+                    <p className="status-meta">{tournamentResult.summary}</p>
+                    <p className="status-meta">
+                      {tournamentResult.generationCount} generation{tournamentResult.generationCount !== 1 ? "s" : ""} · {tournamentResult.populationSize} variants · evolved {new Date(tournamentResult.evolvedAt).toLocaleTimeString()}
+                    </p>
+                  </div>
 
-              <div className="callout">
-                <h3>All variants ({tournamentResult.variants.length})</h3>
-                <div className="genetic-variants">
-                  {tournamentResult.variants.map((variant) => {
-                    const isWinner = variant.id === tournamentResult.winnerId;
-                    return (
-                      <div
-                        key={variant.id}
-                        className={`genetic-variant${isWinner ? " genetic-variant-winner" : ""}`}
-                      >
-                        <div className="genetic-variant-header">
-                          <span className="genetic-variant-rank">#{variant.rank}</span>
-                          <span className="genetic-variant-style">{variant.style}</span>
-                          {isWinner ? <span className="genetic-winner-badge">🏆 Winner</span> : null}
-                          <span className="genetic-variant-fitness">Fitness: {variant.benchmark.fitness}</span>
-                        </div>
-                        <div className="genetic-variant-graph-info">
-                          {variant.graph.nodes.length} nodes · {variant.graph.edges.length} edges
-                          {" · "}gen {variant.generation}
-                        </div>
-                        <div className="genetic-benchmark-scores">
-                          <span title="Scalability">📈 {variant.benchmark.scalability}</span>
-                          <span title="Cost efficiency">💰 {variant.benchmark.estimatedCostScore}</span>
-                          <span title="Performance">⚡ {variant.benchmark.performance}</span>
-                          <span title="Maintainability">🔧 {variant.benchmark.maintainability}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </>
+                  <div className="callout">
+                    <h3>All variants ({tournamentResult.variants.length})</h3>
+                    <div className="genetic-variants">
+                      {tournamentResult.variants.map((variant) => {
+                        const isWinner = variant.id === tournamentResult.winnerId;
+                        return (
+                          <div
+                            key={variant.id}
+                            className={`genetic-variant${isWinner ? " genetic-variant-winner" : ""}`}
+                          >
+                            <div className="genetic-variant-header">
+                              <span className="genetic-variant-rank">#{variant.rank}</span>
+                              <span className="genetic-variant-style">{variant.style}</span>
+                              {isWinner ? <span className="genetic-winner-badge">🏆 Winner</span> : null}
+                              <span className="genetic-variant-fitness">Fitness: {variant.benchmark.fitness}</span>
+                            </div>
+                            <div className="genetic-variant-graph-info">
+                              {variant.graph.nodes.length} nodes · {variant.graph.edges.length} edges
+                              {" · "}gen {variant.generation}
+                            </div>
+                            <div className="genetic-benchmark-scores">
+                              <span title="Scalability">📈 {variant.benchmark.scalability}</span>
+                              <span title="Cost efficiency">💰 {variant.benchmark.estimatedCostScore}</span>
+                              <span title="Performance">⚡ {variant.benchmark.performance}</span>
+                              <span title="Maintainability">🔧 {variant.benchmark.maintainability}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              );
+            })()
           ) : (
             <div className="callout">
               <p>Click &quot;Run tournament&quot; to evolve and benchmark architecture variants.</p>
