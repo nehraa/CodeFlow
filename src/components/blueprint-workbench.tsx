@@ -2,13 +2,15 @@
 
 import { z } from "zod";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { CodeEditor } from "@/components/code-editor";
 import { GraphCanvas } from "@/components/graph-canvas";
 import { generateNodeCode, getNodeStubPath, isCodeBearingNode } from "@/lib/blueprint/codegen";
 import { addEdgeToGraph, addNodeToGraph, deleteNodeFromGraph } from "@/lib/blueprint/edit";
 import { buildDetailFlow } from "@/lib/blueprint/flow-view";
+import { computeHeatmap } from "@/lib/blueprint/heatmap";
+import type { HeatmapData } from "@/lib/blueprint/heatmap";
 import { canEnterImplementationPhase, canEnterIntegrationPhase, setGraphPhase } from "@/lib/blueprint/phases";
 import { applyTraceOverlay } from "@/lib/blueprint/traces";
 import type { CycleReport } from "@/lib/blueprint/cycles";
@@ -156,6 +158,7 @@ const normalizeContract = (contract: Partial<BlueprintNode["contract"]>) => ({
 });
 
 export function BlueprintWorkbench() {
+  const MIN_OBSERVABILITY_INTERVAL_SECS = 2;
   const [projectName, setProjectName] = useState("CodeFlow Workspace");
   const [repoPath, setRepoPath] = useState("");
   const [prdText, setPrdText] = useState("");
@@ -202,6 +205,11 @@ export function BlueprintWorkbench() {
   const [showEditPanel, setShowEditPanel] = useState(false);
   const [showInspector, setShowInspector] = useState(false);
   const [showAnalysisPanel, setShowAnalysisPanel] = useState(false);
+  const [showObservabilityPanel, setShowObservabilityPanel] = useState(false);
+  const [autoObservability, setAutoObservability] = useState(false);
+  const [observabilityIntervalSecs, setObservabilityIntervalSecs] = useState(5);
+  const autoObsRef = useRef(autoObservability);
+  autoObsRef.current = autoObservability;
   const [autoImplementNodes, setAutoImplementNodes] = useState(false);
   const [cycleReport, setCycleReport] = useState<CycleReport | null>(null);
   const [smellReport, setSmellReport] = useState<SmellReport | null>(null);
@@ -225,6 +233,16 @@ export function BlueprintWorkbench() {
       : null;
   const selectedDetailItem =
     detailFlow?.items.find((item) => item.id === selectedDetailNodeId) ?? detailFlow?.items[0] ?? null;
+  const heatmapData: HeatmapData | undefined = useMemo(
+    () =>
+      graph &&
+      graph.nodes.some(
+        (node) => node.traceState && node.traceState.count > 0
+      )
+        ? computeHeatmap(graph)
+        : undefined,
+    [graph]
+  );
   const activeCodeNode =
     graph && drilldownRootNode && isCodeBearingNode(drilldownRootNode)
       ? drilldownRootNode
@@ -390,6 +408,43 @@ export function BlueprintWorkbench() {
     setCodeSuggestion(null);
     setSuggestionInstruction("");
   }, [activeCodeNode?.id]);
+
+  const pollObservability = useCallback(async () => {
+    if (!projectName.trim() || !autoObsRef.current) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `/api/observability/latest?projectName=${encodeURIComponent(projectName.trim())}`
+      );
+      if (!response.ok) {
+        return;
+      }
+
+      const body = (await response.json()) as ObservabilityLatestResponse;
+      if (body.graph) {
+        setGraph(body.graph);
+      }
+
+      setLatestSpans(body.latestSpans ?? []);
+      setLatestLogs(body.latestLogs ?? []);
+    } catch {
+      // silently ignore poll errors to avoid flooding the UI
+    }
+  }, [projectName]);
+
+  useEffect(() => {
+    if (!autoObservability) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      void pollObservability();
+    }, Math.max(MIN_OBSERVABILITY_INTERVAL_SECS, observabilityIntervalSecs) * 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, [autoObservability, observabilityIntervalSecs, pollObservability]);
 
   const handleBuild = async () => {
     const buildStartedAt = performance.now();
@@ -1389,6 +1444,11 @@ export function BlueprintWorkbench() {
           <button disabled={!graph} onClick={() => setShowMcpPanel((current) => !current)} type="button">
             {showMcpPanel ? "Hide MCP" : "MCP"}
           </button>
+          {graph ? (
+            <button onClick={() => setShowObservabilityPanel((current) => !current)} type="button">
+              {showObservabilityPanel ? "Hide heatmap" : "Heatmap"}
+            </button>
+          ) : null}
         </div>
       </header>
 
@@ -1470,6 +1530,39 @@ export function BlueprintWorkbench() {
             />
             Auto implement each node in Phase 2
           </label>
+          <label className="choice-toggle">
+            <input
+              aria-label="Live observability polling"
+              checked={autoObservability}
+              onChange={(event) => setAutoObservability(event.target.checked)}
+              type="checkbox"
+            />
+            Auto-poll observability
+          </label>
+          {autoObservability ? (
+            <label className="field">
+              <span>Poll interval (seconds)</span>
+              <input
+                type="number"
+                min={MIN_OBSERVABILITY_INTERVAL_SECS}
+                max={60}
+                value={observabilityIntervalSecs}
+                onChange={(event) => {
+                  const raw = event.target.value;
+                  // Ignore updates when the input is empty or not a finite number.
+                  if (raw === "") {
+                    return;
+                  }
+                  const parsed = Number(raw);
+                  if (!Number.isFinite(parsed)) {
+                    return;
+                  }
+                  const clamped = Math.min(60, Math.max(MIN_OBSERVABILITY_INTERVAL_SECS, parsed));
+                  setObservabilityIntervalSecs(clamped);
+                }}
+              />
+            </label>
+          ) : null}
           <label className="field">
             <span>Run input (JSON or string)</span>
             <textarea
@@ -1712,6 +1805,7 @@ export function BlueprintWorkbench() {
             edges={detailFlow?.edges}
             onNodeDoubleClick={handleGraphDoubleClick}
             onSelect={handleGraphSelect}
+            heatmapData={drilldownRootNode ? undefined : heatmapData}
           />
         </section>
 
@@ -1882,11 +1976,7 @@ export function BlueprintWorkbench() {
                 {busyLabel === "Listing MCP tools" ? "Listing..." : "List tools"}
               </button>
               {selectedNodeId ? (
-                <button
-                  disabled={!mcpServerUrl.trim()}
-                  onClick={handleSaveMcpServerToNode}
-                  type="button"
-                >
+                <button disabled={!mcpServerUrl.trim()} onClick={handleSaveMcpServerToNode} type="button">
                   Save to node
                 </button>
               ) : null}
@@ -1900,16 +1990,10 @@ export function BlueprintWorkbench() {
                 <div key={server.serverUrl} className="mcp-server-item">
                   <p>{server.label ?? server.serverUrl}</p>
                   <div className="button-row">
-                    <button
-                      onClick={() => setMcpServerUrl(server.serverUrl)}
-                      type="button"
-                    >
+                    <button onClick={() => setMcpServerUrl(server.serverUrl)} type="button">
                       Load
                     </button>
-                    <button
-                      onClick={() => handleRemoveMcpServerFromNode(server.serverUrl)}
-                      type="button"
-                    >
+                    <button onClick={() => handleRemoveMcpServerFromNode(server.serverUrl)} type="button">
                       Remove
                     </button>
                   </div>
@@ -1927,10 +2011,7 @@ export function BlueprintWorkbench() {
                     <strong>{tool.name}</strong>
                     {tool.description ? ` — ${tool.description}` : ""}
                   </p>
-                  <button
-                    onClick={() => setMcpToolName(tool.name)}
-                    type="button"
-                  >
+                  <button onClick={() => setMcpToolName(tool.name)} type="button">
                     Select
                   </button>
                 </div>
@@ -1978,6 +2059,117 @@ export function BlueprintWorkbench() {
             <div className="callout">
               <h3>Tool result</h3>
               <pre className="mcp-result">{mcpInvokeResult}</pre>
+            </div>
+          ) : null}
+        </aside>
+      ) : null}
+
+      {showObservabilityPanel && graph ? (
+        <aside className="floating-panel observability-panel">
+          <div className="floating-panel-header">
+            <h2>Observability Dashboard</h2>
+            <button onClick={() => setShowObservabilityPanel(false)} type="button">
+              Close
+            </button>
+          </div>
+
+          <div className="obs-auto-row">
+            <label className="choice-toggle">
+              <input
+                aria-label="Live polling"
+                checked={autoObservability}
+                onChange={(event) => setAutoObservability(event.target.checked)}
+                type="checkbox"
+              />
+              Live polling
+            </label>
+            {autoObservability ? (
+              <span className="obs-live-badge">● LIVE every {observabilityIntervalSecs}s</span>
+            ) : (
+              <button disabled={isBusy} onClick={() => void handleLoadObservability()} type="button">
+                {busyLabel === "Loading observability" ? "Loading..." : "Refresh"}
+              </button>
+            )}
+          </div>
+
+          {heatmapData ? (
+            <div className="callout">
+              <h3>Node Heatmap</h3>
+              <p className="status-meta">Heat = 50% error rate + 35% avg latency + 15% call volume</p>
+              <table className="heatmap-table">
+                <thead>
+                  <tr>
+                    <th>Node</th>
+                    <th>Calls</th>
+                    <th>Errors</th>
+                    <th>Avg ms</th>
+                    <th>Heat</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {heatmapData.nodes
+                    .slice()
+                    .sort((a, b) => b.heatIntensity - a.heatIntensity)
+                    .map((metric) => (
+                      <tr
+                        key={metric.nodeId}
+                        className={
+                          metric.heatIntensity > 0.66
+                            ? "heat-row-hot"
+                            : metric.heatIntensity > 0.33
+                              ? "heat-row-warm"
+                              : ""
+                        }
+                      >
+                        <td title={metric.nodeId}>{metric.name}</td>
+                        <td>{metric.callCount}</td>
+                        <td>{metric.errorCount}</td>
+                        <td>{metric.avgDurationMs.toFixed(1)}</td>
+                        <td>
+                          <div className="heat-bar-track">
+                            <div
+                              className="heat-bar-fill"
+                              style={{ width: `${Math.round(metric.heatIntensity * 100)}%` }}
+                            />
+                            <span className="heat-bar-label">{Math.round(metric.heatIntensity * 100)}%</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="callout">
+              <p>Apply trace spans to the graph to see per-node heatmap data.</p>
+              <p className="status-meta">
+                Use &quot;Apply trace overlay&quot; in the graph header or enable live polling below.
+              </p>
+            </div>
+          )}
+
+          {latestSpans && latestSpans.length > 0 ? (
+            <div className="callout">
+              <h3>Recent Spans</h3>
+              {latestSpans.slice(0, 10).map((span) => (
+                <div key={span.spanId} className={`obs-span-row obs-span-${span.status}`}>
+                  <span className="obs-span-status">{span.status.toUpperCase()}</span>
+                  <span className="obs-span-name">{span.name}</span>
+                  <span className="obs-span-meta">[{span.runtime}]</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {latestLogs.length > 0 ? (
+            <div className="callout">
+              <h3>Recent Logs</h3>
+              {latestLogs.slice(0, 10).map((log) => (
+                <div key={log.id} className={`obs-log-row obs-log-${log.level}`}>
+                  <span className="obs-log-level">{log.level.toUpperCase()}</span>
+                  <span className="obs-log-message">{log.message}</span>
+                </div>
+              ))}
             </div>
           ) : null}
         </aside>

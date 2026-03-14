@@ -80,6 +80,28 @@ const requestSchema = z.object({
   headers: z.record(z.string(), z.string()).optional()
 });
 
+const ALLOWED_FORWARD_HEADERS = new Set<string>([
+  "authorization",
+  "content-type",
+  "accept",
+  "x-mcp-auth",
+  "x-api-key",
+  "x-request-id",
+  "user-agent"
+]);
+
+function filterForwardableHeaders(headers: Record<string, string>): Record<string, string> {
+  const filtered: Record<string, string> = {};
+
+  for (const [name, value] of Object.entries(headers)) {
+    if (ALLOWED_FORWARD_HEADERS.has(name.toLowerCase())) {
+      filtered[name] = value;
+    }
+  }
+
+  return filtered;
+}
+
 export async function POST(request: Request) {
   const startedAt = Date.now();
 
@@ -91,22 +113,8 @@ export async function POST(request: Request) {
       toolName: body.toolName
     });
 
-    // Limit which headers can be forwarded to the MCP server to reduce SSRF risk.
-    const allowedHeaderNames = new Set([
-      "authorization",
-      "content-type",
-      "accept",
-      "x-mcp-auth"
-    ]);
-
     const safeHeaders =
-      body.headers == null
-        ? undefined
-        : Object.fromEntries(
-            Object.entries(body.headers).filter(([name]) =>
-              allowedHeaderNames.has(name.toLowerCase())
-            )
-          );
+      body.headers == null ? undefined : filterForwardableHeaders(body.headers);
 
     const result = await invokeMcpTool(body.serverUrl, body.toolName, body.args, safeHeaders);
 
