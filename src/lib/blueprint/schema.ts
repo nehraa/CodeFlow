@@ -555,3 +555,69 @@ export const vcrRecordingSchema = z.object({
   totalSpans: z.number().int().nonnegative()
 });
 export type VcrRecording = z.infer<typeof vcrRecordingSchema>;
+
+// ── Digital Twin: Real-Time Production Mirroring ──────────────────────────────
+
+/**
+ * A single named user journey inferred from a group of trace spans that share
+ * the same traceId.  The steps are the node IDs visited in chronological order.
+ */
+export const userFlowSchema = z.object({
+  /** The traceId that groups all spans belonging to this flow. */
+  traceId: z.string(),
+  /** Human-readable name derived from the first span in the flow. */
+  name: z.string(),
+  /** Ordered list of node IDs visited during this flow. */
+  nodeIds: z.array(z.string()),
+  /** ISO-8601 timestamp of the first span in the flow. */
+  startedAt: z.string().optional(),
+  /** ISO-8601 timestamp of the last span in the flow. */
+  endedAt: z.string().optional(),
+  /** Aggregate status of the flow (worst-case across all spans). */
+  status: traceStatusSchema,
+  /** Total wall-clock duration across all spans in the flow, in milliseconds. */
+  totalDurationMs: z.number().nonnegative(),
+  /** Number of spans in this flow. */
+  spanCount: z.number().int().nonnegative()
+});
+export type UserFlow = z.infer<typeof userFlowSchema>;
+
+/**
+ * A point-in-time snapshot of the Digital Twin state: which nodes are active
+ * right now and what user flows have been observed.
+ */
+export const digitalTwinSnapshotSchema = z.object({
+  projectName: z.string(),
+  /** ISO-8601 timestamp when this snapshot was computed. */
+  computedAt: z.string(),
+  /**
+   * Node IDs that had at least one span within the active time window.
+   * The graph itself carries the full trace state; this is the "lit-up" set
+   * for the live mirroring overlay.
+   */
+  activeNodeIds: z.array(z.string()),
+  /** All user flows inferred from the current observability snapshot. */
+  flows: z.array(userFlowSchema),
+  /** The number of seconds used for the "active" time window. */
+  activeWindowSecs: z.number().int().positive()
+});
+export type DigitalTwinSnapshot = z.infer<typeof digitalTwinSnapshotSchema>;
+
+/**
+ * Request body for POST /api/digital-twin/simulate.
+ * Describes a user action that should be simulated in the Digital Twin.
+ */
+export const simulateActionRequestSchema = z.object({
+  projectName: z.string().min(1),
+  /**
+   * The node IDs to touch in order.  Synthetic trace spans are generated for
+   * each node and ingested into the observability snapshot so that the live
+   * overlay lights up.
+   */
+  nodeIds: z.array(z.string().min(1)).min(1),
+  /** Optional label for the synthetic trace (shown in the VCR/span list). */
+  label: z.string().optional(),
+  /** Runtime tag applied to the synthetic spans.  Defaults to "simulation". */
+  runtime: z.string().optional()
+});
+export type SimulateActionRequest = z.infer<typeof simulateActionRequestSchema>;

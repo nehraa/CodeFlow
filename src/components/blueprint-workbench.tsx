@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { CodeEditor } from "@/components/code-editor";
 import { GraphCanvas } from "@/components/graph-canvas";
@@ -23,6 +23,7 @@ import type {
   BlueprintNode,
   BranchDiff,
   ConflictReport,
+  DigitalTwinSnapshot,
   ExecutionMode,
   ExportResult,
   GhostNode,
@@ -141,6 +142,19 @@ type BranchDiffResponse = {
 
 type VcrResponse = {
   recording?: VcrRecording;
+  error?: string;
+};
+
+type DigitalTwinResponse = {
+  snapshot?: DigitalTwinSnapshot | null;
+  graph?: BlueprintGraph | null;
+  activeWindowSecs?: number;
+  error?: string;
+};
+
+type SimulateActionResponse = {
+  spans?: Array<{ spanId: string; name: string; runtime: string }>;
+  snapshot?: { spans: unknown[] };
   error?: string;
 };
 
@@ -271,6 +285,18 @@ export function BlueprintWorkbench() {
   const [vcrPlaying, setVcrPlaying] = useState(false);
   const [vcrGraph, setVcrGraph] = useState<BlueprintGraph | null>(null);
   const [vcrError, setVcrError] = useState<string | null>(null);
+
+  // ── Digital Twin: Real-Time Production Mirroring ───────────────────────
+  const [showDigitalTwinPanel, setShowDigitalTwinPanel] = useState(false);
+  const [digitalTwinSnapshot, setDigitalTwinSnapshot] = useState<DigitalTwinSnapshot | null>(null);
+  const [digitalTwinGraph, setDigitalTwinGraph] = useState<BlueprintGraph | null>(null);
+  const [digitalTwinWindowSecs, setDigitalTwinWindowSecs] = useState(60);
+  const [autoDigitalTwin, setAutoDigitalTwin] = useState(false);
+  const autoDigitalTwinRef = useRef(autoDigitalTwin);
+  autoDigitalTwinRef.current = autoDigitalTwin;
+  const [simulateNodeIds, setSimulateNodeIds] = useState("");
+  const [simulateLabel, setSimulateLabel] = useState("");
+  const [digitalTwinError, setDigitalTwinError] = useState<string | null>(null);
 
   const selectedNode = graph?.nodes.find((node) => node.id === selectedNodeId) ?? null;
   const drilldownNodeId = drilldownStack.at(-1) ?? null;
@@ -499,6 +525,15 @@ export function BlueprintWorkbench() {
     }
   }, [showVcrPanel]);
 
+  // Clear Digital Twin state when the panel is closed.
+  useEffect(() => {
+    if (!showDigitalTwinPanel) {
+      setDigitalTwinSnapshot(null);
+      setDigitalTwinGraph(null);
+      setDigitalTwinError(null);
+    }
+  }, [showDigitalTwinPanel]);
+
   const pollObservability = useCallback(async () => {
     if (!projectName.trim() || !autoObsRef.current) {
       return;
@@ -535,6 +570,103 @@ export function BlueprintWorkbench() {
 
     return () => window.clearInterval(intervalId);
   }, [autoObservability, observabilityIntervalSecs, pollObservability]);
+
+  // ── Digital Twin auto-poll ────────────────────────────────────────────────
+  const pollDigitalTwin = useCallback(async () => {
+    if (!projectName.trim() || !autoDigitalTwinRef.current) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `/api/digital-twin?projectName=${encodeURIComponent(projectName.trim())}&activeWindowSecs=${digitalTwinWindowSecs}`
+      );
+      if (!response.ok) return;
+
+      const body = (await response.json()) as DigitalTwinResponse;
+      setDigitalTwinSnapshot(body.snapshot ?? null);
+      if (body.graph) {
+        setDigitalTwinGraph(body.graph);
+      }
+    } catch {
+      // silently ignore poll errors
+    }
+  }, [projectName, digitalTwinWindowSecs]);
+
+  useEffect(() => {
+    if (!autoDigitalTwin) return;
+
+    const intervalId = window.setInterval(() => {
+      void pollDigitalTwin();
+    }, 5000);
+
+    return () => window.clearInterval(intervalId);
+  }, [autoDigitalTwin, pollDigitalTwin]);
+
+  const handleLoadDigitalTwin = useCallback(async () => {
+    if (!projectName.trim()) return;
+    setBusyLabel("Loading digital twin");
+    setDigitalTwinError(null);
+
+    try {
+      const response = await fetch(
+        `/api/digital-twin?projectName=${encodeURIComponent(projectName.trim())}&activeWindowSecs=${digitalTwinWindowSecs}`
+      );
+      const body = (await response.json()) as DigitalTwinResponse;
+
+      if (!response.ok) {
+        throw new Error(body.error ?? "Failed to load digital twin snapshot.");
+      }
+
+      setDigitalTwinSnapshot(body.snapshot ?? null);
+      if (body.graph) {
+        setDigitalTwinGraph(body.graph);
+      }
+    } catch (caughtError) {
+      setDigitalTwinError(
+        caughtError instanceof Error ? caughtError.message : "Failed to load digital twin."
+      );
+    } finally {
+      setBusyLabel(null);
+    }
+  }, [projectName, digitalTwinWindowSecs]);
+
+  const handleSimulateAction = useCallback(async () => {
+    if (!projectName.trim() || !simulateNodeIds.trim()) return;
+    setBusyLabel("Simulating user action");
+    setDigitalTwinError(null);
+
+    try {
+      const nodeIds = simulateNodeIds
+        .split(/[\n,]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      const response = await fetch("/api/digital-twin/simulate", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          projectName: projectName.trim(),
+          nodeIds,
+          label: simulateLabel.trim() || undefined
+        })
+      });
+      const body = (await response.json()) as SimulateActionResponse;
+
+      if (!response.ok) {
+        throw new Error(body.error ?? "Failed to simulate user action.");
+      }
+
+      // Refresh the digital twin view after the simulation.
+      await handleLoadDigitalTwin();
+    } catch (caughtError) {
+      setDigitalTwinError(
+        caughtError instanceof Error ? caughtError.message : "Failed to simulate user action."
+      );
+    } finally {
+      setBusyLabel(null);
+    }
+  }, [projectName, simulateNodeIds, simulateLabel, handleLoadDigitalTwin]);
 
   const handleBuild = async () => {
     const buildStartedAt = performance.now();
@@ -1814,6 +1946,16 @@ export function BlueprintWorkbench() {
               {showVcrPanel ? "Hide VCR" : "VCR Replay"}
             </button>
           ) : null}
+          {graph ? (
+            <button
+              onClick={() => {
+                setShowDigitalTwinPanel((current) => !current);
+              }}
+              type="button"
+            >
+              {showDigitalTwinPanel ? "Hide Digital Twin" : "Digital Twin"}
+            </button>
+          ) : null}
         </div>
       </header>
 
@@ -2879,6 +3021,162 @@ export function BlueprintWorkbench() {
               </div>
             </>
           ) : null}
+        </aside>
+      ) : null}
+
+      {showDigitalTwinPanel && graph ? (
+        <aside className="floating-panel digital-twin-panel">
+          <div className="floating-panel-header">
+            <h2>Digital Twin</h2>
+            <button onClick={() => setShowDigitalTwinPanel(false)} type="button">
+              Close
+            </button>
+          </div>
+
+          <p className="lead">
+            Mirror your running production system. Active nodes light up in real-time as live users
+            interact with the deployed app. Use simulation to inject test traffic and trace the flow
+            through your architecture.
+          </p>
+
+          <div className="obs-auto-row">
+            <label className="choice-toggle">
+              <input
+                aria-label="Live Digital Twin polling"
+                checked={autoDigitalTwin}
+                onChange={(event) => setAutoDigitalTwin(event.target.checked)}
+                type="checkbox"
+              />
+              Live polling
+            </label>
+            {autoDigitalTwin ? (
+              <span className="obs-live-badge">● LIVE every 5s</span>
+            ) : (
+              <button disabled={isBusy} onClick={() => void handleLoadDigitalTwin()} type="button">
+                {busyLabel === "Loading digital twin" ? "Loading..." : "Refresh"}
+              </button>
+            )}
+          </div>
+
+          <div className="callout">
+            <h3>Active window</h3>
+            <label className="field">
+              <span>Active window (seconds)</span>
+              <input
+                aria-label="Active window seconds"
+                min={1}
+                onChange={(event) => setDigitalTwinWindowSecs(Math.max(1, Number(event.target.value)))}
+                type="number"
+                value={digitalTwinWindowSecs}
+              />
+            </label>
+            <p className="status-meta">
+              Nodes that received traffic within the last {digitalTwinWindowSecs}s are considered active.
+            </p>
+          </div>
+
+          {digitalTwinError ? (
+            <p className="error">{digitalTwinError}</p>
+          ) : null}
+
+          {digitalTwinSnapshot ? (
+            <>
+              <div className="callout">
+                <h3>Live traffic ({digitalTwinSnapshot.activeNodeIds.length} active nodes)</h3>
+                {digitalTwinSnapshot.activeNodeIds.length > 0 ? (
+                  <ul className="dt-active-list">
+                    {digitalTwinSnapshot.activeNodeIds.map((nodeId) => {
+                      const node = (digitalTwinGraph ?? graph).nodes.find((n) => n.id === nodeId);
+                      return (
+                        <li key={nodeId} className="dt-active-item">
+                          <span className="dt-active-dot" />
+                          <span className="dt-active-name">{node?.name ?? nodeId}</span>
+                          <span className="dt-active-kind">{node?.kind}</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <p className="status-meta">No active nodes in the current window.</p>
+                )}
+              </div>
+
+              <div className="callout">
+                <h3>User flows ({digitalTwinSnapshot.flows.length})</h3>
+                {digitalTwinSnapshot.flows.length > 0 ? (
+                  <div className="dt-flows">
+                    {digitalTwinSnapshot.flows.slice(0, 10).map((flow) => (
+                      <div key={flow.traceId} className={`dt-flow dt-flow-${flow.status}`}>
+                        <div className="dt-flow-header">
+                          <span className={`dt-flow-status dt-flow-status-${flow.status}`}>
+                            {flow.status.toUpperCase()}
+                          </span>
+                          <span className="dt-flow-name">{flow.name}</span>
+                          <span className="dt-flow-meta">{flow.spanCount} spans · {flow.totalDurationMs}ms</span>
+                        </div>
+                        <div className="dt-flow-path">
+                          {flow.nodeIds.map((nodeId, idx) => {
+                            const node = (digitalTwinGraph ?? graph).nodes.find((n) => n.id === nodeId);
+                            return (
+                              <span key={nodeId}>
+                                {idx > 0 ? <span className="dt-flow-arrow">→</span> : null}
+                                <span className="dt-flow-node">{node?.name ?? nodeId}</span>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="status-meta">
+                    No user flows recorded yet. Ingest trace spans via{" "}
+                    <code>/api/observability/ingest</code> or use the simulation tool below.
+                  </p>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="callout">
+              <p>Click &quot;Refresh&quot; or enable live polling to load the current Digital Twin state.</p>
+            </div>
+          )}
+
+          <div className="callout">
+            <h3>Simulate user action</h3>
+            <p className="status-meta">
+              Generate synthetic traffic through specific nodes to test flows visually.
+              Enter node IDs (one per line or comma-separated).
+            </p>
+            <label className="field">
+              <span>Node IDs</span>
+              <textarea
+                aria-label="Node IDs to simulate"
+                onChange={(event) => setSimulateNodeIds(event.target.value)}
+                placeholder={graph.nodes.slice(0, 2).map((n) => n.id).join("\n")}
+                rows={3}
+                style={{ fontFamily: "monospace", fontSize: "0.8rem", width: "100%" }}
+                value={simulateNodeIds}
+              />
+            </label>
+            <label className="field">
+              <span>Flow label (optional)</span>
+              <input
+                aria-label="Simulation label"
+                onChange={(event) => setSimulateLabel(event.target.value)}
+                placeholder="e.g. Checkout flow"
+                type="text"
+                value={simulateLabel}
+              />
+            </label>
+            <button
+              disabled={isBusy || !simulateNodeIds.trim()}
+              onClick={() => void handleSimulateAction()}
+              type="button"
+            >
+              {busyLabel === "Simulating user action" ? "Simulating..." : "Run simulation"}
+            </button>
+          </div>
         </aside>
       ) : null}
 
