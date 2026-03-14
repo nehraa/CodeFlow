@@ -46,7 +46,7 @@ export const computeHeatmap = (graph: BlueprintGraph): HeatmapData => {
 
   const maxCallCount = Math.max(...raw.map((m) => m.callCount), 1);
   const maxAvgDurationMs = Math.max(...raw.map((m) => m.avgDurationMs), 1);
-  const maxErrorRate = Math.max(...raw.map((m) => m.errorRate), 1);
+  const maxErrorRate = Math.max(...raw.map((m) => m.errorRate), Number.EPSILON);
 
   const nodes: HeatmapNodeMetric[] = raw.map((m) => {
     const latencyIntensity = m.avgDurationMs / maxAvgDurationMs;
