@@ -925,6 +925,161 @@ describe("BlueprintWorkbench", () => {
     expect(await screen.findByText(/1 smells.*0 cycles.*Health 85\/100/)).toBeInTheDocument();
   });
 
+  it("shows the Branches panel and can create a branch after building", async () => {
+    const createdBranch = {
+      id: "branch-1",
+      name: "what-if-mongo",
+      description: "Replace PostgreSQL with MongoDB",
+      projectName: "Workbench",
+      createdAt: "2026-03-14T00:00:00.000Z",
+      graph: {
+        projectName: "Workbench",
+        mode: "essential",
+        phase: "spec",
+        generatedAt: "2026-03-13T00:00:00.000Z",
+        warnings: [],
+        workflows: [],
+        edges: [],
+        nodes: [
+          {
+            id: "function:save-task",
+            kind: "function",
+            name: "saveTask",
+            summary: "Save a task.",
+            contract: {
+              summary: "Save a task.",
+              responsibilities: [],
+              inputs: [],
+              outputs: [],
+              attributes: [],
+              methods: [],
+              sideEffects: [],
+              errors: [],
+              dependencies: [],
+              calls: [],
+              uiAccess: [],
+              backendAccess: [],
+              notes: []
+            },
+            sourceRefs: [],
+            generatedRefs: [],
+            traceRefs: []
+          }
+        ]
+      }
+    };
+
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input.toString();
+
+      if (url === "/api/generate-blueprint" && (!init?.method || init.method === "GET")) {
+        return { ok: true, json: async () => ({ serverApiKeyConfigured: false }) };
+      }
+
+      if (url.startsWith("/api/branches") && (!init?.method || init.method === "GET")) {
+        return { ok: true, json: async () => ({ branches: [] }) };
+      }
+
+      if (url === "/api/branches" && init?.method === "POST") {
+        return { ok: true, json: async () => ({ branch: createdBranch }) };
+      }
+
+      return {
+        ok: true,
+        json: async () => ({
+          graph: {
+            projectName: "Workbench",
+            mode: "essential",
+            generatedAt: "2026-03-13T00:00:00.000Z",
+            warnings: [],
+            workflows: [],
+            edges: [],
+            nodes: [
+              {
+                id: "function:save-task",
+                kind: "function",
+                name: "saveTask",
+                summary: "Save a task.",
+                contract: {
+                  summary: "Save a task.",
+                  inputs: [],
+                  outputs: [],
+                  sideEffects: [],
+                  errors: [],
+                  dependencies: [],
+                  uiAccess: [],
+                  backendAccess: [],
+                  notes: []
+                },
+                sourceRefs: [],
+                generatedRefs: [],
+                traceRefs: []
+              }
+            ]
+          },
+          runPlan: {
+            generatedAt: "2026-03-13T00:00:00.000Z",
+            tasks: [],
+            batches: [],
+            warnings: []
+          },
+          session: {
+            sessionId: "session-branch",
+            projectName: "Workbench",
+            updatedAt: "2026-03-13T00:00:00.000Z",
+            graph: {
+              projectName: "Workbench",
+              mode: "essential",
+              generatedAt: "2026-03-13T00:00:00.000Z",
+              warnings: [],
+              workflows: [],
+              edges: [],
+              nodes: []
+            },
+            runPlan: {
+              generatedAt: "2026-03-13T00:00:00.000Z",
+              tasks: [],
+              batches: [],
+              warnings: []
+            },
+            approvalIds: []
+          }
+        })
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BlueprintWorkbench />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    fireEvent.change(screen.getByLabelText("Project name"), {
+      target: { value: "Workbench" }
+    });
+    fireEvent.click(screen.getByLabelText("PRD / Repo (JS/TS)"));
+    fireEvent.change(screen.getByLabelText("PRD markdown"), {
+      target: { value: "# Functions\n- Function: saveTask()" }
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Build blueprint" }));
+    await screen.findByRole("button", { name: "saveTask" });
+
+    const branchesButton = await screen.findByRole("button", { name: /Branches/ });
+    expect(branchesButton).toBeInTheDocument();
+
+    fireEvent.click(branchesButton);
+    expect(await screen.findByText("Time-Travel Branches")).toBeInTheDocument();
+    expect(await screen.findByText("Create a new branch")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText("e.g. swap-postgres-for-mongo"), {
+      target: { value: "what-if-mongo" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save as branch" }));
+
+    expect(await screen.findByText("Branch created")).toBeInTheDocument();
+    expect(await screen.findByText(/what-if-mongo.*branch saved as a snapshot/)).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /Switch to this branch/ })).toBeInTheDocument();
+  });
+
   it("suggests ghost nodes and solidifies them on click", async () => {
     const buildGraph = {
       projectName: "Workbench",
@@ -1010,7 +1165,6 @@ describe("BlueprintWorkbench", () => {
 
     render(<BlueprintWorkbench />);
 
-    // Build a blueprint first
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
     fireEvent.click(screen.getByLabelText("PRD / Repo (JS/TS)"));
     fireEvent.change(screen.getByLabelText("PRD markdown"), {
@@ -1020,25 +1174,18 @@ describe("BlueprintWorkbench", () => {
 
     expect(await screen.findByRole("button", { name: "saveTask" })).toBeInTheDocument();
 
-    // Click "Suggest nodes"
     fireEvent.click(screen.getByRole("button", { name: "Suggest nodes" }));
 
-    // Ghost node should appear
     expect(await screen.findByTestId("ghost-node-ghost:auth-middleware")).toBeInTheDocument();
     expect(screen.getByText("✦ Auth Middleware")).toBeInTheDocument();
-
-    // Clear ghosts button should be visible
     expect(screen.getByRole("button", { name: "Clear ghosts (1)" })).toBeInTheDocument();
 
-    // Clicking the ghost node solidifies it (adds it to the graph)
     fireEvent.click(screen.getByTestId("ghost-node-ghost:auth-middleware"));
 
-    // The solidified node should now appear as a regular graph node
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Auth Middleware" })).toBeInTheDocument();
     });
 
-    // Ghost should be removed after solidification
     expect(screen.queryByTestId("ghost-node-ghost:auth-middleware")).not.toBeInTheDocument();
   });
 });

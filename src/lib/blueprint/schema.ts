@@ -461,3 +461,54 @@ export const idleTraceState = (): TraceState => ({
   totalDurationMs: 0,
   lastSpanIds: []
 });
+
+// ── Time-Travel Branching ──────────────────────────────────────────────────
+
+export const graphBranchSchema = z.object({
+  id: z.string(),
+  name: z.string().min(1),
+  description: z.string().optional(),
+  projectName: z.string(),
+  parentBranchId: z.string().optional(),
+  createdAt: z.string(),
+  graph: blueprintGraphSchema
+});
+export type GraphBranch = z.infer<typeof graphBranchSchema>;
+
+export const nodeDiffKindSchema = z.enum(["added", "removed", "modified", "unchanged"]);
+export type NodeDiffKind = z.infer<typeof nodeDiffKindSchema>;
+
+export const edgeDiffKindSchema = z.enum(["added", "removed", "unchanged"]);
+export type EdgeDiffKind = z.infer<typeof edgeDiffKindSchema>;
+
+export const nodeDiffSchema = z.object({
+  nodeId: z.string(),
+  name: z.string(),
+  kind: nodeDiffKindSchema,
+  before: blueprintNodeSchema.optional(),
+  after: blueprintNodeSchema.optional(),
+  impactedEdgeCount: z.number().int().nonnegative()
+});
+export type NodeDiff = z.infer<typeof nodeDiffSchema>;
+
+export const edgeDiffSchema = z.object({
+  from: z.string(),
+  to: z.string(),
+  edgeKind: edgeKindSchema,
+  diffKind: edgeDiffKindSchema
+});
+export type EdgeDiff = z.infer<typeof edgeDiffSchema>;
+
+export const branchDiffSchema = z.object({
+  baseId: z.string(),
+  compareId: z.string(),
+  addedNodes: z.number().int().nonnegative(),
+  removedNodes: z.number().int().nonnegative(),
+  modifiedNodes: z.number().int().nonnegative(),
+  addedEdges: z.number().int().nonnegative(),
+  removedEdges: z.number().int().nonnegative(),
+  impactedNodeIds: z.array(z.string()),
+  nodeDiffs: z.array(nodeDiffSchema),
+  edgeDiffs: z.array(edgeDiffSchema)
+});
+export type BranchDiff = z.infer<typeof branchDiffSchema>;
