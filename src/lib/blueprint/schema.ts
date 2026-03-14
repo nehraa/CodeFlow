@@ -314,7 +314,8 @@ export const traceSpanSchema = z.object({
   path: z.string().optional(),
   status: z.enum(["success", "warning", "error"]),
   durationMs: z.number().nonnegative(),
-  runtime: z.string().default("unknown")
+  runtime: z.string().default("unknown"),
+  timestamp: z.string().optional()
 });
 export type TraceSpan = z.infer<typeof traceSpanSchema>;
 
@@ -512,3 +513,45 @@ export const branchDiffSchema = z.object({
   edgeDiffs: z.array(edgeDiffSchema)
 });
 export type BranchDiff = z.infer<typeof branchDiffSchema>;
+
+// ── VCR Time-Travel Debugging ─────────────────────────────────────────────────
+
+/**
+ * A single frame in a VCR recording, representing the cumulative state of the
+ * architecture graph immediately after a particular trace span was processed.
+ */
+export const vcrFrameSchema = z.object({
+  /** Zero-based position in the recording timeline. */
+  frameIndex: z.number().int().nonnegative(),
+  /** The span that produced this frame. */
+  spanId: z.string(),
+  /** Display label derived from the span name. */
+  label: z.string(),
+  /** ISO-8601 timestamp when the span occurred (if available). */
+  timestamp: z.string().optional(),
+  /** The node this span was attributed to (if any). */
+  nodeId: z.string().optional(),
+  /** Human-readable node name for the UI. */
+  nodeName: z.string().optional(),
+  /** Status of the span that triggered this frame. */
+  status: traceStatusSchema,
+  /** Duration of the triggering span in milliseconds. */
+  durationMs: z.number().nonnegative(),
+  /**
+   * Cumulative TraceState for every node at this point in time.
+   * Keys are node IDs; absent nodes have idle state.
+   */
+  nodeStates: z.record(z.string(), traceStateSchema)
+});
+export type VcrFrame = z.infer<typeof vcrFrameSchema>;
+
+/** A complete VCR recording derived from an observability snapshot. */
+export const vcrRecordingSchema = z.object({
+  projectName: z.string(),
+  recordedAt: z.string(),
+  /** Ordered frames — one per trace span, earliest first. */
+  frames: z.array(vcrFrameSchema),
+  /** Total number of spans that were processed. */
+  totalSpans: z.number().int().nonnegative()
+});
+export type VcrRecording = z.infer<typeof vcrRecordingSchema>;
