@@ -574,7 +574,7 @@ export const userFlowSchema = z.object({
   /** ISO-8601 timestamp of the last span in the flow. */
   endedAt: z.string().optional(),
   /** Aggregate status of the flow (worst-case across all spans). */
-  status: traceStatusSchema,
+  status: traceSpanSchema.shape.status,
   /** Total wall-clock duration across all spans in the flow, in milliseconds. */
   totalDurationMs: z.number().nonnegative(),
   /** Number of spans in this flow. */
