@@ -338,6 +338,13 @@ fieldset {
   height: calc(100vh - 6.5rem);
 }
 
+.analysis-panel {
+  top: 5.5rem;
+  left: 1rem;
+  width: min(36rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 7rem);
+}
+
 .floating-status {
   position: absolute;
   top: 6.2rem;
@@ -499,6 +506,32 @@ fieldset {
   font-size: 0.74rem;
 }
 
+.smell-item {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.smell-item:last-child {
+  border-bottom: none;
+}
+
+.cycle-item {
+  padding: 0.4rem 0;
+}
+
+.mermaid-output {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: "IBM Plex Mono", "SFMono-Regular", "SF Mono", monospace;
+  font-size: 0.85rem;
+  padding: 0.8rem;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.04);
+  border: 1px solid var(--line);
+  max-height: 20rem;
+  overflow: auto;
+}
+
 @media (max-width: 1200px) {
   .workbench {
     grid-template-columns: 1fr;
@@ -520,7 +553,8 @@ fieldset {
   .prompt-panel,
   .settings-panel,
   .edit-panel,
-  .inspector-panel {
+  .inspector-panel,
+  .analysis-panel {
     left: 1rem;
     right: 1rem;
     width: auto;
