@@ -184,6 +184,76 @@ Guidelines:
 - Keep summaries concise and informative
 - If you omit optional fields, leave them out instead of adding placeholder text`;
 
+const extractBalancedJsonObject = (input: string, startIndex: number): string | null => {
+  let depth = 0;
+  let inString = false;
+  let isEscaped = false;
+
+  for (let index = startIndex; index < input.length; index += 1) {
+    const char = input[index];
+
+    if (isEscaped) {
+      isEscaped = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      isEscaped = true;
+      continue;
+    }
+
+    if (char === "\"") {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) {
+      continue;
+    }
+
+    if (char === "{") {
+      depth += 1;
+      continue;
+    }
+
+    if (char === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return input.slice(startIndex, index + 1);
+      }
+    }
+  }
+
+  return null;
+};
+
+const extractJsonObjectString = (content: string): string => {
+  const fencedMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const candidates = fencedMatch ? [fencedMatch[1] ?? "", content] : [content];
+
+  for (const candidate of candidates) {
+    for (let index = 0; index < candidate.length; index += 1) {
+      if (candidate[index] !== "{") {
+        continue;
+      }
+
+      const jsonCandidate = extractBalancedJsonObject(candidate, index);
+      if (!jsonCandidate) {
+        continue;
+      }
+
+      try {
+        JSON.parse(jsonCandidate);
+        return jsonCandidate;
+      } catch {
+        // Keep scanning until we find the first parseable JSON object.
+      }
+    }
+  }
+
+  throw new Error("Failed to locate a valid JSON object in the AI response.");
+};
+
 const normalizeAiBlueprint = (
   payload: z.infer<typeof aiBlueprintResponseSchema>,
   request: z.infer<typeof requestSchema>
@@ -332,13 +402,13 @@ Return the JSON blueprint now.`;
       maxTokens: 4096
     });
 
-    // Extract JSON from the response (in case there's markdown formatting)
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    const jsonString = jsonMatch ? jsonMatch[0] : content;
+    const jsonString = extractJsonObjectString(content);
+    // Replace raw control characters that frequently appear in model output.
+    const sanitizedJsonString = jsonString.replace(/[\u0000-\u001F]+/g, " ");
 
     let parsed;
     try {
-      parsed = JSON.parse(jsonString);
+      parsed = JSON.parse(sanitizedJsonString);
     } catch (parseError) {
       throw new Error(`Failed to parse AI response as JSON: ${parseError instanceof Error ? parseError.message : "Unknown error"}`);
     }
