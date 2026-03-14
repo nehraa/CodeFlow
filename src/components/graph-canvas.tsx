@@ -3,6 +3,7 @@
 import type { Edge, Node } from "@xyflow/react";
 import { Background, Controls, MiniMap, ReactFlow, ReactFlowProvider } from "@xyflow/react";
 
+import type { HeatmapData } from "@/lib/blueprint/heatmap";
 import type { BlueprintGraph } from "@/lib/blueprint/schema";
 import { buildFlowEdges, buildFlowNodes } from "@/lib/blueprint/flow-view";
 import type { FlowNodeData } from "@/lib/blueprint/flow-view";
@@ -15,6 +16,7 @@ type GraphCanvasProps = {
   edges?: Edge[];
   onNodeDoubleClick?: (nodeId: string) => void;
   emptyMessage?: string;
+  heatmapData?: HeatmapData;
 };
 
 export function GraphCanvas({
@@ -24,9 +26,11 @@ export function GraphCanvas({
   nodes,
   edges,
   onNodeDoubleClick,
-  emptyMessage
+  emptyMessage,
+  heatmapData
 }: GraphCanvasProps) {
-  const flowNodes = nodes ?? (graph ? buildFlowNodes(graph, selectedNodeId ?? undefined) : []);
+  const flowNodes =
+    nodes ?? (graph ? buildFlowNodes(graph, selectedNodeId ?? undefined, heatmapData) : []);
   const flowEdges = edges ?? (graph ? buildFlowEdges(graph) : []);
 
   if (!graph && flowNodes.length === 0) {

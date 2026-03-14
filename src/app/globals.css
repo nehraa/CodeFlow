@@ -532,6 +532,193 @@ fieldset {
   overflow: auto;
 }
 
+/* ── Heatmap node glow/pulse animations ─────────────────────────── */
+
+@keyframes trace-pulse-hot {
+  0%, 100% { box-shadow: 0 0 18px 2px rgba(239,68,68,0.55), 0 14px 34px rgba(239,68,68,0.18); }
+  50%       { box-shadow: 0 0 38px 8px rgba(239,68,68,0.85), 0 14px 34px rgba(239,68,68,0.28); }
+}
+
+@keyframes trace-pulse-warm {
+  0%, 100% { box-shadow: 0 0 12px 2px rgba(245,158,11,0.45), 0 14px 34px rgba(245,158,11,0.14); }
+  50%       { box-shadow: 0 0 28px 6px rgba(245,158,11,0.72), 0 14px 34px rgba(245,158,11,0.22); }
+}
+
+@keyframes trace-pulse-active {
+  0%, 100% { box-shadow: 0 0 8px 1px rgba(34,197,94,0.35), 0 14px 34px rgba(34,197,94,0.10); }
+  50%       { box-shadow: 0 0 20px 4px rgba(34,197,94,0.60), 0 14px 34px rgba(34,197,94,0.18); }
+}
+
+.graph-flow .react-flow__node.node-pulse-hot {
+  animation: trace-pulse-hot 1.4s ease-in-out infinite;
+}
+
+.graph-flow .react-flow__node.node-pulse-warm {
+  animation: trace-pulse-warm 2s ease-in-out infinite;
+}
+
+.graph-flow .react-flow__node.node-pulse-active {
+  animation: trace-pulse-active 2.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .graph-flow .react-flow__node.node-pulse-hot,
+  .graph-flow .react-flow__node.node-pulse-warm,
+  .graph-flow .react-flow__node.node-pulse-active {
+    animation: none;
+  }
+}
+
+/* ── Observability Dashboard panel ──────────────────────────────── */
+
+.observability-panel {
+  top: 5.5rem;
+  right: 1rem;
+  width: min(40rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 7rem);
+}
+
+.obs-auto-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.obs-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(34,197,94,0.12);
+  border: 1px solid rgba(34,197,94,0.32);
+  color: #065f46;
+  font-size: 0.82rem;
+  font-family: "IBM Plex Mono", monospace;
+  animation: live-blink 1.2s ease-in-out infinite;
+}
+
+@keyframes live-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+
+/* ── Heatmap table ───────────────────────────────────────────────── */
+
+.heatmap-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  margin-top: 0.5rem;
+}
+
+.heatmap-table th {
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  border-bottom: 1px solid var(--line);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.heatmap-table td {
+  padding: 0.45rem 0.5rem;
+  border-bottom: 1px solid rgba(148,163,184,0.14);
+  max-width: 9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.heat-row-hot {
+  background: rgba(254,226,226,0.55);
+}
+
+.heat-row-warm {
+  background: rgba(254,243,199,0.45);
+}
+
+.heat-bar-track {
+  position: relative;
+  width: 6rem;
+  height: 1.1rem;
+  background: rgba(148,163,184,0.15);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.heat-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #22c55e 0%, #f59e0b 50%, #ef4444 100%);
+  transition: width 400ms ease;
+}
+
+.heat-bar-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-family: "IBM Plex Mono", monospace;
+  color: var(--ink);
+  mix-blend-mode: multiply;
+}
+
+/* ── Span & Log rows ─────────────────────────────────────────────── */
+
+.obs-span-row,
+.obs-log-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid rgba(148,163,184,0.12);
+  font-size: 0.88rem;
+}
+
+.obs-span-row:last-child,
+.obs-log-row:last-child {
+  border-bottom: none;
+}
+
+.obs-span-status,
+.obs-log-level {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.72rem;
+  font-weight: 600;
+  min-width: 4rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  text-align: center;
+}
+
+.obs-span-success .obs-span-status { background: rgba(34,197,94,0.15); color: #065f46; }
+.obs-span-error   .obs-span-status { background: rgba(239,68,68,0.15); color: #b91c1c; }
+.obs-span-warning .obs-span-status { background: rgba(245,158,11,0.15); color: #92400e; }
+
+.obs-log-info  .obs-log-level { background: rgba(37,99,235,0.12);  color: #1e40af; }
+.obs-log-warn  .obs-log-level { background: rgba(245,158,11,0.15); color: #92400e; }
+.obs-log-error .obs-log-level { background: rgba(239,68,68,0.15);  color: #b91c1c; }
+.obs-log-debug .obs-log-level { background: rgba(148,163,184,0.2); color: var(--muted); }
+
+.obs-span-name,
+.obs-log-message {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.obs-span-meta {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
 @media (max-width: 1200px) {
   .workbench {
     grid-template-columns: 1fr;
@@ -554,7 +741,8 @@ fieldset {
   .settings-panel,
   .edit-panel,
   .inspector-panel,
-  .analysis-panel {
+  .analysis-panel,
+  .observability-panel {
     left: 1rem;
     right: 1rem;
     width: auto;
