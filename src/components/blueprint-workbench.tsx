@@ -1618,7 +1618,7 @@ export function BlueprintWorkbench() {
             </button>
           </div>
           <p className="lead">
-            Snapshot the current graph as a named branch to safely experiment with &lsquo;what if&rsquo; scenarios.
+            Snapshot the current graph as a named branch to safely experiment with &#x2018;what if&#x2019; scenarios.
             Switch back to any branch at any time, or compare two branches side-by-side.
           </p>
 
@@ -1694,7 +1694,7 @@ export function BlueprintWorkbench() {
             </div>
           ) : (
             <div className="callout">
-              <p>No branches yet. Use &ldquo;Save as branch&rdquo; to snapshot the current graph.</p>
+              <p>No branches yet. Use &#x201C;Save as branch&#x201D; to snapshot the current graph.</p>
             </div>
           )}
 
