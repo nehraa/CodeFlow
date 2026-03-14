@@ -8,7 +8,7 @@ import { loadBranches, saveBranch } from "@/lib/blueprint/store";
 
 const createBranchRequestSchema = z.object({
   graph: blueprintGraphSchema,
-  name: z.string().min(1),
+  name: z.string().trim().min(1),
   description: z.string().optional(),
   parentBranchId: z.string().optional()
 });
