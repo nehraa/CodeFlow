@@ -157,4 +157,118 @@ describe("POST /api/generate-blueprint", () => {
     expect(body.session.sessionId).toBeTruthy();
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
+  it("extracts the first valid JSON object when the AI wraps it in markdown and trailing prose", async () => {
+    const storeRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codeflow-ai-build-store-"));
+    createdDirs.push(storeRoot);
+    process.env.CODEFLOW_STORE_ROOT = storeRoot;
+    process.env.NVIDIA_API_KEY = "nvapi-test";
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: [
+                "Here is the blueprint:",
+                "```json",
+                JSON.stringify({
+                  nodes: [
+                    {
+                      kind: "module",
+                      name: "Sentinel Flow",
+                      summary: "Coordinates the runtime graph."
+                    }
+                  ],
+                  edges: [],
+                  workflows: [],
+                  warnings: []
+                }),
+                "```",
+                "Validation note: all identifiers look good."
+              ].join("\n")
+            }
+          }
+        ]
+      })
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await POST(
+      new Request("http://localhost/api/generate-blueprint", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({
+          projectName: "AI Route Test",
+          prompt: "A runtime graph editor",
+          mode: "essential"
+        })
+      })
+    );
+
+    expect(response.status).toBe(200);
+
+    const body = (await response.json()) as {
+      graph: {
+        nodes: Array<{ name: string; kind: string }>;
+      };
+    };
+
+    expect(body.graph.nodes).toHaveLength(1);
+    expect(body.graph.nodes[0]).toMatchObject({
+      name: "Sentinel Flow",
+      kind: "module"
+    });
+  });
+
+  it("sanitizes control characters before JSON parsing", async () => {
+    const storeRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codeflow-ai-build-store-"));
+    createdDirs.push(storeRoot);
+    process.env.CODEFLOW_STORE_ROOT = storeRoot;
+    process.env.NVIDIA_API_KEY = "nvapi-test";
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content:
+                "{\n" +
+                "\"nodes\":[{\"kind\":\"module\",\"name\":\"Sentinel\\u000bFlow\",\"summary\":\"Has control char\"}],\n" +
+                "\"edges\":[],\"workflows\":[],\"warnings\":[]\n" +
+                "}"
+            }
+          }
+        ]
+      })
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await POST(
+      new Request("http://localhost/api/generate-blueprint", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({
+          projectName: "AI Route Test",
+          prompt: "A runtime graph editor",
+          mode: "essential"
+        })
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      graph: {
+        nodes: Array<{ name: string }>;
+      };
+    };
+
+    expect(body.graph.nodes[0]?.name).toContain("Sentinel");
+  });
 });
