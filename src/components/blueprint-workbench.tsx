@@ -17,6 +17,7 @@ import { frameIndexToPosition, positionToFrameIndex, replayAtFrame } from "@/lib
 import type { CycleReport } from "@/lib/blueprint/cycles";
 import type { SmellReport } from "@/lib/blueprint/smells";
 import type { GraphMetrics } from "@/lib/blueprint/metrics";
+import type { RefactorReport, HealResult } from "@/lib/blueprint/refactor";
 import type {
   ApprovalRecord,
   BlueprintGraph,
@@ -171,6 +172,17 @@ type McpInvokeResponse = {
   error?: string;
 };
 
+type RefactorDetectResponse = {
+  report?: RefactorReport;
+  error?: string;
+};
+
+type RefactorHealResponse = {
+  report?: RefactorReport;
+  result?: HealResult;
+  error?: string;
+};
+
 type StatusTone = "info" | "success" | "danger";
 
 const tracesSchema = z.array(traceSpanSchema);
@@ -297,6 +309,12 @@ export function BlueprintWorkbench() {
   const [simulateNodeIds, setSimulateNodeIds] = useState("");
   const [simulateLabel, setSimulateLabel] = useState("");
   const [digitalTwinError, setDigitalTwinError] = useState<string | null>(null);
+
+  // ── Neural Auto-Refactoring ────────────────────────────────────────────
+  const [showRefactorPanel, setShowRefactorPanel] = useState(false);
+  const [refactorReport, setRefactorReport] = useState<RefactorReport | null>(null);
+  const [healResult, setHealResult] = useState<HealResult | null>(null);
+  const [refactorError, setRefactorError] = useState<string | null>(null);
 
   const selectedNode = graph?.nodes.find((node) => node.id === selectedNodeId) ?? null;
   const drilldownNodeId = drilldownStack.at(-1) ?? null;
@@ -534,6 +552,15 @@ export function BlueprintWorkbench() {
     }
   }, [showDigitalTwinPanel]);
 
+  // Clear refactor state when the panel is closed.
+  useEffect(() => {
+    if (!showRefactorPanel) {
+      setRefactorReport(null);
+      setHealResult(null);
+      setRefactorError(null);
+    }
+  }, [showRefactorPanel]);
+
   const pollObservability = useCallback(async () => {
     if (!projectName.trim() || !autoObsRef.current) {
       return;
@@ -669,6 +696,71 @@ export function BlueprintWorkbench() {
       setBusyLabel(null);
     }
   }, [projectName, simulateNodeIds, simulateLabel, handleLoadDigitalTwin]);
+
+  const handleDetectDrift = useCallback(async () => {
+    if (!graph) return;
+    setBusyLabel("Detecting drift");
+    setRefactorError(null);
+    setHealResult(null);
+
+    try {
+      const response = await fetch("/api/refactor/detect", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(graph)
+      });
+      const body = (await response.json()) as RefactorDetectResponse;
+
+      if (!response.ok) {
+        throw new Error(body.error ?? "Failed to detect architectural drift.");
+      }
+
+      setRefactorReport(body.report ?? null);
+    } catch (caughtError) {
+      setRefactorError(
+        caughtError instanceof Error ? caughtError.message : "Failed to detect drift."
+      );
+    } finally {
+      setBusyLabel(null);
+    }
+  }, [graph]);
+
+  const handleHealArchitecture = useCallback(async () => {
+    if (!graph) return;
+    setBusyLabel("Healing architecture");
+    setRefactorError(null);
+
+    try {
+      const response = await fetch("/api/refactor/heal", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(graph)
+      });
+      const body = (await response.json()) as RefactorHealResponse;
+
+      if (!response.ok) {
+        throw new Error(body.error ?? "Failed to heal architectural drift.");
+      }
+
+      if (body.result?.graph) {
+        setGraph(body.result.graph);
+      }
+      setRefactorReport(body.report ?? null);
+      setHealResult(body.result ?? null);
+
+      setStatusTitle("Architecture healed");
+      setStatusDetail(
+        `Fixed ${body.result?.issuesFixed ?? 0} drift issue${(body.result?.issuesFixed ?? 0) !== 1 ? "s" : ""}.`
+      );
+      setStatusTone("success");
+    } catch (caughtError) {
+      setRefactorError(
+        caughtError instanceof Error ? caughtError.message : "Failed to heal architecture."
+      );
+    } finally {
+      setBusyLabel(null);
+    }
+  }, [graph]);
 
   const handleBuild = async () => {
     const buildStartedAt = performance.now();
@@ -1958,6 +2050,16 @@ export function BlueprintWorkbench() {
               {showDigitalTwinPanel ? "Hide Digital Twin" : "Digital Twin"}
             </button>
           ) : null}
+          {graph ? (
+            <button
+              onClick={() => {
+                setShowRefactorPanel((current) => !current);
+              }}
+              type="button"
+            >
+              {showRefactorPanel ? "Hide Heal" : `Heal${refactorReport && !refactorReport.isHealthy ? ` (${refactorReport.totalIssues})` : ""}`}
+            </button>
+          ) : null}
         </div>
       </header>
 
@@ -2465,6 +2567,7 @@ export function BlueprintWorkbench() {
             ghostNodes={drilldownRootNode ? undefined : ghostSuggestions}
             onGhostNodeClick={handleSolidifyGhostNode}
             heatmapData={drilldownRootNode ? undefined : heatmapData}
+            driftedNodeIds={drilldownRootNode ? undefined : (refactorReport?.driftedNodeIds ?? undefined)}
           />
         </section>
 
@@ -3186,6 +3289,91 @@ export function BlueprintWorkbench() {
               {busyLabel === "Simulating user action" ? "Simulating..." : "Run simulation"}
             </button>
           </div>
+        </aside>
+      ) : null}
+
+      {showRefactorPanel && graph ? (
+        <aside className="floating-panel refactor-panel">
+          <div className="floating-panel-header">
+            <h2>Neural Auto-Refactoring</h2>
+            <button onClick={() => setShowRefactorPanel(false)} type="button">
+              Hide
+            </button>
+          </div>
+          <p className="lead">
+            Detect architectural drift between the visual blueprint and its contracts, then let the
+            agent auto-heal all inconsistencies with a single click.
+          </p>
+
+          <div className="button-row">
+            <button
+              disabled={isBusy}
+              onClick={() => void handleDetectDrift()}
+              type="button"
+            >
+              {busyLabel === "Detecting drift" ? "Detecting..." : "Detect drift"}
+            </button>
+            <button
+              disabled={isBusy || !refactorReport || refactorReport.isHealthy}
+              onClick={() => void handleHealArchitecture()}
+              type="button"
+            >
+              {busyLabel === "Healing architecture" ? "Healing..." : "✦ Heal"}
+            </button>
+          </div>
+
+          {refactorError ? (
+            <div className="callout">
+              <p style={{ color: "var(--danger)" }}>{refactorError}</p>
+            </div>
+          ) : null}
+
+          {refactorReport ? (
+            <div className="callout">
+              <h3>
+                {refactorReport.isHealthy
+                  ? "✓ Architecture is healthy"
+                  : `${refactorReport.totalIssues} drift issue${refactorReport.totalIssues !== 1 ? "s" : ""} detected`}
+              </h3>
+              <p>Scanned at: {new Date(refactorReport.detectedAt).toLocaleString()}</p>
+              {!refactorReport.isHealthy ? (
+                <p>
+                  Drifted nodes: {refactorReport.driftedNodeIds.length} — they are highlighted in red on the canvas.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {refactorReport && !refactorReport.isHealthy ? (
+            <div className="callout">
+              <h3>Issues</h3>
+              <div className="refactor-issue-list">
+                {refactorReport.issues.map((issue, idx) => (
+                  <div
+                    key={`${issue.kind}:${issue.nodeId}:${idx}`}
+                    className={`refactor-issue refactor-issue-${issue.kind}`}
+                  >
+                    <span className="refactor-issue-kind">{issue.kind.replace(/-/g, " ")}</span>
+                    <span className="refactor-issue-desc">{issue.description}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {healResult ? (
+            <div className="callout">
+              <h3>Heal complete — {healResult.issuesFixed} fix{healResult.issuesFixed !== 1 ? "es" : ""} applied</h3>
+              <p>Healed at: {new Date(healResult.healedAt).toLocaleString()}</p>
+              <div className="refactor-heal-summary">
+                {healResult.summary.map((line, idx) => (
+                  <div key={idx} className="refactor-heal-line">
+                    {line}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </aside>
       ) : null}
 

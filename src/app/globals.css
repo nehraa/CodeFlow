@@ -635,6 +635,81 @@ fieldset {
   flex-shrink: 0;
 }
 
+/* ── Neural Auto-Refactoring panel ──────────────────────────────── */
+
+.refactor-panel {
+  top: 5.5rem;
+  right: 1rem;
+  width: min(36rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 7rem);
+  overflow-y: auto;
+}
+
+.refactor-issue-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.refactor-issue {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  background: rgba(15, 23, 42, 0.03);
+  border: 1px solid var(--line);
+}
+
+.refactor-issue-kind {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+.refactor-issue-broken-edge .refactor-issue-kind {
+  background: rgba(239, 68, 68, 0.18);
+  color: #991b1b;
+}
+
+.refactor-issue-missing-edge .refactor-issue-kind {
+  background: rgba(245, 158, 11, 0.18);
+  color: #92400e;
+}
+
+.refactor-issue-signature-drift .refactor-issue-kind {
+  background: rgba(99, 102, 241, 0.18);
+  color: #3730a3;
+}
+
+.refactor-issue-desc {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.refactor-heal-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-top: 0.5rem;
+}
+
+.refactor-heal-line {
+  font-size: 0.85rem;
+  padding: 0.25rem 0.5rem;
+  background: rgba(16, 185, 129, 0.12);
+  border-radius: 6px;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: #065f46;
+}
+
 /* ── Heatmap node glow/pulse animations ─────────────────────────── */
 
 @keyframes trace-pulse-hot {
@@ -668,6 +743,28 @@ fieldset {
   .graph-flow .react-flow__node.node-pulse-hot,
   .graph-flow .react-flow__node.node-pulse-warm,
   .graph-flow .react-flow__node.node-pulse-active {
+    animation: none;
+  }
+}
+
+/* ── Architectural drift shake animation ────────────────────────── */
+
+@keyframes node-drift-shake {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  10%       { transform: translate(-2px,  1px) rotate(-0.4deg); }
+  25%       { transform: translate( 2px, -1px) rotate( 0.3deg); }
+  40%       { transform: translate(-1px,  2px) rotate(-0.3deg); }
+  55%       { transform: translate( 2px,  1px) rotate( 0.4deg); }
+  70%       { transform: translate(-2px, -1px) rotate(-0.2deg); }
+  85%       { transform: translate( 1px,  2px) rotate( 0.2deg); }
+}
+
+.graph-flow .react-flow__node.node-drift-shake {
+  animation: node-drift-shake 0.7s ease-in-out 3;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .graph-flow .react-flow__node.node-drift-shake {
     animation: none;
   }
 }
