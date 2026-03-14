@@ -90,7 +90,7 @@ export const computeGraphMetrics = (graph: BlueprintGraph): GraphMetrics => {
 
   const nodesByKind = countBy(nodes, (n) => n.kind);
   const edgesByKind = countBy(edges, (e) => e.kind);
-  const nodesByStatus = countBy(nodes, (n) => n.status);
+  const nodesByStatus = countBy(nodes, (n) => n.status ?? "spec_only");
 
   const density = nodeCount < 2 ? 0 : edgeCount / (nodeCount * (nodeCount - 1));
 

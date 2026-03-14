@@ -11,6 +11,9 @@ import { addEdgeToGraph, addNodeToGraph, deleteNodeFromGraph } from "@/lib/bluep
 import { buildDetailFlow } from "@/lib/blueprint/flow-view";
 import { canEnterImplementationPhase, canEnterIntegrationPhase, setGraphPhase } from "@/lib/blueprint/phases";
 import { applyTraceOverlay } from "@/lib/blueprint/traces";
+import type { CycleReport } from "@/lib/blueprint/cycles";
+import type { SmellReport } from "@/lib/blueprint/smells";
+import type { GraphMetrics } from "@/lib/blueprint/metrics";
 import type {
   ApprovalRecord,
   BlueprintGraph,
@@ -73,6 +76,27 @@ type ObservabilityLatestResponse = {
 
 type ConflictResponse = {
   report?: ConflictReport;
+  error?: string;
+};
+
+type CyclesResponse = {
+  report?: CycleReport;
+  error?: string;
+};
+
+type SmellsResponse = {
+  report?: SmellReport;
+  error?: string;
+};
+
+type MetricsResponse = {
+  metrics?: GraphMetrics;
+  error?: string;
+};
+
+type MermaidResponse = {
+  diagram?: string;
+  format?: string;
   error?: string;
 };
 
@@ -162,7 +186,12 @@ export function BlueprintWorkbench() {
   const [showPromptPanel, setShowPromptPanel] = useState(true);
   const [showEditPanel, setShowEditPanel] = useState(false);
   const [showInspector, setShowInspector] = useState(false);
+  const [showAnalysisPanel, setShowAnalysisPanel] = useState(false);
   const [autoImplementNodes, setAutoImplementNodes] = useState(false);
+  const [cycleReport, setCycleReport] = useState<CycleReport | null>(null);
+  const [smellReport, setSmellReport] = useState<SmellReport | null>(null);
+  const [graphMetrics, setGraphMetrics] = useState<GraphMetrics | null>(null);
+  const [mermaidDiagram, setMermaidDiagram] = useState<string | null>(null);
 
   const selectedNode = graph?.nodes.find((node) => node.id === selectedNodeId) ?? null;
   const drilldownNodeId = drilldownStack.at(-1) ?? null;
@@ -901,6 +930,62 @@ export function BlueprintWorkbench() {
     }
   };
 
+  const handleRunAnalysis = async () => {
+    if (!graph) {
+      setError("Build a blueprint before running analysis.");
+      return;
+    }
+
+    setBusyLabel("Analyzing architecture");
+    setError(null);
+    setShowAnalysisPanel(true);
+
+    try {
+      const [cyclesRes, smellsRes, metricsRes, mermaidRes] = await Promise.all([
+        fetch("/api/analysis/cycles", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(graph)
+        }),
+        fetch("/api/analysis/smells", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(graph)
+        }),
+        fetch("/api/analysis/metrics", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(graph)
+        }),
+        fetch("/api/export/mermaid", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ graph, format: "flowchart" })
+        })
+      ]);
+
+      const cyclesBody = (await cyclesRes.json()) as CyclesResponse;
+      const smellsBody = (await smellsRes.json()) as SmellsResponse;
+      const metricsBody = (await metricsRes.json()) as MetricsResponse;
+      const mermaidBody = (await mermaidRes.json()) as MermaidResponse;
+
+      if (cyclesBody.report) setCycleReport(cyclesBody.report);
+      if (smellsBody.report) setSmellReport(smellsBody.report);
+      if (metricsBody.metrics) setGraphMetrics(metricsBody.metrics);
+      if (mermaidBody.diagram) setMermaidDiagram(mermaidBody.diagram);
+
+      setStatusTitle("Analysis complete");
+      setStatusDetail(
+        `${smellsBody.report?.totalSmells ?? 0} smells · ${cyclesBody.report?.totalCycles ?? 0} cycles · Health ${smellsBody.report?.healthScore ?? 100}/100`
+      );
+      setStatusTone("success");
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Architecture analysis failed.");
+    } finally {
+      setBusyLabel(null);
+    }
+  };
+
   const renderSection = (title: string, items: string[]) => (
     <div className="callout" key={title}>
       <h3>{title}</h3>
@@ -1084,6 +1169,11 @@ export function BlueprintWorkbench() {
               {showEditPanel ? "Hide edit" : "Edit graph"}
             </button>
           ) : null}
+          {graph ? (
+            <button onClick={() => setShowAnalysisPanel((current) => !current)} type="button">
+              {showAnalysisPanel ? "Hide analysis" : "Analyze"}
+            </button>
+          ) : null}
         </div>
         <div className="topbar-center">
           <button disabled={isBusy} onClick={handleBuild} type="button">
@@ -1103,6 +1193,9 @@ export function BlueprintWorkbench() {
           </button>
           <button disabled={isBusy} onClick={() => void handleExport()} type="button">
             {busyLabel === "Exporting artifacts" ? "Exporting..." : "Export"}
+          </button>
+          <button disabled={isBusy || !graph} onClick={() => void handleRunAnalysis()} type="button">
+            {busyLabel === "Analyzing architecture" ? "Analyzing..." : "Analyze"}
           </button>
         </div>
       </header>
@@ -1470,6 +1563,92 @@ export function BlueprintWorkbench() {
           ) : null}
         </div>
       </section>
+
+      {showAnalysisPanel && graph ? (
+        <aside className="floating-panel analysis-panel">
+          <div className="floating-panel-header">
+            <h2>Architecture Analysis</h2>
+            <button onClick={() => setShowAnalysisPanel(false)} type="button">
+              Close
+            </button>
+          </div>
+
+          {graphMetrics ? (
+            <div className="callout">
+              <h3>Graph Metrics</h3>
+              <p>Nodes: {graphMetrics.nodeCount} · Edges: {graphMetrics.edgeCount}</p>
+              <p>Density: {graphMetrics.density.toFixed(3)} · Avg degree: {graphMetrics.avgDegree.toFixed(1)}</p>
+              <p>Connected components: {graphMetrics.connectedComponents} · Isolated: {graphMetrics.isolatedNodes} · Leaf: {graphMetrics.leafNodes}</p>
+              <p>Total methods: {graphMetrics.totalMethods} · Avg/node: {graphMetrics.avgMethodsPerNode.toFixed(1)}</p>
+              <p>Total responsibilities: {graphMetrics.totalResponsibilities} · Avg/node: {graphMetrics.avgResponsibilitiesPerNode.toFixed(1)}</p>
+              {graphMetrics.maxInDegreeNodeId ? <p>Most depended-on: {graphMetrics.maxInDegreeNodeId} (in-degree {graphMetrics.maxInDegree})</p> : null}
+              {graphMetrics.maxOutDegreeNodeId ? <p>Most dependent: {graphMetrics.maxOutDegreeNodeId} (out-degree {graphMetrics.maxOutDegree})</p> : null}
+              <h4>Nodes by kind</h4>
+              {Object.entries(graphMetrics.nodesByKind).map(([kind, count]) => (
+                <p key={kind}>{kind}: {count}</p>
+              ))}
+              <h4>Edges by kind</h4>
+              {Object.entries(graphMetrics.edgesByKind).map(([kind, count]) => (
+                <p key={kind}>{kind}: {count}</p>
+              ))}
+            </div>
+          ) : null}
+
+          {smellReport ? (
+            <div className="callout">
+              <h3>Architecture Health: {smellReport.healthScore}/100</h3>
+              <p>{smellReport.totalSmells} smell{smellReport.totalSmells === 1 ? "" : "s"} detected</p>
+              {smellReport.smells.map((smell) => (
+                <div key={`${smell.code}:${smell.nodeId ?? "global"}`} className="smell-item">
+                  <p>
+                    <strong>{smell.severity.toUpperCase()}</strong> [{smell.code}]{smell.nodeId ? ` — ${smell.nodeId}` : ""}
+                  </p>
+                  <p>{smell.message}</p>
+                  <p><em>{smell.suggestion}</em></p>
+                </div>
+              ))}
+              {smellReport.totalSmells === 0 ? <p>No architecture smells detected. Clean design!</p> : null}
+            </div>
+          ) : null}
+
+          {cycleReport ? (
+            <div className="callout">
+              <h3>Dependency Cycles</h3>
+              <p>{cycleReport.totalCycles} cycle{cycleReport.totalCycles === 1 ? "" : "s"} detected</p>
+              {cycleReport.totalCycles > 0 ? (
+                <>
+                  <p>Max cycle length: {cycleReport.maxCycleLength}</p>
+                  <p>Affected nodes: {cycleReport.affectedNodeIds.join(", ")}</p>
+                  {cycleReport.cycles.map((cycle, index) => (
+                    <div key={cycle.nodeIds.join(",")} className="cycle-item">
+                      <p><strong>Cycle {index + 1}</strong>: {cycle.nodeIds.join(" → ")}</p>
+                      {cycle.edges.map((edge) => (
+                        <p key={`${edge.from}→${edge.to}`}>  {edge.from} —[{edge.kind}]→ {edge.to}</p>
+                      ))}
+                    </div>
+                  ))}
+                </>
+              ) : (
+                <p>No dependency cycles found. Graph is a clean DAG!</p>
+              )}
+            </div>
+          ) : null}
+
+          {mermaidDiagram ? (
+            <div className="callout">
+              <h3>Mermaid Diagram</h3>
+              <p>Copy the code below into any Mermaid-compatible renderer (GitHub, Obsidian, Notion, etc.)</p>
+              <pre className="mermaid-output">{mermaidDiagram}</pre>
+            </div>
+          ) : null}
+
+          {!graphMetrics && !smellReport && !cycleReport ? (
+            <div className="callout">
+              <p>Click &quot;Analyze&quot; in the toolbar to run architecture analysis.</p>
+            </div>
+          ) : null}
+        </aside>
+      ) : null}
 
       {showInspector && (selectedNode || (drilldownRootNode && selectedDetailItem)) ? (
         <aside className="floating-panel inspector-panel">
