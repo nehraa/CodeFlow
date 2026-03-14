@@ -46,8 +46,27 @@ export const createBranch = ({
 
 // ── Diff helpers ────────────────────────────────────────────────────────────
 
-const nodeKey = (node: BlueprintNode): string =>
-  `${node.kind}:${node.name}:${node.summary}:${node.path ?? ""}:${node.status ?? "spec_only"}`;
+const nodeKey = (node: BlueprintNode): string => {
+  const baseKey = `${node.kind}:${node.name}:${node.summary}:${node.path ?? ""}:${
+    node.status ?? "spec_only"
+  }`;
+
+  // Include additional persisted fields so that changes to them are reflected in the diff.
+  // We deliberately exclude obviously volatile data (if any is added in the future),
+  // and compute a stable hash over the snapshot of relevant fields.
+  const snapshot = {
+    signature: (node as any).signature ?? "",
+    ownerId: (node as any).ownerId ?? "",
+    contract: (node as any).contract ?? null
+  };
+
+  const hash = crypto
+    .createHash("sha256")
+    .update(JSON.stringify(snapshot))
+    .digest("hex");
+
+  return `${baseKey}:${hash}`;
+};
 
 const edgeKey = (edge: BlueprintEdge): string => `${edge.from}→${edge.to}:${edge.kind}`;
 
