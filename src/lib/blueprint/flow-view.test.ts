@@ -58,20 +58,23 @@ const graph: BlueprintGraph = {
 
 describe("flow-view", () => {
   it("builds flow nodes with kind-based layout and trace-aware styling", () => {
-    const nodes = buildFlowNodes(graph, "api:post-tasks");
+    const nodes = buildFlowNodes(graph, "api:post-tasks", undefined, ["api:post-tasks"]);
 
     expect(nodes).toHaveLength(2);
     expect(nodes[0].position.x).toBeLessThan(nodes[1].position.x);
     expect(String(nodes[1].style?.background)).toContain("linear-gradient");
     expect(String(nodes[1].style?.boxShadow)).toContain("rgba");
+    expect(nodes[1].data.healthState).toBe("neutral");
+    expect(nodes[1].data.isActiveBatch).toBe(true);
   });
 
   it("builds flow edges from blueprint edges", () => {
-    const edges = buildFlowEdges(graph);
+    const edges = buildFlowEdges(graph, ["api:post-tasks"]);
 
     expect(edges).toHaveLength(1);
     expect(edges[0].source).toBe("ui-screen:home");
     expect(edges[0].target).toBe("api:post-tasks");
+    expect(edges[0].className).toBe("edge-flow-active");
   });
 
   it("builds a drill-down graph for a selected node", () => {
