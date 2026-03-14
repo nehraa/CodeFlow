@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { CodeEditor } from "@/components/code-editor";
 import { GraphCanvas } from "@/components/graph-canvas";
@@ -13,6 +13,7 @@ import { computeHeatmap } from "@/lib/blueprint/heatmap";
 import type { HeatmapData } from "@/lib/blueprint/heatmap";
 import { canEnterImplementationPhase, canEnterIntegrationPhase, setGraphPhase } from "@/lib/blueprint/phases";
 import { applyTraceOverlay } from "@/lib/blueprint/traces";
+import { frameIndexToPosition, positionToFrameIndex, replayAtFrame } from "@/lib/blueprint/vcr";
 import type { CycleReport } from "@/lib/blueprint/cycles";
 import type { SmellReport } from "@/lib/blueprint/smells";
 import type { GraphMetrics } from "@/lib/blueprint/metrics";
@@ -32,7 +33,8 @@ import type {
   PersistedSession,
   RiskReport,
   RunPlan,
-  RuntimeExecutionResult
+  RuntimeExecutionResult,
+  VcrRecording
 } from "@/lib/blueprint/schema";
 import { emptyContract, traceSpanSchema } from "@/lib/blueprint/schema";
 
@@ -134,6 +136,11 @@ type BranchCreateResponse = {
 
 type BranchDiffResponse = {
   diff?: BranchDiff;
+  error?: string;
+};
+
+type VcrResponse = {
+  recording?: VcrRecording;
   error?: string;
 };
 
@@ -256,6 +263,14 @@ export function BlueprintWorkbench() {
   const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
   const [branchDiff, setBranchDiff] = useState<BranchDiff | null>(null);
   const [diffTargetBranchId, setDiffTargetBranchId] = useState<string | null>(null);
+
+  // ── VCR Time-Travel Debugging ──────────────────────────────────────────
+  const [showVcrPanel, setShowVcrPanel] = useState(false);
+  const [vcrRecording, setVcrRecording] = useState<VcrRecording | null>(null);
+  const [vcrFrameIndex, setVcrFrameIndex] = useState(0);
+  const [vcrPlaying, setVcrPlaying] = useState(false);
+  const [vcrGraph, setVcrGraph] = useState<BlueprintGraph | null>(null);
+  const [vcrError, setVcrError] = useState<string | null>(null);
 
   const selectedNode = graph?.nodes.find((node) => node.id === selectedNodeId) ?? null;
   const drilldownNodeId = drilldownStack.at(-1) ?? null;
@@ -441,6 +456,48 @@ export function BlueprintWorkbench() {
     setCodeSuggestion(null);
     setSuggestionInstruction("");
   }, [activeCodeNode?.id]);
+
+  // ── VCR effects ────────────────────────────────────────────────────────
+  // Recompute the replay graph every time the frame index changes.
+  useEffect(() => {
+    if (!graph || !vcrRecording || vcrRecording.frames.length === 0) {
+      setVcrGraph(null);
+      return;
+    }
+
+    setVcrGraph(replayAtFrame(graph, vcrRecording, vcrFrameIndex));
+  }, [graph, vcrRecording, vcrFrameIndex]);
+
+  // Auto-advance the frame index while VCR is playing.
+  useEffect(() => {
+    if (!vcrPlaying || !vcrRecording || vcrRecording.frames.length === 0) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setVcrFrameIndex((prev) => {
+        const next = prev + 1;
+        if (next >= vcrRecording.frames.length) {
+          setVcrPlaying(false);
+          return prev;
+        }
+        return next;
+      });
+    }, 500);
+
+    return () => window.clearInterval(intervalId);
+  }, [vcrPlaying, vcrRecording]);
+
+  // Clear VCR state when the panel is closed.
+  useEffect(() => {
+    if (!showVcrPanel) {
+      setVcrGraph(null);
+      setVcrPlaying(false);
+      setVcrRecording(null);
+      setVcrFrameIndex(0);
+      setVcrError(null);
+    }
+  }, [showVcrPanel]);
 
   const pollObservability = useCallback(async () => {
     if (!projectName.trim() || !autoObsRef.current) {
@@ -1359,6 +1416,45 @@ export function BlueprintWorkbench() {
     );
   };
 
+  // ── VCR handler ────────────────────────────────────────────────────────
+  const handleLoadVcrRecording = async () => {
+    if (!graph) {
+      setVcrError("Build a blueprint before loading a VCR recording.");
+      return;
+    }
+
+    setBusyLabel("Loading VCR recording");
+    setVcrError(null);
+    setVcrRecording(null);
+    setVcrFrameIndex(0);
+    setVcrPlaying(false);
+
+    try {
+      const response = await fetch(
+        `/api/vcr?projectName=${encodeURIComponent(projectName.trim())}`
+      );
+      const body = (await response.json()) as VcrResponse;
+
+      if (!response.ok) {
+        throw new Error(body.error ?? "Failed to load VCR recording.");
+      }
+
+      if (body.recording) {
+        setVcrRecording(body.recording);
+        setVcrFrameIndex(0);
+        setStatusTitle("VCR recording loaded");
+        setStatusDetail(
+          `${body.recording.totalSpans} span${body.recording.totalSpans === 1 ? "" : "s"} across ${body.recording.frames.length} frame${body.recording.frames.length === 1 ? "" : "s"}. Use the scrub bar to replay.`
+        );
+        setStatusTone("success");
+      }
+    } catch (caughtError) {
+      setVcrError(caughtError instanceof Error ? caughtError.message : "Failed to load VCR recording.");
+    } finally {
+      setBusyLabel(null);
+    }
+  };
+
   const handleSolidifyGhostNode = (ghost: GhostNode) => {
     if (!graph) {
       return;
@@ -1706,6 +1802,16 @@ export function BlueprintWorkbench() {
           {graph ? (
             <button onClick={() => setShowObservabilityPanel((current) => !current)} type="button">
               {showObservabilityPanel ? "Hide heatmap" : "Heatmap"}
+            </button>
+          ) : null}
+          {graph ? (
+            <button
+              onClick={() => {
+                setShowVcrPanel((current) => !current);
+              }}
+              type="button"
+            >
+              {showVcrPanel ? "Hide VCR" : "VCR Replay"}
             </button>
           ) : null}
         </div>
@@ -2206,7 +2312,7 @@ export function BlueprintWorkbench() {
           </div>
 
           <GraphCanvas
-            graph={graph}
+            graph={vcrGraph ?? graph}
             selectedNodeId={drilldownRootNode ? selectedDetailNodeId : selectedNodeId}
             nodes={detailFlow?.nodes}
             edges={detailFlow?.edges}
@@ -2584,6 +2690,198 @@ export function BlueprintWorkbench() {
         </aside>
       ) : null}
 
+      {showVcrPanel && graph ? (
+        <aside className="floating-panel vcr-panel">
+          <div className="floating-panel-header">
+            <h2>VCR Replay</h2>
+            <button onClick={() => setShowVcrPanel(false)} type="button">
+              Close
+            </button>
+          </div>
+
+          <p className="lead">
+            Replay how data and errors propagated through the architecture graph. Load a recording from
+            your observability data, then scrub through time to investigate bugs visually.
+          </p>
+
+          <div className="callout">
+            <h3>Load recording</h3>
+            <p className="status-meta">
+              Recordings are derived from the trace spans stored in your observability snapshot.
+              Ingest spans via <code>/api/observability/ingest</code> before loading.
+            </p>
+            <button
+              disabled={isBusy}
+              onClick={() => void handleLoadVcrRecording()}
+              type="button"
+            >
+              {busyLabel === "Loading VCR recording" ? "Loading..." : "Load VCR recording"}
+            </button>
+            {vcrError ? (
+              <p className="error">{vcrError}</p>
+            ) : null}
+          </div>
+
+          {vcrRecording ? (
+            <>
+              <div className="callout">
+                <h3>Scrub bar</h3>
+                <p className="status-meta">
+                  Frame {vcrFrameIndex + 1} / {vcrRecording.frames.length}
+                  {vcrRecording.frames[vcrFrameIndex]?.timestamp
+                    ? ` · ${new Date(vcrRecording.frames[vcrFrameIndex].timestamp!).toLocaleTimeString()}`
+                    : ""}
+                </p>
+
+                <div className="vcr-scrub-row">
+                  <input
+                    aria-label="VCR scrub bar"
+                    className="vcr-scrub-bar"
+                    max={vcrRecording.frames.length - 1}
+                    min={0}
+                    onChange={(event) => {
+                      const raw = Number(event.target.value);
+                      const clamped = Math.min(
+                        vcrRecording.frames.length - 1,
+                        Math.max(0, raw)
+                      );
+                      setVcrFrameIndex(clamped);
+                    }}
+                    step={1}
+                    type="range"
+                    value={vcrFrameIndex}
+                  />
+                </div>
+
+                <div className="button-row vcr-controls">
+                  <button
+                    disabled={vcrFrameIndex === 0}
+                    onClick={() => {
+                      setVcrPlaying(false);
+                      setVcrFrameIndex(0);
+                    }}
+                    title="Jump to start"
+                    type="button"
+                  >
+                    ⏮
+                  </button>
+                  <button
+                    disabled={vcrFrameIndex === 0}
+                    onClick={() => {
+                      setVcrPlaying(false);
+                      setVcrFrameIndex((prev) => Math.max(0, prev - 1));
+                    }}
+                    title="Step back"
+                    type="button"
+                  >
+                    ◀
+                  </button>
+                  <button
+                    onClick={() => setVcrPlaying((prev) => !prev)}
+                    title={vcrPlaying ? "Pause" : "Play"}
+                    type="button"
+                  >
+                    {vcrPlaying ? "⏸" : "▶"}
+                  </button>
+                  <button
+                    disabled={vcrFrameIndex >= vcrRecording.frames.length - 1}
+                    onClick={() => {
+                      setVcrPlaying(false);
+                      setVcrFrameIndex((prev) =>
+                        Math.min(vcrRecording.frames.length - 1, prev + 1)
+                      );
+                    }}
+                    title="Step forward"
+                    type="button"
+                  >
+                    ▶|
+                  </button>
+                  <button
+                    disabled={vcrFrameIndex >= vcrRecording.frames.length - 1}
+                    onClick={() => {
+                      setVcrPlaying(false);
+                      setVcrFrameIndex(vcrRecording.frames.length - 1);
+                    }}
+                    title="Jump to end"
+                    type="button"
+                  >
+                    ⏭
+                  </button>
+                </div>
+              </div>
+
+              {vcrRecording.frames[vcrFrameIndex] ? (
+                <div className="callout">
+                  <h3>Current frame</h3>
+                  <p>
+                    <strong>Span:</strong> {vcrRecording.frames[vcrFrameIndex].label}
+                  </p>
+                  {vcrRecording.frames[vcrFrameIndex].nodeName ? (
+                    <p>
+                      <strong>Node:</strong> {vcrRecording.frames[vcrFrameIndex].nodeName}
+                    </p>
+                  ) : null}
+                  <p>
+                    <strong>Status:</strong>{" "}
+                    <span className={`vcr-status vcr-status-${vcrRecording.frames[vcrFrameIndex].status}`}>
+                      {vcrRecording.frames[vcrFrameIndex].status.toUpperCase()}
+                    </span>
+                  </p>
+                  <p>
+                    <strong>Duration:</strong> {vcrRecording.frames[vcrFrameIndex].durationMs}ms
+                  </p>
+                </div>
+              ) : null}
+
+              <div className="callout">
+                <h3>Node states at this frame</h3>
+                <table className="vcr-state-table">
+                  <thead>
+                    <tr>
+                      <th>Node</th>
+                      <th>Status</th>
+                      <th>Calls</th>
+                      <th>Errors</th>
+                      <th>Total ms</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {graph.nodes
+                      .map((node) => ({
+                        node,
+                        state: vcrRecording.frames[vcrFrameIndex]?.nodeStates[node.id]
+                      }))
+                      .filter(({ state }) => state && state.count > 0)
+                      .sort((a, b) => (b.state?.count ?? 0) - (a.state?.count ?? 0))
+                      .map(({ node, state }) => (
+                        <tr
+                          key={node.id}
+                          className={`vcr-row vcr-row-${state?.status ?? "idle"}`}
+                        >
+                          <td title={node.id}>{node.name}</td>
+                          <td>
+                            <span className={`vcr-status vcr-status-${state?.status ?? "idle"}`}>
+                              {(state?.status ?? "idle").toUpperCase()}
+                            </span>
+                          </td>
+                          <td>{state?.count ?? 0}</td>
+                          <td>{state?.errors ?? 0}</td>
+                          <td>{state?.totalDurationMs ?? 0}</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+                {graph.nodes.every(
+                  (node) => !(vcrRecording.frames[vcrFrameIndex]?.nodeStates[node.id]?.count)
+                ) ? (
+                  <p className="status-meta">No nodes active yet at this frame.</p>
+                ) : null}
+              </div>
+            </>
+          ) : null}
+        </aside>
+      ) : null}
+
       {showInspector && (selectedNode || (drilldownRootNode && selectedDetailItem)) ? (
         <aside className="floating-panel inspector-panel">
           <div className="floating-panel-header">
@@ -2592,35 +2890,38 @@ export function BlueprintWorkbench() {
               Close
             </button>
           </div>
+
           {session ? (
             <div className="callout">
-            <p>Session: {session.sessionId}</p>
-            <p>Updated: {session.updatedAt}</p>
-            <p>Approvals: {session.approvalIds.length}</p>
+              <p>Session: {session.sessionId}</p>
+              <p>Updated: {session.updatedAt}</p>
+              <p>Approvals: {session.approvalIds.length}</p>
             </div>
           ) : null}
 
           {runPlan ? (
             <div className="callout">
-            <h3>Execution plan</h3>
-            {runPlan.warnings.length ? runPlan.warnings.map((warning) => <p key={warning}>{warning}</p>) : null}
-            {runPlan.tasks.slice(0, 8).map((task) => (
-              <p key={task.id}>
-                Batch {task.batchIndex + 1}: {task.title}
-              </p>
-            ))}
+              <h3>Execution plan</h3>
+              {runPlan.warnings.length
+                ? runPlan.warnings.map((warning) => <p key={warning}>{warning}</p>)
+                : null}
+              {runPlan.tasks.slice(0, 8).map((task) => (
+                <p key={task.id}>
+                  Batch {task.batchIndex + 1}: {task.title}
+                </p>
+              ))}
             </div>
           ) : null}
 
           {executionResult ? (
             <div className="callout">
-            <h3>Execution output</h3>
-            <p>Status: {executionResult.success ? "success" : "failure"}</p>
-            <p>Exit code: {executionResult.exitCode ?? "N/A"}</p>
-            <p>Duration: {executionResult.durationMs}ms</p>
-            {executionResult.executedPath ? <p>{executionResult.executedPath}</p> : null}
-            {executionResult.stdout ? <pre>{executionResult.stdout}</pre> : null}
-            {executionResult.stderr ? <pre>{executionResult.stderr}</pre> : null}
+              <h3>Execution output</h3>
+              <p>Status: {executionResult.success ? "success" : "failure"}</p>
+              <p>Exit code: {executionResult.exitCode ?? "N/A"}</p>
+              <p>Duration: {executionResult.durationMs}ms</p>
+              {executionResult.executedPath ? <p>{executionResult.executedPath}</p> : null}
+              {executionResult.stdout ? <pre>{executionResult.stdout}</pre> : null}
+              {executionResult.stderr ? <pre>{executionResult.stderr}</pre> : null}
             </div>
           ) : null}
 
