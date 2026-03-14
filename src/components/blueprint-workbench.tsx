@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { CodeEditor } from "@/components/code-editor";
 import { GraphCanvas } from "@/components/graph-canvas";
@@ -271,8 +271,6 @@ export function BlueprintWorkbench() {
   const [vcrPlaying, setVcrPlaying] = useState(false);
   const [vcrGraph, setVcrGraph] = useState<BlueprintGraph | null>(null);
   const [vcrError, setVcrError] = useState<string | null>(null);
-  const vcrPlayingRef = useRef(vcrPlaying);
-  vcrPlayingRef.current = vcrPlaying;
 
   const selectedNode = graph?.nodes.find((node) => node.id === selectedNodeId) ?? null;
   const drilldownNodeId = drilldownStack.at(-1) ?? null;
