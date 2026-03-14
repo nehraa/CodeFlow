@@ -7,6 +7,7 @@ import type {
   BlueprintGraph,
   ExecutionReport,
   ExportResult,
+  GraphBranch,
   ObservabilitySnapshot,
   PersistedSession,
   RiskReport,
@@ -36,6 +37,12 @@ const checkpointPath = (checkpointId: string): string =>
 
 const observabilityPath = (projectName: string): string =>
   path.join(getStoreRoot(), "observability", `${slugify(projectName)}.json`);
+
+const branchDirForProject = (projectName: string): string =>
+  path.join(getStoreRoot(), "branches", slugify(projectName));
+
+const branchPath = (projectName: string, branchId: string): string =>
+  path.join(branchDirForProject(projectName), `${branchId}.json`);
 
 const ensureDir = async (dirPath: string): Promise<void> => {
   await fs.mkdir(dirPath, { recursive: true });
@@ -214,4 +221,45 @@ export const mergeObservabilitySnapshot = async ({
 
   await writeJson(observabilityPath(projectName), snapshot);
   return snapshot;
+};
+
+// ── Branch persistence ───────────────────────────────────────────────────────
+
+export const saveBranch = async (branch: GraphBranch): Promise<void> => {
+  await ensureDir(branchDirForProject(branch.projectName));
+  await writeJson(branchPath(branch.projectName, branch.id), branch);
+};
+
+export const loadBranch = async (
+  projectName: string,
+  branchId: string
+): Promise<GraphBranch | null> =>
+  readJson<GraphBranch>(branchPath(projectName, branchId));
+
+export const loadBranches = async (projectName: string): Promise<GraphBranch[]> => {
+  const dir = branchDirForProject(projectName);
+  try {
+    const entries = await fs.readdir(dir);
+    const branches = await Promise.all(
+      entries
+        .filter((entry) => entry.endsWith(".json"))
+        .map((entry) => readJson<GraphBranch>(path.join(dir, entry)))
+    );
+    return branches
+      .filter((b): b is GraphBranch => b !== null)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  } catch {
+    return [];
+  }
+};
+
+export const deleteBranch = async (
+  projectName: string,
+  branchId: string
+): Promise<void> => {
+  try {
+    await fs.unlink(branchPath(projectName, branchId));
+  } catch {
+    // ignore if already gone
+  }
 };

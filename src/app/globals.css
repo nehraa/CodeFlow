@@ -532,6 +532,103 @@ fieldset {
   overflow: auto;
 }
 
+/* ── Time-Travel Branches ── */
+
+.branch-panel {
+  right: 1.5rem;
+  width: 26rem;
+  max-height: calc(100vh - 7rem);
+  overflow-y: auto;
+}
+
+.branch-item {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.branch-item:last-child {
+  border-bottom: none;
+}
+
+.branch-item-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.branch-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.branch-meta {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.branch-description {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0.25rem 0 0.5rem;
+}
+
+.branch-diff-list {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.diff-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  background: rgba(15, 23, 42, 0.03);
+  border: 1px solid var(--line);
+}
+
+.diff-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+.diff-added .diff-badge {
+  background: rgba(16, 185, 129, 0.18);
+  color: #065f46;
+}
+
+.diff-removed .diff-badge {
+  background: rgba(185, 28, 28, 0.12);
+  color: #991b1b;
+}
+
+.diff-modified .diff-badge {
+  background: rgba(245, 158, 11, 0.18);
+  color: #92400e;
+}
+
+.diff-node-name {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diff-impact {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 0.75rem;
+  flex-shrink: 0;
+}
+
 @media (max-width: 1200px) {
   .workbench {
     grid-template-columns: 1fr;
