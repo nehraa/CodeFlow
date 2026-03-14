@@ -75,4 +75,29 @@ describe("computeGraphMetrics", () => {
     expect(metrics.isolatedNodes).toBe(1);
     expect(metrics.leafNodes).toBe(2);
   });
+
+  it("density stays <= 1 when parallel edges exist between the same node pair", () => {
+    const graph: BlueprintGraph = {
+      projectName: "ParallelEdges",
+      mode: "essential",
+      generatedAt: "2026-03-14T00:00:00.000Z",
+      warnings: [],
+      workflows: [],
+      nodes: [
+        { id: "A", kind: "module", name: "A", summary: "A", contract: emptyContract(), sourceRefs: [], generatedRefs: [], traceRefs: [] },
+        { id: "B", kind: "module", name: "B", summary: "B", contract: emptyContract(), sourceRefs: [], generatedRefs: [], traceRefs: [] }
+      ],
+      // Two parallel edges A→B (max unique pairs = 2 for 2 nodes, density max = 1)
+      edges: [
+        { from: "A", to: "B", kind: "calls", required: true, confidence: 1 },
+        { from: "A", to: "B", kind: "imports", required: false, confidence: 0.9 }
+      ]
+    };
+
+    const metrics = computeGraphMetrics(graph);
+
+    expect(metrics.density).toBeLessThanOrEqual(1);
+    // One unique (A,B) pair out of 2 possible directed pairs → 0.5
+    expect(metrics.density).toBeCloseTo(0.5);
+  });
 });

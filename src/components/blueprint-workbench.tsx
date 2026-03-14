@@ -938,7 +938,22 @@ export function BlueprintWorkbench() {
 
     setBusyLabel("Analyzing architecture");
     setError(null);
+    // Clear stale results from any prior run so the panel always reflects the
+    // current analysis and not leftover data from a failed/partial run.
+    setCycleReport(null);
+    setSmellReport(null);
+    setGraphMetrics(null);
+    setMermaidDiagram(null);
     setShowAnalysisPanel(true);
+
+    const guardedJson = async <T,>(r: Response): Promise<T> => {
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}));
+        const apiError = (body as { error?: string }).error;
+        throw new Error(apiError ?? `${r.status} ${r.statusText}`.trim());
+      }
+      return r.json() as Promise<T>;
+    };
 
     try {
       const [cyclesResult, smellsResult, metricsResult, mermaidResult] = await Promise.allSettled([
@@ -946,22 +961,22 @@ export function BlueprintWorkbench() {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify(graph)
-        }).then((r) => r.json() as Promise<CyclesResponse>),
+        }).then((r) => guardedJson<CyclesResponse>(r)),
         fetch("/api/analysis/smells", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify(graph)
-        }).then((r) => r.json() as Promise<SmellsResponse>),
+        }).then((r) => guardedJson<SmellsResponse>(r)),
         fetch("/api/analysis/metrics", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify(graph)
-        }).then((r) => r.json() as Promise<MetricsResponse>),
+        }).then((r) => guardedJson<MetricsResponse>(r)),
         fetch("/api/export/mermaid", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ graph, format: "flowchart" })
-        }).then((r) => r.json() as Promise<MermaidResponse>)
+        }).then((r) => guardedJson<MermaidResponse>(r))
       ]);
 
       if (cyclesResult.status === "fulfilled" && cyclesResult.value.report) setCycleReport(cyclesResult.value.report);
@@ -1591,8 +1606,8 @@ export function BlueprintWorkbench() {
             <div className="callout">
               <h3>Architecture Health: {smellReport.healthScore}/100</h3>
               <p>{smellReport.totalSmells} smell{smellReport.totalSmells === 1 ? "" : "s"} detected</p>
-              {smellReport.smells.map((smell) => (
-                <div key={`${smell.code}:${smell.nodeId ?? "global"}`} className="smell-item">
+              {smellReport.smells.map((smell, index) => (
+                <div key={`${smell.code}:${smell.nodeId ?? "global"}:${index}`} className="smell-item">
                   <p>
                     <strong>{smell.severity.toUpperCase()}</strong> [{smell.code}]{smell.nodeId ? ` — ${smell.nodeId}` : ""}
                   </p>
@@ -1615,8 +1630,8 @@ export function BlueprintWorkbench() {
                   {cycleReport.cycles.map((cycle, index) => (
                     <div key={cycle.nodeIds.join(",")} className="cycle-item">
                       <p><strong>Cycle {index + 1}</strong>: {cycle.nodeIds.join(" → ")}</p>
-                      {cycle.edges.map((edge) => (
-                        <p key={`${edge.from}→${edge.to}`}>  {edge.from} —[{edge.kind}]→ {edge.to}</p>
+                      {cycle.edges.map((edge, edgeIndex) => (
+                        <p key={`${edge.from}→${edge.to}:${edge.kind}:${edgeIndex}`}>  {edge.from} —[{edge.kind}]→ {edge.to}</p>
                       ))}
                     </div>
                   ))}
@@ -1635,7 +1650,7 @@ export function BlueprintWorkbench() {
             </div>
           ) : null}
 
-          {!graphMetrics && !smellReport && !cycleReport ? (
+          {!graphMetrics && !smellReport && !cycleReport && !mermaidDiagram ? (
             <div className="callout">
               <p>Click &quot;Analyze&quot; in the toolbar to run architecture analysis.</p>
             </div>

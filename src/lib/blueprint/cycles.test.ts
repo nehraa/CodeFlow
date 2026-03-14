@@ -136,3 +136,27 @@ describe("hasCycles", () => {
     expect(hasCycles(graph)).toBe(true);
   });
 });
+
+describe("self-loop handling", () => {
+  it("detects a self-loop edge as a cycle", () => {
+    const graph: BlueprintGraph = {
+      projectName: "SelfLoop",
+      mode: "essential",
+      generatedAt: "2026-03-14T00:00:00.000Z",
+      warnings: [],
+      workflows: [],
+      nodes: [
+        { id: "A", kind: "module", name: "A", summary: "A", contract: emptyContract(), sourceRefs: [], generatedRefs: [], traceRefs: [] }
+      ],
+      edges: [
+        { from: "A", to: "A", kind: "calls", required: true, confidence: 1 }
+      ]
+    };
+
+    const report = detectCycles(graph);
+
+    expect(report.totalCycles).toBe(1);
+    expect(report.affectedNodeIds).toContain("A");
+    expect(hasCycles(graph)).toBe(true);
+  });
+});

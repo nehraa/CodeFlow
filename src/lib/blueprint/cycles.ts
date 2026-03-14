@@ -100,7 +100,18 @@ export const detectCycles = (graph: BlueprintGraph): CycleReport => {
   }
 
   const sccs = tarjanIterative(nodeIds, adjacency);
-  const sccSet = sccs.filter((scc) => scc.length >= 2);
+
+  // A self-loop (from === to) is a genuine cycle but Tarjan's SCC returns it as
+  // a size-1 SCC.  Detect them separately and treat them as single-node cycles.
+  const selfLoopNodeIds = new Set(
+    graph.edges.filter((e) => e.from === e.to).map((e) => e.from)
+  );
+  const selfLoopSccs: string[][] = [...selfLoopNodeIds].map((id) => [id]);
+
+  const sccSet = [
+    ...sccs.filter((scc) => scc.length >= 2),
+    ...selfLoopSccs
+  ];
 
   const cycles: Cycle[] = sccSet.map((scc) => {
     const memberSet = new Set(scc);
@@ -123,6 +134,8 @@ export const detectCycles = (graph: BlueprintGraph): CycleReport => {
 };
 
 export const hasCycles = (graph: BlueprintGraph): boolean => {
+  if (graph.edges.some((e) => e.from === e.to)) return true;
+
   const nodeIds = graph.nodes.map((n) => n.id);
   const adjacency = new Map<string, string[]>();
 

@@ -10,24 +10,68 @@ const sanitizeId = (id: string): string => {
   return /^[a-zA-Z]/.test(cleaned) ? cleaned : `n_${cleaned}`;
 };
 
+/**
+ * Escape characters that are meaningful in Mermaid flowchart syntax so they
+ * cannot break out of a node label or inject unexpected directives.
+ * Covers shape delimiters, edge-label pipe, angle brackets, backticks,
+ * semicolons (Mermaid directive syntax), and control characters.
+ *
+ * Semicolons are escaped first so that the entity references added by the
+ * subsequent replacements are not themselves re-escaped.
+ */
+const sanitizeFlowchartLabel = (label: string): string =>
+  label
+    .replace(/[\r\n]/g, " ")
+    .replace(/;/g, "#59;")
+    .replace(/`/g, "#96;")
+    .replace(/</g, "#lt;")
+    .replace(/>/g, "#gt;")
+    .replace(/\|/g, "#124;")
+    .replace(/\[/g, "#91;")
+    .replace(/\]/g, "#93;")
+    .replace(/\{/g, "#123;")
+    .replace(/\}/g, "#125;")
+    .replace(/\(/g, "#40;")
+    .replace(/\)/g, "#41;");
+
+/**
+ * Escape characters that are meaningful inside a Mermaid quoted string
+ * (`class id["..."]`).  Also covers angle brackets, backticks, and
+ * semicolons to prevent injection via HTML-like tags or directives.
+ *
+ * Semicolons are escaped first so that subsequent entity references are
+ * not themselves re-escaped.
+ */
+const sanitizeClassLabel = (label: string): string =>
+  label
+    .replace(/[\r\n]/g, " ")
+    .replace(/;/g, "#59;")
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, "#quot;")
+    .replace(/`/g, "#96;")
+    .replace(/</g, "#lt;")
+    .replace(/>/g, "#gt;");
+
 const nodeShape = (kind: BlueprintNodeKind, label: string): string => {
+  const l = sanitizeFlowchartLabel(label);
   switch (kind) {
     case "module":
-      return `[${label}]`;
+      return `[${l}]`;
     case "api":
-      return `{{${label}}}`;
+      return `{{${l}}}`;
     case "class":
-      return `[/${label}/]`;
+      return `[/${l}/]`;
     case "function":
-      return `([${label}])`;
+      return `([${l}])`;
     case "ui-screen":
-      return `>${label}]`;
+      return `>${l}]`;
   }
 };
 
 const edgeArrow = (edge: BlueprintEdge): string => {
   const arrow = edge.required ? "-->" : "-.->";
-  const label = edge.label ?? edge.kind;
+  const rawLabel = edge.label ?? edge.kind;
+  const label = sanitizeFlowchartLabel(rawLabel);
   return `${sanitizeId(edge.from)} ${arrow}|${label}| ${sanitizeId(edge.to)}`;
 };
 
@@ -80,7 +124,7 @@ export const toMermaidClassDiagram = (graph: BlueprintGraph): string => {
 
   for (const node of nodeMap.values()) {
     const id = sanitizeId(node.id);
-    lines.push(`  class ${id}["${node.name}"]`);
+    lines.push(`  class ${id}["${sanitizeClassLabel(node.name)}"]`);
 
     const methods = node.contract.methods;
     for (const method of methods) {
@@ -94,8 +138,16 @@ export const toMermaidClassDiagram = (graph: BlueprintGraph): string => {
     const arrow = classRelArrow(edge.kind);
     if (arrow === null) continue;
 
-    const label = edge.label ?? edge.kind;
-    lines.push(`  ${sanitizeId(edge.from)} ${arrow} ${sanitizeId(edge.to)} : ${label}`);
+    const rawLabel = edge.label ?? edge.kind;
+    const label = sanitizeClassLabel(rawLabel);
+
+    // For `inherits` edges the graph stores from=child, to=parent.
+    // Mermaid class diagrams expect the direction: Parent <|-- Child.
+    if (edge.kind === "inherits") {
+      lines.push(`  ${sanitizeId(edge.to)} ${arrow} ${sanitizeId(edge.from)} : ${label}`);
+    } else {
+      lines.push(`  ${sanitizeId(edge.from)} ${arrow} ${sanitizeId(edge.to)} : ${label}`);
+    }
   }
 
   return lines.join("\n") + "\n";

@@ -92,7 +92,9 @@ export const computeGraphMetrics = (graph: BlueprintGraph): GraphMetrics => {
   const edgesByKind = countBy(edges, (e) => e.kind);
   const nodesByStatus = countBy(nodes, (n) => n.status ?? "spec_only");
 
-  const density = nodeCount < 2 ? 0 : edgeCount / (nodeCount * (nodeCount - 1));
+  // Use unique (from,to) pairs for density to avoid values >1 with parallel edges.
+  const uniquePairCount = new Set(edges.map((e) => `${e.from}::__::${e.to}`)).size;
+  const density = nodeCount < 2 ? 0 : uniquePairCount / (nodeCount * (nodeCount - 1));
 
   const inDegree = new Map<string, number>();
   const outDegree = new Map<string, number>();
