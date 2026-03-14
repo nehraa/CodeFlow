@@ -621,3 +621,80 @@ export const simulateActionRequestSchema = z.object({
   runtime: z.string().optional()
 });
 export type SimulateActionRequest = z.infer<typeof simulateActionRequestSchema>;
+
+// ── Architectural Genetic Algorithms ─────────────────────────────────────────
+
+/** The architectural style applied to a generated variant. */
+export const architectureStyleSchema = z.enum(["monolith", "microservices", "serverless"]);
+export type ArchitectureStyle = z.infer<typeof architectureStyleSchema>;
+
+/** Benchmark scores (0–100, higher is better) for a single architecture variant. */
+export const variantBenchmarkSchema = z.object({
+  /** How well the architecture scales under increasing load. */
+  scalability: z.number().min(0).max(100),
+  /**
+   * Cost-efficiency score: 100 = lowest infrastructure cost,
+   * 0 = highest infrastructure cost.
+   */
+  estimatedCostScore: z.number().min(0).max(100),
+  /** Predicted runtime performance (latency, throughput). */
+  performance: z.number().min(0).max(100),
+  /** How easy the codebase is to maintain and extend. */
+  maintainability: z.number().min(0).max(100),
+  /** Weighted aggregate fitness used for tournament ranking. */
+  fitness: z.number().min(0).max(100)
+});
+export type VariantBenchmark = z.infer<typeof variantBenchmarkSchema>;
+
+/** A single architecture variant produced during the evolutionary tournament. */
+export const architectureVariantSchema = z.object({
+  /** Unique identifier for this variant. */
+  id: z.string(),
+  /** The architectural style this variant represents. */
+  style: architectureStyleSchema,
+  /** Zero-based generation index in which this variant was created. */
+  generation: z.number().int().nonnegative(),
+  /**
+   * The blueprint graph for this variant.
+   * Stored as a passthrough so that graphs constructed in code (which use the
+   * `z.input` type with optional `phase`) are accepted without re-validation.
+   */
+  graph: z.custom<BlueprintGraph>(),
+  /** Computed benchmark scores. */
+  benchmark: variantBenchmarkSchema,
+  /** 1-based rank among all final variants (1 = best). */
+  rank: z.number().int().positive()
+});
+export type ArchitectureVariant = z.infer<typeof architectureVariantSchema>;
+
+/** Complete result of a genetic architecture tournament. */
+export const tournamentResultSchema = z.object({
+  projectName: z.string(),
+  /** ISO-8601 timestamp when the tournament completed. */
+  evolvedAt: z.string(),
+  /** Total number of generations that were run. */
+  generationCount: z.number().int().positive(),
+  /** Number of variants that competed in the tournament. */
+  populationSize: z.number().int().positive(),
+  /** All final-generation variants, sorted by rank (best first). */
+  variants: z.array(architectureVariantSchema),
+  /** ID of the winning variant. */
+  winnerId: z.string(),
+  /** Human-readable summary describing the winning architecture. */
+  summary: z.string()
+});
+export type TournamentResult = z.infer<typeof tournamentResultSchema>;
+
+/** Request body for POST /api/genetic/evolve. */
+export const evolveArchitectureRequestSchema = z.object({
+  /** The source blueprint graph to evolve from. */
+  graph: blueprintGraphSchema,
+  /** Number of evolutionary generations to simulate (default 3, max 10). */
+  generations: z.number().int().min(1).max(10).default(3),
+  /**
+   * Number of variants in the population.
+   * Must be at least 3 (one per architectural style) and at most 12.
+   */
+  populationSize: z.number().int().min(3).max(12).default(6)
+});
+export type EvolveArchitectureRequest = z.infer<typeof evolveArchitectureRequestSchema>;
