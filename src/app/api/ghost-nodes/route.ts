@@ -204,16 +204,33 @@ Based on common architectural patterns, suggest 2-4 ghost nodes (probable next c
 
     // Ensure all ghost IDs are prefixed and validate suggested edge node IDs
     const existingIds = new Set(body.graph.nodes.map((n) => n.id));
-    const suggestions: GhostNode[] = aiResponse.suggestions
-      .map((s) => ({
+    const seenIds = new Set<string>();
+    const suggestions: GhostNode[] = [];
+
+    for (const s of aiResponse.suggestions) {
+      const prefixedId = s.id.startsWith("ghost:") ? s.id : `ghost:${s.id}`;
+
+      // De-duplicate by final ghost node ID, keeping the first occurrence
+      if (seenIds.has(prefixedId)) {
+        continue;
+      }
+      seenIds.add(prefixedId);
+
+      const suggestion: GhostNode = {
         ...s,
-        id: s.id.startsWith("ghost:") ? s.id : `ghost:${s.id}`,
+        id: prefixedId,
         suggestedEdge:
           s.suggestedEdge && existingIds.has(s.suggestedEdge.from)
-            ? { ...s.suggestedEdge, to: s.id.startsWith("ghost:") ? s.id : `ghost:${s.id}` }
+            ? { ...s.suggestedEdge, to: prefixedId }
             : undefined
-      }))
-      .slice(0, 4);
+      };
+
+      suggestions.push(suggestion);
+
+      if (suggestions.length >= 4) {
+        break;
+      }
+    }
 
     console.info("[CodeFlow] Ghost node suggestions generated", {
       projectName: body.graph.projectName,
