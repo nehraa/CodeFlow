@@ -2788,7 +2788,7 @@ export function BlueprintWorkbench() {
                     title="Step forward"
                     type="button"
                   >
-                    ▶▶
+                    ▶|
                   </button>
                   <button
                     disabled={vcrFrameIndex >= vcrRecording.frames.length - 1}
