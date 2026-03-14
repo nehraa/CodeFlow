@@ -1150,7 +1150,8 @@ export function BlueprintWorkbench() {
     );
   };
 
-  const renderSection = (title: string, items: string[]) => (    <div className="callout" key={title}>
+  const renderSection = (title: string, items: string[]) => (
+    <div className="callout" key={title}>
       <h3>{title}</h3>
       {items.length ? items.map((item) => <p key={`${title}:${item}`}>{item}</p>) : <p>None.</p>}
     </div>
