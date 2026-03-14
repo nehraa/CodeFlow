@@ -15,10 +15,15 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const projectName = searchParams.get("projectName");
-    const activeWindowSecs = Math.max(
-      1,
-      Number(searchParams.get("activeWindowSecs") ?? "60")
-    );
+    const activeWindowParam = searchParams.get("activeWindowSecs");
+
+    let activeWindowSecs = 60;
+    if (activeWindowParam !== null) {
+      const parsed = Number(activeWindowParam);
+      if (Number.isFinite(parsed)) {
+        activeWindowSecs = parsed >= 1 ? Math.floor(parsed) : 1;
+      }
+    }
 
     if (!projectName) {
       throw new Error("projectName is required.");
