@@ -171,12 +171,17 @@ export const buildFlowNodes = (
       baseBoxShadow && baseBoxShadow !== "none"
         ? `${heatGlow(intensity)}, ${String(baseBoxShadow)}`
         : heatGlow(intensity);
+    const baseBackground = baseStyle?.background;
+    const heatBackground = `linear-gradient(180deg, ${heatColor(intensity)} 0%, transparent 100%)`;
 
     const heatStyle: Node<FlowNodeData>["style"] =
       intensity > 0
         ? {
             ...baseStyle,
-            background: `linear-gradient(180deg, ${heatColor(intensity)} 0%, ${String(baseStyle?.background ?? "transparent")} 100%)`,
+            // Layer the heat gradient over the existing background to avoid nested gradients.
+            background: baseBackground
+              ? `${heatBackground}, ${String(baseBackground)}`
+              : heatBackground,
             boxShadow: combinedBoxShadow,
             outline:
               intensity > 0.66
