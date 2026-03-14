@@ -24,6 +24,8 @@ import type {
   ExecutionMode,
   ExportResult,
   GhostNode,
+  McpServerConfig,
+  McpTool,
   ObservabilityLog,
   PersistedSession,
   RiskReport,
@@ -118,6 +120,19 @@ type CodeSuggestionResponse = {
   notes: string[];
 };
 
+type McpToolsResponse = {
+  tools?: McpTool[];
+  error?: string;
+};
+
+type McpInvokeResponse = {
+  result?: {
+    content: Array<{ type: string; text?: string }>;
+    isError?: boolean;
+  };
+  error?: string;
+};
+
 type StatusTone = "info" | "success" | "danger";
 
 const tracesSchema = z.array(traceSpanSchema);
@@ -207,6 +222,14 @@ export function BlueprintWorkbench() {
   const [graphMetrics, setGraphMetrics] = useState<GraphMetrics | null>(null);
   const [mermaidDiagram, setMermaidDiagram] = useState<string | null>(null);
   const [ghostSuggestions, setGhostSuggestions] = useState<GhostNode[]>([]);
+  const [showMcpPanel, setShowMcpPanel] = useState(false);
+  const [mcpServerUrl, setMcpServerUrl] = useState("");
+  const [mcpHeadersJson, setMcpHeadersJson] = useState("{}");
+  const [mcpToolName, setMcpToolName] = useState("");
+  const [mcpToolArgsJson, setMcpToolArgsJson] = useState("{}");
+  const [availableMcpTools, setAvailableMcpTools] = useState<McpTool[]>([]);
+  const [mcpInvokeResult, setMcpInvokeResult] = useState<string | null>(null);
+  const [mcpError, setMcpError] = useState<string | null>(null);
 
   const selectedNode = graph?.nodes.find((node) => node.id === selectedNodeId) ?? null;
   const drilldownNodeId = drilldownStack.at(-1) ?? null;
@@ -1094,6 +1117,162 @@ export function BlueprintWorkbench() {
     }
   };
 
+  const parseMcpHeaders = (): Record<string, string> | undefined => {
+    const raw = mcpHeadersJson.trim();
+
+    if (!raw) {
+      return undefined;
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      throw new Error("MCP headers must be valid JSON.");
+    }
+
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error("MCP headers must be a JSON object whose values are strings.");
+    }
+
+    const result: Record<string, string> = {};
+    for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof value !== "string") {
+        throw new Error(`MCP header "${key}" must have a string value.`);
+      }
+      result[key] = value;
+    }
+
+    return Object.keys(result).length ? result : undefined;
+  };
+
+  const parseMcpArgs = (): Record<string, unknown> => {
+    try {
+      return JSON.parse(mcpToolArgsJson.trim() || "{}") as Record<string, unknown>;
+    } catch {
+      return {};
+    }
+  };
+
+  const handleListMcpTools = async () => {
+    if (!mcpServerUrl.trim()) {
+      setMcpError("Enter an MCP server URL first.");
+      return;
+    }
+
+    let headersConfig: Record<string, string> | undefined;
+    try {
+      headersConfig = parseMcpHeaders();
+    } catch (parseError) {
+      setMcpError(parseError instanceof Error ? parseError.message : "Invalid MCP headers.");
+      return;
+    }
+
+    setBusyLabel("Listing MCP tools");
+    setMcpError(null);
+    setAvailableMcpTools([]);
+    setMcpInvokeResult(null);
+
+    try {
+      const response = await fetch("/api/mcp/tools", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ serverUrl: mcpServerUrl.trim(), headers: headersConfig })
+      });
+      const body = (await response.json()) as McpToolsResponse;
+
+      if (!response.ok) {
+        throw new Error(body.error ?? "Failed to list MCP tools.");
+      }
+
+      setAvailableMcpTools(body.tools ?? []);
+      if (body.tools?.length) {
+        setMcpToolName(body.tools[0]?.name ?? "");
+      }
+    } catch (caughtError) {
+      setMcpError(caughtError instanceof Error ? caughtError.message : "Failed to list MCP tools.");
+    } finally {
+      setBusyLabel(null);
+    }
+  };
+
+  const handleInvokeMcpTool = async () => {
+    if (!mcpServerUrl.trim() || !mcpToolName.trim()) {
+      setMcpError("Enter a server URL and tool name.");
+      return;
+    }
+
+    setBusyLabel("Invoking MCP tool");
+    setMcpError(null);
+    setMcpInvokeResult(null);
+
+    try {
+      const response = await fetch("/api/mcp/invoke", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          serverUrl: mcpServerUrl.trim(),
+          toolName: mcpToolName.trim(),
+          args: parseMcpArgs(),
+          headers: parseMcpHeaders()
+        })
+      });
+      const body = (await response.json()) as McpInvokeResponse;
+
+      if (!response.ok) {
+        throw new Error(body.error ?? "Failed to invoke MCP tool.");
+      }
+
+      const content = body.result?.content ?? [];
+      const textItems = content
+        .filter((item) => item.type === "text" && item.text)
+        .map((item) => item.text as string);
+      const text = textItems.length > 0 ? textItems.join("\n") : "(empty result)";
+
+      setMcpInvokeResult(body.result?.isError ? `Error: ${text}` : text);
+    } catch (caughtError) {
+      setMcpError(caughtError instanceof Error ? caughtError.message : "Failed to invoke MCP tool.");
+    } finally {
+      setBusyLabel(null);
+    }
+  };
+
+  const handleSaveMcpServerToNode = () => {
+    if (!graph || !selectedNodeId || !mcpServerUrl.trim()) {
+      return;
+    }
+
+    const headers = parseMcpHeaders();
+    const newServer: McpServerConfig = {
+      serverUrl: mcpServerUrl.trim(),
+      label: mcpServerUrl.trim(),
+      ...(headers ? { headers } : {})
+    };
+
+    setGraph(
+      updateNode(graph, selectedNodeId, (node) => ({
+        ...node,
+        mcpServers: [
+          ...(node.mcpServers ?? []).filter((s) => s.serverUrl !== newServer.serverUrl),
+          newServer
+        ]
+      }))
+    );
+  };
+
+  const handleRemoveMcpServerFromNode = (serverUrl: string) => {
+    if (!graph || !selectedNodeId) {
+      return;
+    }
+
+    setGraph(
+      updateNode(graph, selectedNodeId, (node) => ({
+        ...node,
+        mcpServers: (node.mcpServers ?? []).filter((s) => s.serverUrl !== serverUrl)
+      }))
+    );
+  };
+
   const handleSolidifyGhostNode = (ghost: GhostNode) => {
     if (!graph) {
       return;
@@ -1102,7 +1281,6 @@ export function BlueprintWorkbench() {
     let nextGraph = graph;
     let targetNodeId: string | null = null;
 
-    // If a node with the same identity already exists, reuse it instead of overwriting.
     const existingNode = graph.nodes.find(
       (n) => n.kind === ghost.kind && n.name === ghost.name
     );
@@ -1110,7 +1288,6 @@ export function BlueprintWorkbench() {
     if (existingNode) {
       targetNodeId = existingNode.id;
     } else {
-      // Add the ghost node as a new real node
       nextGraph = addNodeToGraph(graph, {
         kind: ghost.kind,
         name: ghost.name,
@@ -1123,9 +1300,8 @@ export function BlueprintWorkbench() {
       targetNodeId = createdNode ? createdNode.id : null;
     }
 
-    // Add the suggested edge if both endpoints exist in the new graph
     if (ghost.suggestedEdge) {
-      const fromExists = nextGraph.nodes.some((n) => n.id === ghost.suggestedEdge!.from);
+      const fromExists = nextGraph.nodes.some((n) => n.id === ghost.suggestedEdge.from);
       if (fromExists && targetNodeId) {
         nextGraph = addEdgeToGraph(nextGraph, {
           from: ghost.suggestedEdge.from,
@@ -1136,7 +1312,6 @@ export function BlueprintWorkbench() {
     }
 
     setGraph(nextGraph);
-    // Remove the solidified ghost from suggestions
     setGhostSuggestions((current) => current.filter((g) => g.id !== ghost.id));
     setSelectedNodeId(targetNodeId);
   };
@@ -1355,6 +1530,9 @@ export function BlueprintWorkbench() {
               Clear ghosts ({ghostSuggestions.length})
             </button>
           ) : null}
+          <button disabled={!graph} onClick={() => setShowMcpPanel((current) => !current)} type="button">
+            {showMcpPanel ? "Hide MCP" : "MCP"}
+          </button>
           {graph ? (
             <button onClick={() => setShowObservabilityPanel((current) => !current)} type="button">
               {showObservabilityPanel ? "Hide heatmap" : "Heatmap"}
@@ -1849,6 +2027,134 @@ export function BlueprintWorkbench() {
         </aside>
       ) : null}
 
+      {showMcpPanel ? (
+        <aside className="floating-panel mcp-panel">
+          <div className="floating-panel-header">
+            <h2>MCP Clients</h2>
+            <button onClick={() => setShowMcpPanel(false)} type="button">
+              Close
+            </button>
+          </div>
+
+          <div className="callout">
+            <h3>MCP Server</h3>
+            <p>Connect this node to any MCP-compatible server to invoke tools like GitHub search, Slack notifier, or a research agent.</p>
+            <label className="field">
+              <span>Server URL</span>
+              <input
+                aria-label="MCP server URL"
+                onChange={(event) => setMcpServerUrl(event.target.value)}
+                placeholder="http://localhost:3001/mcp"
+                value={mcpServerUrl}
+              />
+            </label>
+            <label className="field">
+              <span>Headers (JSON)</span>
+              <textarea
+                aria-label="MCP headers JSON"
+                onChange={(event) => setMcpHeadersJson(event.target.value)}
+                placeholder='{"Authorization": "Bearer token"}'
+                rows={3}
+                value={mcpHeadersJson}
+              />
+            </label>
+            <div className="button-row">
+              <button
+                disabled={isBusy || !mcpServerUrl.trim()}
+                onClick={() => void handleListMcpTools()}
+                type="button"
+              >
+                {busyLabel === "Listing MCP tools" ? "Listing..." : "List tools"}
+              </button>
+              {selectedNodeId ? (
+                <button disabled={!mcpServerUrl.trim()} onClick={handleSaveMcpServerToNode} type="button">
+                  Save to node
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          {selectedNode?.mcpServers?.length ? (
+            <div className="callout">
+              <h3>Configured servers for &quot;{selectedNode.name}&quot;</h3>
+              {selectedNode.mcpServers.map((server) => (
+                <div key={server.serverUrl} className="mcp-server-item">
+                  <p>{server.label ?? server.serverUrl}</p>
+                  <div className="button-row">
+                    <button onClick={() => setMcpServerUrl(server.serverUrl)} type="button">
+                      Load
+                    </button>
+                    <button onClick={() => handleRemoveMcpServerFromNode(server.serverUrl)} type="button">
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {availableMcpTools.length ? (
+            <div className="callout">
+              <h3>Available tools ({availableMcpTools.length})</h3>
+              {availableMcpTools.map((tool) => (
+                <div key={tool.name} className="mcp-tool-item">
+                  <p>
+                    <strong>{tool.name}</strong>
+                    {tool.description ? ` — ${tool.description}` : ""}
+                  </p>
+                  <button onClick={() => setMcpToolName(tool.name)} type="button">
+                    Select
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          <div className="callout">
+            <h3>Invoke tool</h3>
+            <label className="field">
+              <span>Tool name</span>
+              <input
+                aria-label="MCP tool name"
+                onChange={(event) => setMcpToolName(event.target.value)}
+                placeholder="search_github"
+                value={mcpToolName}
+              />
+            </label>
+            <label className="field">
+              <span>Arguments (JSON)</span>
+              <textarea
+                aria-label="MCP tool arguments JSON"
+                onChange={(event) => setMcpToolArgsJson(event.target.value)}
+                placeholder='{"query": "typescript MCP client"}'
+                rows={4}
+                value={mcpToolArgsJson}
+              />
+            </label>
+            <button
+              disabled={isBusy || !mcpServerUrl.trim() || !mcpToolName.trim()}
+              onClick={() => void handleInvokeMcpTool()}
+              type="button"
+            >
+              {busyLabel === "Invoking MCP tool" ? "Invoking..." : "Invoke tool"}
+            </button>
+          </div>
+
+          {mcpError ? (
+            <div className="callout danger-callout">
+              <p>{mcpError}</p>
+            </div>
+          ) : null}
+
+          {mcpInvokeResult ? (
+            <div className="callout">
+              <h3>Tool result</h3>
+              <pre className="mcp-result">{mcpInvokeResult}</pre>
+            </div>
+          ) : null}
+        </aside>
+      ) : null}
+
       {showObservabilityPanel && graph ? (
         <aside className="floating-panel observability-panel">
           <div className="floating-panel-header">
@@ -1871,11 +2177,7 @@ export function BlueprintWorkbench() {
             {autoObservability ? (
               <span className="obs-live-badge">● LIVE every {observabilityIntervalSecs}s</span>
             ) : (
-              <button
-                disabled={isBusy}
-                onClick={() => void handleLoadObservability()}
-                type="button"
-              >
+              <button disabled={isBusy} onClick={() => void handleLoadObservability()} type="button">
                 {busyLabel === "Loading observability" ? "Loading..." : "Refresh"}
               </button>
             )}
@@ -1884,9 +2186,7 @@ export function BlueprintWorkbench() {
           {heatmapData ? (
             <div className="callout">
               <h3>Node Heatmap</h3>
-              <p className="status-meta">
-                Heat = 50% error rate + 35% avg latency + 15% call volume
-              </p>
+              <p className="status-meta">Heat = 50% error rate + 35% avg latency + 15% call volume</p>
               <table className="heatmap-table">
                 <thead>
                   <tr>
@@ -1922,9 +2222,7 @@ export function BlueprintWorkbench() {
                               className="heat-bar-fill"
                               style={{ width: `${Math.round(metric.heatIntensity * 100)}%` }}
                             />
-                            <span className="heat-bar-label">
-                              {Math.round(metric.heatIntensity * 100)}%
-                            </span>
+                            <span className="heat-bar-label">{Math.round(metric.heatIntensity * 100)}%</span>
                           </div>
                         </td>
                       </tr>
@@ -1945,10 +2243,7 @@ export function BlueprintWorkbench() {
             <div className="callout">
               <h3>Recent Spans</h3>
               {latestSpans.slice(0, 10).map((span) => (
-                <div
-                  key={span.spanId}
-                  className={`obs-span-row obs-span-${span.status}`}
-                >
+                <div key={span.spanId} className={`obs-span-row obs-span-${span.status}`}>
                   <span className="obs-span-status">{span.status.toUpperCase()}</span>
                   <span className="obs-span-name">{span.name}</span>
                   <span className="obs-span-meta">[{span.runtime}]</span>
@@ -1961,10 +2256,7 @@ export function BlueprintWorkbench() {
             <div className="callout">
               <h3>Recent Logs</h3>
               {latestLogs.slice(0, 10).map((log) => (
-                <div
-                  key={log.id}
-                  className={`obs-log-row obs-log-${log.level}`}
-                >
+                <div key={log.id} className={`obs-log-row obs-log-${log.level}`}>
                   <span className="obs-log-level">{log.level.toUpperCase()}</span>
                   <span className="obs-log-message">{log.message}</span>
                 </div>
@@ -2108,6 +2400,7 @@ export function BlueprintWorkbench() {
                     <p>Calls: {contract.calls.length}</p>
                     <p>Errors: {contract.errors.length}</p>
                     <p>Trace status: {selectedNode.traceState?.status ?? "idle"}</p>
+                    <p>MCP servers: {selectedNode.mcpServers?.length ?? 0}</p>
                     {selectedNode.lastVerification ? (
                       <>
                         <p>Last verification: {selectedNode.lastVerification.status}</p>
