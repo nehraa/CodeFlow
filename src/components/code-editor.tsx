@@ -20,6 +20,7 @@ type CodeEditorProps = {
   height?: string;
   ariaLabel?: string;
   readOnly?: boolean;
+  theme?: "light" | "dark";
   completionContext?: {
     enabled: boolean;
     graph: BlueprintGraph;
@@ -93,6 +94,7 @@ export function CodeEditor({
   height = "28rem",
   ariaLabel,
   readOnly = false,
+  theme = "light",
   completionContext
 }: CodeEditorProps) {
   const monacoRef = useRef<typeof Monaco | null>(null);
@@ -291,7 +293,7 @@ export function CodeEditor({
           wordWrap: "on"
         }}
         path={path}
-        theme="vs-light"
+        theme={theme === "dark" ? "vs-dark" : "vs-light"}
         value={value}
       />
     </div>

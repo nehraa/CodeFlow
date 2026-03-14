@@ -12,12 +12,17 @@ import type {
 } from "@/lib/blueprint/schema";
 import { emptyContract } from "@/lib/blueprint/schema";
 
+export type NodeHealthState = "neutral" | "aligned" | "drift" | "heal" | "ghost";
+
 export type FlowNodeData = {
   label: string;
   summary: string;
   kind: string;
   traceStatus: TraceStatus;
+  healthState: NodeHealthState;
   selected: boolean;
+  isActiveBatch: boolean;
+  isGhost: boolean;
   drilldownNodeId?: string;
   ghost?: boolean;
   ghostReason?: string;
@@ -53,24 +58,37 @@ const kindOrder: Record<BlueprintNode["kind"], number> = {
   function: 4
 };
 
-const traceColor: Record<TraceStatus, string> = {
-  idle: "#f5f7ff",
-  success: "#ecfdf5",
-  warning: "#fffbeb",
-  error: "#fef2f2"
-};
-
 const kindTheme = (
   kind: BlueprintNode["kind"],
   selected: boolean,
   traceStatus: TraceStatus
 ): Node<FlowNodeData>["style"] => {
   const palette: Record<BlueprintNode["kind"], { border: string; glow: string; accent: string }> = {
-    "ui-screen": { border: "#7c3aed", glow: "rgba(124, 58, 237, 0.18)", accent: "#f3e8ff" },
-    api: { border: "#0891b2", glow: "rgba(8, 145, 178, 0.16)", accent: "#ecfeff" },
-    module: { border: "#475569", glow: "rgba(71, 85, 105, 0.12)", accent: "#f8fafc" },
-    class: { border: "#2563eb", glow: "rgba(37, 99, 235, 0.15)", accent: "#eff6ff" },
-    function: { border: "#0f766e", glow: "rgba(15, 118, 110, 0.16)", accent: "#ecfdf5" }
+    "ui-screen": {
+      border: "var(--node-ui-border)",
+      glow: "var(--node-ui-glow)",
+      accent: "var(--node-ui-bg)"
+    },
+    api: {
+      border: "var(--node-api-border)",
+      glow: "var(--node-api-glow)",
+      accent: "var(--node-api-bg)"
+    },
+    module: {
+      border: "var(--node-module-border)",
+      glow: "var(--node-module-glow)",
+      accent: "var(--node-module-bg)"
+    },
+    class: {
+      border: "var(--node-class-border)",
+      glow: "var(--node-class-glow)",
+      accent: "var(--node-class-bg)"
+    },
+    function: {
+      border: "var(--node-function-border)",
+      glow: "var(--node-function-glow)",
+      accent: "var(--node-function-bg)"
+    }
   };
   const theme = palette[kind];
   const traceRing =
@@ -84,13 +102,13 @@ const kindTheme = (
 
   return {
     width: 252,
-    borderRadius: 24,
-    border: selected ? `2px solid ${theme.border}` : "1px solid rgba(148, 163, 184, 0.35)",
-    background: `linear-gradient(180deg, rgba(255,255,255,0.96) 0%, ${theme.accent} 100%)`,
-    padding: 18,
+    borderRadius: 26,
+    border: selected ? `1.5px solid ${theme.border}` : "1px solid var(--node-border-default)",
+    background: `linear-gradient(180deg, var(--surface-raised) 0%, ${theme.accent} 100%)`,
+    padding: 14,
     boxShadow: selected
-      ? `0 22px 44px ${traceRing}, inset 0 1px 0 rgba(255,255,255,0.95)`
-      : `0 14px 34px ${theme.glow}, inset 0 1px 0 rgba(255,255,255,0.85)`,
+      ? `0 24px 56px ${traceRing}, inset 0 1px 0 var(--node-inner-shine)`
+      : `0 16px 38px ${theme.glow}, inset 0 1px 0 var(--node-inner-shine)`,
     backdropFilter: "blur(14px)"
   };
 };
@@ -98,29 +116,29 @@ const kindTheme = (
 const detailKindColor = (kind: string): string => {
   switch (kind) {
     case "root":
-      return "#cbd5e1";
+      return "var(--node-module-bg)";
     case "blueprint-node":
-      return "#bfdbfe";
+      return "var(--node-class-bg)";
     case "attribute":
-      return "#fde68a";
+      return "rgba(250, 204, 21, 0.18)";
     case "method":
-      return "#bbf7d0";
+      return "rgba(52, 211, 153, 0.16)";
     case "input":
-      return "#ddd6fe";
+      return "rgba(129, 140, 248, 0.18)";
     case "output":
-      return "#fecdd3";
+      return "rgba(251, 113, 133, 0.16)";
     case "dependency":
-      return "#fed7aa";
+      return "rgba(251, 146, 60, 0.16)";
     case "call":
-      return "#bae6fd";
+      return "rgba(56, 189, 248, 0.16)";
     case "error":
-      return "#fecaca";
+      return "rgba(248, 113, 113, 0.16)";
     case "side-effect":
-      return "#fef3c7";
+      return "rgba(250, 204, 21, 0.12)";
     case "note":
-      return "#e5e7eb";
+      return "rgba(148, 163, 184, 0.16)";
     default:
-      return "#e2e8f0";
+      return "rgba(148, 163, 184, 0.16)";
   }
 };
 
@@ -134,6 +152,70 @@ const normalizeContract = (contract: Partial<BlueprintNode["contract"]>) => ({
 
 const formatMethodSummary = (method: MethodSpec): string =>
   method.signature ?? `${method.name}(${method.inputs.map((input) => input.name).join(", ")})`;
+
+const mergeBoxShadow = (nextShadow: string, existingShadow?: string) =>
+  existingShadow && existingShadow !== "none" ? `${nextShadow}, ${existingShadow}` : nextShadow;
+
+const resolveNodeHealthState = (node: BlueprintNode, traceStatus: TraceStatus): NodeHealthState => {
+  const isGhost =
+    (node.status ?? "spec_only") === "spec_only" &&
+    !node.sourceRefs.length &&
+    !node.generatedRefs.length &&
+    !node.traceRefs.length &&
+    !node.implementationDraft;
+
+  if (traceStatus === "error" || node.lastVerification?.status === "failure") {
+    return "heal";
+  }
+
+  if (node.status === "verified" || node.status === "connected") {
+    return "aligned";
+  }
+
+  if (node.status === "implemented" || Boolean(node.implementationDraft)) {
+    return "drift";
+  }
+
+  if (isGhost && traceStatus === "idle") {
+    return "ghost";
+  }
+
+  return "neutral";
+};
+
+const applyNodeStateStyles = (
+  baseStyle: Node<FlowNodeData>["style"],
+  options: {
+    healthState: NodeHealthState;
+    isActiveBatch: boolean;
+    isGhost: boolean;
+  }
+): Node<FlowNodeData>["style"] => {
+  const style = { ...baseStyle };
+
+  if (options.healthState === "aligned") {
+    style.boxShadow = mergeBoxShadow("0 0 0 1px rgba(34, 197, 94, 0.32), 0 0 30px rgba(34, 197, 94, 0.22)", style.boxShadow);
+  }
+
+  if (options.healthState === "drift") {
+    style.boxShadow = mergeBoxShadow("0 0 0 1px rgba(245, 158, 11, 0.34), 0 0 28px rgba(245, 158, 11, 0.18)", style.boxShadow);
+  }
+
+  if (options.healthState === "heal") {
+    style.boxShadow = mergeBoxShadow("0 0 0 1px rgba(239, 68, 68, 0.38), 0 0 32px rgba(239, 68, 68, 0.24)", style.boxShadow);
+  }
+
+  if (options.isActiveBatch) {
+    style.boxShadow = mergeBoxShadow("0 0 0 2px rgba(103, 226, 219, 0.42), 0 0 38px rgba(103, 226, 219, 0.24)", style.boxShadow);
+  }
+
+  if (options.isGhost) {
+    style.borderStyle = "dashed";
+    style.opacity = 0.72;
+  }
+
+  return style;
+};
 
 const buildNodeSections = (node: BlueprintNode): InspectorSection[] => [
   { title: "Responsibilities", items: normalizeContract(node.contract).responsibilities },
@@ -161,13 +243,15 @@ const buildNodeSections = (node: BlueprintNode): InspectorSection[] => [
 export const buildFlowNodes = (
   graph: BlueprintGraph,
   selectedNodeId?: string,
-  heatmapData?: HeatmapData
+  heatmapData?: HeatmapData,
+  activeNodeIds?: string[]
 ): Array<Node<FlowNodeData>> => {
   const rowCounts = new Map<number, number>();
   const heatMetricByNodeId =
     heatmapData?.nodes != null
       ? new Map(heatmapData.nodes.map((m) => [m.nodeId, m] as const))
       : undefined;
+  const activeNodeIdSet = new Set(activeNodeIds ?? []);
 
   return graph.nodes.map((node) => {
     const column = kindOrder[node.kind];
@@ -177,6 +261,9 @@ export const buildFlowNodes = (
     const traceStatus = node.traceState?.status ?? "idle";
     const heatMetric = heatMetricByNodeId?.get(node.id);
     const intensity = heatMetric?.heatIntensity ?? 0;
+    const isActiveBatch = activeNodeIdSet.has(node.id);
+    const healthState = resolveNodeHealthState(node, traceStatus);
+    const isGhost = healthState === "ghost";
 
     const baseStyle = kindTheme(node.kind, selectedNodeId === node.id, traceStatus);
     const baseBoxShadow = baseStyle?.boxShadow;
@@ -204,9 +291,15 @@ export const buildFlowNodes = (
                   : undefined
           }
         : baseStyle;
+    const stateStyle = applyNodeStateStyles(heatStyle, {
+      healthState,
+      isActiveBatch,
+      isGhost
+    });
 
     return {
       id: node.id,
+      type: "policyNode",
       position: {
         x: 80 + column * 280,
         y: 80 + row * 180
@@ -216,33 +309,58 @@ export const buildFlowNodes = (
         summary: node.summary,
         kind: node.kind,
         traceStatus,
-        selected: selectedNodeId === node.id
+        healthState,
+        selected: selectedNodeId === node.id,
+        isActiveBatch,
+        isGhost
       },
-      style: heatStyle,
-      className:
+      style: stateStyle,
+      className: [
         intensity > 0.66
           ? "node-pulse-hot"
           : intensity > 0.33
             ? "node-pulse-warm"
             : traceStatus !== "idle"
               ? "node-pulse-active"
-              : undefined
+              : undefined,
+        healthState === "aligned" ? "node-health-aligned" : undefined,
+        healthState === "drift" ? "node-health-drift" : undefined,
+        healthState === "heal" ? "node-health-heal" : undefined,
+        isGhost ? "node-ghost" : undefined,
+        isActiveBatch ? "node-batch-focus" : undefined
+      ]
+        .filter(Boolean)
+        .join(" ")
     };
   });
 };
 
-export const buildFlowEdges = (graph: BlueprintGraph): Edge[] =>
-  graph.edges.map((edge) => ({
-    id: `${edge.kind}:${edge.from}:${edge.to}`,
-    source: edge.from,
-    target: edge.to,
-    label: edge.label ?? edge.kind,
-    animated: edge.kind === "calls",
-    style: {
-      strokeWidth: edge.required ? 2.4 : 1.4,
-      stroke: edge.kind === "calls" ? "#0f766e" : "#64748b"
-    }
-  }));
+export const buildFlowEdges = (graph: BlueprintGraph, activeNodeIds?: string[]): Edge[] => {
+  const activeNodeIdSet = new Set(activeNodeIds ?? []);
+
+  return graph.edges.map((edge) => {
+    const isActive = activeNodeIdSet.has(edge.from) || activeNodeIdSet.has(edge.to);
+    const shouldAnimate = isActive;
+
+    return {
+      id: `${edge.kind}:${edge.from}:${edge.to}`,
+      source: edge.from,
+      target: edge.to,
+      label: edge.label ?? edge.kind,
+      animated: shouldAnimate,
+      className: isActive ? "edge-flow-active" : undefined,
+      style: {
+        strokeWidth: isActive ? 2.7 : edge.required ? 2.4 : 1.4,
+        stroke: isActive ? "var(--flow-edge-strong)" : edge.kind === "calls" ? "var(--flow-edge-strong)" : "var(--flow-edge)"
+      },
+      labelStyle: {
+        fill: "var(--muted)",
+        fontSize: 12,
+        fontWeight: 600
+      }
+    };
+  });
+};
 
 export const buildGhostFlowNodes = (
   ghostNodes: GhostNode[],
@@ -288,22 +406,26 @@ const createDetailNode = (
   selectedId?: string
 ): Node<FlowNodeData> => ({
   id: item.id,
+  type: "policyNode",
   position,
   data: {
     label: item.label,
     summary: item.summary,
     kind: item.kind,
     traceStatus: "idle",
+    healthState: "neutral",
     selected: selectedId === item.id,
+    isActiveBatch: false,
+    isGhost: false,
     drilldownNodeId: item.drilldownNodeId
   },
   style: {
     width: 240,
     borderRadius: 22,
-    border: selectedId === item.id ? "2px solid #0f172a" : "1px solid rgba(148, 163, 184, 0.35)",
-    background: `linear-gradient(180deg, rgba(255,255,255,0.97) 0%, ${detailKindColor(item.kind)} 100%)`,
-    padding: 16,
-    boxShadow: "0 16px 32px rgba(15, 23, 42, 0.10)"
+    border: selectedId === item.id ? "1.5px solid var(--accent-2)" : "1px solid var(--node-border-default)",
+    background: `linear-gradient(180deg, var(--surface-raised) 0%, ${detailKindColor(item.kind)} 100%)`,
+    padding: 14,
+    boxShadow: "0 18px 36px rgba(15, 23, 42, 0.12)"
   }
 });
 

@@ -288,7 +288,7 @@ describe("BlueprintWorkbench", () => {
     fireEvent.change(
       screen.getByPlaceholderText(/A task management app with a React frontend and Node backend/),
       {
-      target: { value: "A Go API with a React dashboard" }
+        target: { value: "A Go API with a React dashboard" }
       }
     );
     fireEvent.click(screen.getByRole("button", { name: "Build blueprint" }));
