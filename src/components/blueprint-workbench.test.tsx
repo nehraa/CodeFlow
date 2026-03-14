@@ -7,14 +7,17 @@ vi.mock("@/components/graph-canvas", () => ({
   GraphCanvas: ({
     graph,
     nodes,
-    onSelect
-    ,
-    onNodeDoubleClick
+    onSelect,
+    onNodeDoubleClick,
+    ghostNodes,
+    onGhostNodeClick
   }: {
     graph: { nodes: Array<{ id: string; name: string }> } | null;
     nodes?: Array<{ id: string; data?: { label?: string } }>;
     onSelect: (nodeId: string) => void;
     onNodeDoubleClick?: (nodeId: string) => void;
+    ghostNodes?: Array<{ id: string; name: string; kind: string; summary: string; reason: string }>;
+    onGhostNodeClick?: (ghost: { id: string; name: string; kind: string; summary: string; reason: string }) => void;
   }) => (
     <div>
       {(nodes?.length
@@ -28,6 +31,16 @@ vi.mock("@/components/graph-canvas", () => ({
           type="button"
         >
           {node.name}
+        </button>
+      ))}
+      {ghostNodes?.map((ghost) => (
+        <button
+          key={ghost.id}
+          data-testid={`ghost-node-${ghost.id}`}
+          onClick={() => onGhostNodeClick?.(ghost)}
+          type="button"
+        >
+          {`✦ ${ghost.name}`}
         </button>
       ))}
       {!graph && !nodes?.length ? <p>No graph</p> : null}
@@ -1038,7 +1051,6 @@ describe("BlueprintWorkbench", () => {
 
     render(<BlueprintWorkbench />);
 
-    // Open settings and switch to legacy PRD mode
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
     fireEvent.change(screen.getByLabelText("Project name"), {
       target: { value: "Workbench" }
@@ -1048,28 +1060,132 @@ describe("BlueprintWorkbench", () => {
       target: { value: "# Functions\n- Function: saveTask()" }
     });
 
-    // Build a blueprint first
     fireEvent.click(screen.getByRole("button", { name: "Build blueprint" }));
     await screen.findByRole("button", { name: "saveTask" });
 
-    // The "Branches" button should now appear in the topbar
     const branchesButton = await screen.findByRole("button", { name: /Branches/ });
     expect(branchesButton).toBeInTheDocument();
 
-    // Open the branch panel
     fireEvent.click(branchesButton);
     expect(await screen.findByText("Time-Travel Branches")).toBeInTheDocument();
     expect(await screen.findByText("Create a new branch")).toBeInTheDocument();
 
-    // Type a branch name and create it
     fireEvent.change(screen.getByPlaceholderText("e.g. swap-postgres-for-mongo"), {
       target: { value: "what-if-mongo" }
     });
     fireEvent.click(screen.getByRole("button", { name: "Save as branch" }));
 
-    // After creation the branch should appear in the list and status should update
     expect(await screen.findByText("Branch created")).toBeInTheDocument();
     expect(await screen.findByText(/what-if-mongo.*branch saved as a snapshot/)).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: /Switch to this branch/ })).toBeInTheDocument();
+  });
+
+  it("suggests ghost nodes and solidifies them on click", async () => {
+    const buildGraph = {
+      projectName: "Workbench",
+      mode: "essential",
+      phase: "spec",
+      generatedAt: "2026-03-14T00:00:00.000Z",
+      warnings: [],
+      workflows: [],
+      edges: [],
+      nodes: [
+        {
+          id: "function:save-task",
+          kind: "function",
+          name: "saveTask",
+          summary: "Save a task.",
+          status: "spec_only",
+          contract: {
+            summary: "Save a task.",
+            responsibilities: [],
+            inputs: [],
+            outputs: [],
+            attributes: [],
+            methods: [],
+            sideEffects: [],
+            errors: [],
+            dependencies: [],
+            calls: [],
+            uiAccess: [],
+            backendAccess: [],
+            notes: []
+          },
+          sourceRefs: [],
+          generatedRefs: [],
+          traceRefs: []
+        }
+      ]
+    };
+
+    const ghostSuggestionsResponse = {
+      suggestions: [
+        {
+          id: "ghost:auth-middleware",
+          kind: "module",
+          name: "Auth Middleware",
+          summary: "Handles authentication.",
+          reason: "APIs need auth.",
+          suggestedEdge: { from: "function:save-task", to: "ghost:auth-middleware", kind: "calls" }
+        }
+      ]
+    };
+
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (input === "/api/generate-blueprint" && (!init?.method || init.method === "GET")) {
+        return { ok: true, json: async () => ({ serverApiKeyConfigured: false }) };
+      }
+
+      if (input === "/api/ghost-nodes") {
+        return { ok: true, json: async () => ghostSuggestionsResponse };
+      }
+
+      return {
+        ok: true,
+        json: async () => ({
+          graph: buildGraph,
+          runPlan: {
+            generatedAt: "2026-03-14T00:00:00.000Z",
+            tasks: [],
+            batches: [],
+            warnings: []
+          },
+          session: {
+            sessionId: "session-ghost",
+            projectName: "Workbench",
+            updatedAt: "2026-03-14T00:00:00.000Z",
+            graph: buildGraph,
+            runPlan: { generatedAt: "2026-03-14T00:00:00.000Z", tasks: [], batches: [], warnings: [] },
+            approvalIds: []
+          }
+        })
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BlueprintWorkbench />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    fireEvent.click(screen.getByLabelText("PRD / Repo (JS/TS)"));
+    fireEvent.change(screen.getByLabelText("PRD markdown"), {
+      target: { value: "# Functions\n- Function: saveTask()" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Build blueprint" }));
+
+    expect(await screen.findByRole("button", { name: "saveTask" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Suggest nodes" }));
+
+    expect(await screen.findByTestId("ghost-node-ghost:auth-middleware")).toBeInTheDocument();
+    expect(screen.getByText("✦ Auth Middleware")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Clear ghosts (1)" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("ghost-node-ghost:auth-middleware"));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Auth Middleware" })).toBeInTheDocument();
+    });
+
+    expect(screen.queryByTestId("ghost-node-ghost:auth-middleware")).not.toBeInTheDocument();
   });
 });
