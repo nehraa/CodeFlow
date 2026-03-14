@@ -595,14 +595,14 @@ export function BlueprintWorkbench() {
   }, [projectName, digitalTwinWindowSecs]);
 
   useEffect(() => {
-    if (!autoDigitalTwin) return;
+    if (!autoDigitalTwin || !showDigitalTwinPanel) return;
 
     const intervalId = window.setInterval(() => {
       void pollDigitalTwin();
     }, 5000);
 
     return () => window.clearInterval(intervalId);
-  }, [autoDigitalTwin, pollDigitalTwin]);
+  }, [autoDigitalTwin, pollDigitalTwin, showDigitalTwinPanel]);
 
   const handleLoadDigitalTwin = useCallback(async () => {
     if (!projectName.trim()) return;
