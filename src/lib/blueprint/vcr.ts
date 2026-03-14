@@ -95,10 +95,11 @@ export const buildVcrRecording = (
       running.set(nodeId, mergeSpanIntoState(running.get(nodeId) ?? idleTraceState(), span));
     }
 
-    // Snapshot the current accumulated state for every known node
+    // Snapshot only the current non-idle node states.
+    // Missing entries are treated as idle by `replayAtFrame`.
     const nodeStates: Record<string, TraceState> = {};
-    for (const node of graph.nodes) {
-      nodeStates[node.id] = running.get(node.id) ?? idleTraceState();
+    for (const [id, state] of running) {
+      nodeStates[id] = state;
     }
 
     return {
