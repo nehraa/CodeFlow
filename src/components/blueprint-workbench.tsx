@@ -1363,7 +1363,19 @@ export function BlueprintWorkbench() {
                 min={MIN_OBSERVABILITY_INTERVAL_SECS}
                 max={60}
                 value={observabilityIntervalSecs}
-                onChange={(event) => setObservabilityIntervalSecs(Number(event.target.value))}
+                onChange={(event) => {
+                  const raw = event.target.value;
+                  // Ignore updates when the input is empty or not a finite number.
+                  if (raw === "") {
+                    return;
+                  }
+                  const parsed = Number(raw);
+                  if (!Number.isFinite(parsed)) {
+                    return;
+                  }
+                  const clamped = Math.min(60, Math.max(MIN_OBSERVABILITY_INTERVAL_SECS, parsed));
+                  setObservabilityIntervalSecs(clamped);
+                }}
               />
             </label>
           ) : null}
