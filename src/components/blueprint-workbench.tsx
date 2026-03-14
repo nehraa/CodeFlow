@@ -2735,15 +2735,19 @@ export function BlueprintWorkbench() {
                   <input
                     aria-label="VCR scrub bar"
                     className="vcr-scrub-bar"
-                    max={100}
+                    max={vcrRecording.frames.length - 1}
                     min={0}
                     onChange={(event) => {
-                      const pos = Number(event.target.value);
-                      setVcrFrameIndex(positionToFrameIndex(vcrRecording, pos));
+                      const raw = Number(event.target.value);
+                      const clamped = Math.min(
+                        vcrRecording.frames.length - 1,
+                        Math.max(0, raw)
+                      );
+                      setVcrFrameIndex(clamped);
                     }}
                     step={1}
                     type="range"
-                    value={frameIndexToPosition(vcrRecording, vcrFrameIndex)}
+                    value={vcrFrameIndex}
                   />
                 </div>
 
