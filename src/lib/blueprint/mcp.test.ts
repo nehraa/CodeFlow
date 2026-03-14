@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { extractTextFromMcpResult, invokeMcpTool, listMcpTools } from "@/lib/blueprint/mcp";
 import type { McpToolResult } from "@/lib/blueprint/schema";
@@ -10,6 +10,8 @@ const makeFetchMock = (responseBody: unknown, ok = true, status = 200) =>
     statusText: ok ? "OK" : "Bad Request",
     json: async () => responseBody
   });
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe("listMcpTools", () => {
   it("returns the tools array from a valid tools/list response", async () => {
