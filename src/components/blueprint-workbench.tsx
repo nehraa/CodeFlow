@@ -587,6 +587,7 @@ export function BlueprintWorkbench() {
       setDigitalTwinSnapshot(body.snapshot ?? null);
       if (body.graph) {
         setDigitalTwinGraph(body.graph);
+        setGraph(body.graph);
       }
     } catch {
       // silently ignore poll errors
@@ -621,6 +622,7 @@ export function BlueprintWorkbench() {
       setDigitalTwinSnapshot(body.snapshot ?? null);
       if (body.graph) {
         setDigitalTwinGraph(body.graph);
+        setGraph(body.graph);
       }
     } catch (caughtError) {
       setDigitalTwinError(
