@@ -9,12 +9,12 @@ function isValidBranchId(id: string): boolean {
 
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
     const { searchParams } = new URL(request.url);
     const projectName = searchParams.get("projectName");
-    const { id } = await params;
+    const { id } = params;
 
     if (!projectName) {
       return NextResponse.json({ error: "projectName query param is required." }, { status: 400 });
@@ -40,12 +40,12 @@ export async function GET(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
     const { searchParams } = new URL(request.url);
     const projectName = searchParams.get("projectName");
-    const { id } = await params;
+    const { id } = params;
 
     if (!projectName) {
       return NextResponse.json({ error: "projectName query param is required." }, { status: 400 });
