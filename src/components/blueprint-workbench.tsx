@@ -2876,42 +2876,46 @@ export function BlueprintWorkbench() {
         </aside>
       ) : null}
 
-      {showInspector && (selectedNode || (drilldownRootNode && selectedDetailItem)) ? (        <aside className="floating-panel inspector-panel">
+      {showInspector && (selectedNode || (drilldownRootNode && selectedDetailItem)) ? (
+        <aside className="floating-panel inspector-panel">
           <div className="floating-panel-header">
             <h2>Inspector</h2>
             <button onClick={() => setShowInspector(false)} type="button">
               Close
             </button>
           </div>
+
           {session ? (
             <div className="callout">
-            <p>Session: {session.sessionId}</p>
-            <p>Updated: {session.updatedAt}</p>
-            <p>Approvals: {session.approvalIds.length}</p>
+              <p>Session: {session.sessionId}</p>
+              <p>Updated: {session.updatedAt}</p>
+              <p>Approvals: {session.approvalIds.length}</p>
             </div>
           ) : null}
 
           {runPlan ? (
             <div className="callout">
-            <h3>Execution plan</h3>
-            {runPlan.warnings.length ? runPlan.warnings.map((warning) => <p key={warning}>{warning}</p>) : null}
-            {runPlan.tasks.slice(0, 8).map((task) => (
-              <p key={task.id}>
-                Batch {task.batchIndex + 1}: {task.title}
-              </p>
-            ))}
+              <h3>Execution plan</h3>
+              {runPlan.warnings.length
+                ? runPlan.warnings.map((warning) => <p key={warning}>{warning}</p>)
+                : null}
+              {runPlan.tasks.slice(0, 8).map((task) => (
+                <p key={task.id}>
+                  Batch {task.batchIndex + 1}: {task.title}
+                </p>
+              ))}
             </div>
           ) : null}
 
           {executionResult ? (
             <div className="callout">
-            <h3>Execution output</h3>
-            <p>Status: {executionResult.success ? "success" : "failure"}</p>
-            <p>Exit code: {executionResult.exitCode ?? "N/A"}</p>
-            <p>Duration: {executionResult.durationMs}ms</p>
-            {executionResult.executedPath ? <p>{executionResult.executedPath}</p> : null}
-            {executionResult.stdout ? <pre>{executionResult.stdout}</pre> : null}
-            {executionResult.stderr ? <pre>{executionResult.stderr}</pre> : null}
+              <h3>Execution output</h3>
+              <p>Status: {executionResult.success ? "success" : "failure"}</p>
+              <p>Exit code: {executionResult.exitCode ?? "N/A"}</p>
+              <p>Duration: {executionResult.durationMs}ms</p>
+              {executionResult.executedPath ? <p>{executionResult.executedPath}</p> : null}
+              {executionResult.stdout ? <pre>{executionResult.stdout}</pre> : null}
+              {executionResult.stderr ? <pre>{executionResult.stderr}</pre> : null}
             </div>
           ) : null}
 
