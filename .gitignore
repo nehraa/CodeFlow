@@ -2,6 +2,8 @@ node_modules
 .next
 coverage
 artifacts
+.codeflow-store
+.codeflow-sandboxes
 *.log
 *.tsbuildinfo
 .env.local
