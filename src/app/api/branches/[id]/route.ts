@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 
 import { deleteBranch, loadBranch } from "@/lib/blueprint/store";
 
+function isValidBranchId(id: string): boolean {
+  // Allow only simple, safe identifiers (no path separators or traversal characters)
+  return /^[A-Za-z0-9_-]+$/.test(id);
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -13,6 +18,10 @@ export async function GET(
 
     if (!projectName) {
       return NextResponse.json({ error: "projectName query param is required." }, { status: 400 });
+    }
+
+    if (!id || !isValidBranchId(id)) {
+      return NextResponse.json({ error: "Invalid branch id." }, { status: 400 });
     }
 
     const branch = await loadBranch(projectName, id);
@@ -40,6 +49,10 @@ export async function DELETE(
 
     if (!projectName) {
       return NextResponse.json({ error: "projectName query param is required." }, { status: 400 });
+    }
+
+    if (!id || !isValidBranchId(id)) {
+      return NextResponse.json({ error: "Invalid branch id." }, { status: 400 });
     }
 
     await deleteBranch(projectName, id);
