@@ -21,6 +21,7 @@ import type {
   ConflictReport,
   ExecutionMode,
   ExportResult,
+  GhostNode,
   ObservabilityLog,
   PersistedSession,
   RiskReport,
@@ -97,6 +98,11 @@ type MetricsResponse = {
 type MermaidResponse = {
   diagram?: string;
   format?: string;
+  error?: string;
+};
+
+type GhostSuggestionsApiResponse = {
+  suggestions?: GhostNode[];
   error?: string;
 };
 
@@ -192,6 +198,7 @@ export function BlueprintWorkbench() {
   const [smellReport, setSmellReport] = useState<SmellReport | null>(null);
   const [graphMetrics, setGraphMetrics] = useState<GraphMetrics | null>(null);
   const [mermaidDiagram, setMermaidDiagram] = useState<string | null>(null);
+  const [ghostSuggestions, setGhostSuggestions] = useState<GhostNode[]>([]);
 
   const selectedNode = graph?.nodes.find((node) => node.id === selectedNodeId) ?? null;
   const drilldownNodeId = drilldownStack.at(-1) ?? null;
@@ -426,6 +433,7 @@ export function BlueprintWorkbench() {
       setShowEditPanel(false);
       setShowPromptPanel(false);
       setExportResult(null);
+      setGhostSuggestions([]);
       setStatusTone("success");
       setStatusTitle("Blueprint ready");
       setStatusDetail(
@@ -999,6 +1007,69 @@ export function BlueprintWorkbench() {
     }
   };
 
+  const handleSuggestGhostNodes = async () => {
+    if (!graph) {
+      setError("Build a blueprint before requesting ghost node suggestions.");
+      return;
+    }
+
+    setBusyLabel("Suggesting ghost nodes");
+    setError(null);
+
+    try {
+      const response = await fetch("/api/ghost-nodes", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          graph,
+          nvidiaApiKey: nvidiaApiKey.trim() || undefined
+        })
+      });
+      const body = (await response.json()) as GhostSuggestionsApiResponse;
+
+      if (!response.ok) {
+        throw new Error(body.error || "Failed to generate ghost node suggestions.");
+      }
+
+      setGhostSuggestions(body.suggestions ?? []);
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Failed to generate ghost node suggestions.");
+    } finally {
+      setBusyLabel(null);
+    }
+  };
+
+  const handleSolidifyGhostNode = (ghost: GhostNode) => {
+    if (!graph) {
+      return;
+    }
+
+    // Add the ghost node as a real node
+    let nextGraph = addNodeToGraph(graph, {
+      kind: ghost.kind,
+      name: ghost.name,
+      summary: ghost.summary
+    });
+
+    // Add the suggested edge if both endpoints exist in the new graph
+    if (ghost.suggestedEdge) {
+      const fromExists = nextGraph.nodes.some((n) => n.id === ghost.suggestedEdge!.from);
+      const newNodeId = nextGraph.nodes[nextGraph.nodes.length - 1]?.id;
+      if (fromExists && newNodeId) {
+        nextGraph = addEdgeToGraph(nextGraph, {
+          from: ghost.suggestedEdge.from,
+          to: newNodeId,
+          kind: ghost.suggestedEdge.kind
+        });
+      }
+    }
+
+    setGraph(nextGraph);
+    // Remove the solidified ghost from suggestions
+    setGhostSuggestions((current) => current.filter((g) => g.id !== ghost.id));
+    setSelectedNodeId(nextGraph.nodes[nextGraph.nodes.length - 1]?.id ?? null);
+  };
+
   const renderSection = (title: string, items: string[]) => (
     <div className="callout" key={title}>
       <h3>{title}</h3>
@@ -1205,6 +1276,14 @@ export function BlueprintWorkbench() {
           <button disabled={isBusy || !graph} onClick={() => void handleRunAnalysis()} type="button">
             {busyLabel === "Analyzing architecture" ? "Analyzing..." : "Analyze"}
           </button>
+          <button disabled={isBusy || !graph} onClick={() => void handleSuggestGhostNodes()} type="button">
+            {busyLabel === "Suggesting ghost nodes" ? "Suggesting..." : "Suggest nodes"}
+          </button>
+          {ghostSuggestions.length > 0 ? (
+            <button onClick={() => setGhostSuggestions([])} type="button">
+              Clear ghosts ({ghostSuggestions.length})
+            </button>
+          ) : null}
         </div>
       </header>
 
@@ -1528,6 +1607,8 @@ export function BlueprintWorkbench() {
             edges={detailFlow?.edges}
             onNodeDoubleClick={handleGraphDoubleClick}
             onSelect={handleGraphSelect}
+            ghostNodes={drilldownRootNode ? undefined : ghostSuggestions}
+            onGhostNodeClick={handleSolidifyGhostNode}
           />
         </section>
 

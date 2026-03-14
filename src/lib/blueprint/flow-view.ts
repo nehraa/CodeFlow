@@ -1,6 +1,6 @@
 import type { Edge, Node } from "@xyflow/react";
 
-import type { BlueprintGraph, BlueprintNode, ContractField, MethodSpec, TraceStatus } from "@/lib/blueprint/schema";
+import type { BlueprintGraph, BlueprintNode, ContractField, GhostNode, MethodSpec, TraceStatus } from "@/lib/blueprint/schema";
 import { emptyContract } from "@/lib/blueprint/schema";
 
 export type FlowNodeData = {
@@ -10,6 +10,8 @@ export type FlowNodeData = {
   traceStatus: TraceStatus;
   selected: boolean;
   drilldownNodeId?: string;
+  ghost?: boolean;
+  ghostReason?: string;
 };
 
 export type InspectorSection = {
@@ -190,6 +192,44 @@ export const buildFlowEdges = (graph: BlueprintGraph): Edge[] =>
       stroke: edge.kind === "calls" ? "#0f766e" : "#64748b"
     }
   }));
+
+export const buildGhostFlowNodes = (
+  ghostNodes: GhostNode[],
+  existingNodes: Array<Node<FlowNodeData>>
+): Array<Node<FlowNodeData>> => {
+  // Place ghost nodes offset from the rightmost existing node column so they
+  // are visually distinct and don't overlap regular nodes.
+  const maxX = existingNodes.reduce((acc, n) => Math.max(acc, (n.position?.x ?? 0) + 280), 80);
+  const column = maxX;
+
+  return ghostNodes.map((ghost, index) => ({
+    id: ghost.id,
+    position: {
+      x: column,
+      y: 80 + index * 180
+    },
+    data: {
+      label: ghost.name,
+      summary: ghost.summary,
+      kind: ghost.kind,
+      traceStatus: "idle" as TraceStatus,
+      selected: false,
+      ghost: true,
+      ghostReason: ghost.reason
+    },
+    style: {
+      width: 252,
+      borderRadius: 24,
+      border: "1.5px dashed rgba(139, 92, 246, 0.55)",
+      background: "linear-gradient(180deg, rgba(255,255,255,0.55) 0%, rgba(237,233,254,0.45) 100%)",
+      padding: 18,
+      boxShadow: "0 8px 24px rgba(139, 92, 246, 0.12)",
+      backdropFilter: "blur(10px)",
+      opacity: 0.72,
+      cursor: "pointer"
+    }
+  }));
+};
 
 const createDetailNode = (
   item: DetailFlowItem,

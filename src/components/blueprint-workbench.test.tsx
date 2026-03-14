@@ -7,14 +7,17 @@ vi.mock("@/components/graph-canvas", () => ({
   GraphCanvas: ({
     graph,
     nodes,
-    onSelect
-    ,
-    onNodeDoubleClick
+    onSelect,
+    onNodeDoubleClick,
+    ghostNodes,
+    onGhostNodeClick
   }: {
     graph: { nodes: Array<{ id: string; name: string }> } | null;
     nodes?: Array<{ id: string; data?: { label?: string } }>;
     onSelect: (nodeId: string) => void;
     onNodeDoubleClick?: (nodeId: string) => void;
+    ghostNodes?: Array<{ id: string; name: string; kind: string; summary: string; reason: string }>;
+    onGhostNodeClick?: (ghost: { id: string; name: string; kind: string; summary: string; reason: string }) => void;
   }) => (
     <div>
       {(nodes?.length
@@ -28,6 +31,16 @@ vi.mock("@/components/graph-canvas", () => ({
           type="button"
         >
           {node.name}
+        </button>
+      ))}
+      {ghostNodes?.map((ghost) => (
+        <button
+          key={ghost.id}
+          data-testid={`ghost-node-${ghost.id}`}
+          onClick={() => onGhostNodeClick?.(ghost)}
+          type="button"
+        >
+          {`✦ ${ghost.name}`}
         </button>
       ))}
       {!graph && !nodes?.length ? <p>No graph</p> : null}
@@ -910,5 +923,122 @@ describe("BlueprintWorkbench", () => {
     // The status callout should show analysis summary
     expect(await screen.findByText("Analysis complete")).toBeInTheDocument();
     expect(await screen.findByText(/1 smells.*0 cycles.*Health 85\/100/)).toBeInTheDocument();
+  });
+
+  it("suggests ghost nodes and solidifies them on click", async () => {
+    const buildGraph = {
+      projectName: "Workbench",
+      mode: "essential",
+      phase: "spec",
+      generatedAt: "2026-03-14T00:00:00.000Z",
+      warnings: [],
+      workflows: [],
+      edges: [],
+      nodes: [
+        {
+          id: "function:save-task",
+          kind: "function",
+          name: "saveTask",
+          summary: "Save a task.",
+          status: "spec_only",
+          contract: {
+            summary: "Save a task.",
+            responsibilities: [],
+            inputs: [],
+            outputs: [],
+            attributes: [],
+            methods: [],
+            sideEffects: [],
+            errors: [],
+            dependencies: [],
+            calls: [],
+            uiAccess: [],
+            backendAccess: [],
+            notes: []
+          },
+          sourceRefs: [],
+          generatedRefs: [],
+          traceRefs: []
+        }
+      ]
+    };
+
+    const ghostSuggestionsResponse = {
+      suggestions: [
+        {
+          id: "ghost:auth-middleware",
+          kind: "module",
+          name: "Auth Middleware",
+          summary: "Handles authentication.",
+          reason: "APIs need auth.",
+          suggestedEdge: { from: "function:save-task", to: "ghost:auth-middleware", kind: "calls" }
+        }
+      ]
+    };
+
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (input === "/api/generate-blueprint" && (!init?.method || init.method === "GET")) {
+        return { ok: true, json: async () => ({ serverApiKeyConfigured: false }) };
+      }
+
+      if (input === "/api/ghost-nodes") {
+        return { ok: true, json: async () => ghostSuggestionsResponse };
+      }
+
+      return {
+        ok: true,
+        json: async () => ({
+          graph: buildGraph,
+          runPlan: {
+            generatedAt: "2026-03-14T00:00:00.000Z",
+            tasks: [],
+            batches: [],
+            warnings: []
+          },
+          session: {
+            sessionId: "session-ghost",
+            projectName: "Workbench",
+            updatedAt: "2026-03-14T00:00:00.000Z",
+            graph: buildGraph,
+            runPlan: { generatedAt: "2026-03-14T00:00:00.000Z", tasks: [], batches: [], warnings: [] },
+            approvalIds: []
+          }
+        })
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BlueprintWorkbench />);
+
+    // Build a blueprint first
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    fireEvent.click(screen.getByLabelText("PRD / Repo (JS/TS)"));
+    fireEvent.change(screen.getByLabelText("PRD markdown"), {
+      target: { value: "# Functions\n- Function: saveTask()" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Build blueprint" }));
+
+    expect(await screen.findByRole("button", { name: "saveTask" })).toBeInTheDocument();
+
+    // Click "Suggest nodes"
+    fireEvent.click(screen.getByRole("button", { name: "Suggest nodes" }));
+
+    // Ghost node should appear
+    expect(await screen.findByTestId("ghost-node-ghost:auth-middleware")).toBeInTheDocument();
+    expect(screen.getByText("✦ Auth Middleware")).toBeInTheDocument();
+
+    // Clear ghosts button should be visible
+    expect(screen.getByRole("button", { name: "Clear ghosts (1)" })).toBeInTheDocument();
+
+    // Clicking the ghost node solidifies it (adds it to the graph)
+    fireEvent.click(screen.getByTestId("ghost-node-ghost:auth-middleware"));
+
+    // The solidified node should now appear as a regular graph node
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Auth Middleware" })).toBeInTheDocument();
+    });
+
+    // Ghost should be removed after solidification
+    expect(screen.queryByTestId("ghost-node-ghost:auth-middleware")).not.toBeInTheDocument();
   });
 });
