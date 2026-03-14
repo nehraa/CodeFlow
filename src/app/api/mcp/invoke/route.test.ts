@@ -1,8 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { POST } from "@/app/api/mcp/invoke/route";
 
 describe("POST /api/mcp/invoke", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
   it("returns the tool result from a successful MCP server response", async () => {
     const content = [{ type: "text", text: "Search returned 5 results." }];
     vi.stubGlobal(
