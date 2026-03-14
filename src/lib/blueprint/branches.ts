@@ -27,15 +27,22 @@ export const createBranch = ({
   name: string;
   description?: string;
   parentBranchId?: string;
-}): GraphBranch => ({
-  id: createBranchId(),
-  name: name.trim(),
-  description: description?.trim(),
-  projectName: graph.projectName,
-  parentBranchId,
-  createdAt: new Date().toISOString(),
-  graph: blueprintGraphSchema.parse(structuredClone(graph))
-});
+}): GraphBranch => {
+  const trimmedName = name.trim();
+  if (!trimmedName) {
+    throw new Error("Branch name must not be empty.");
+  }
+
+  return {
+    id: createBranchId(),
+    name: trimmedName,
+    description: description?.trim(),
+    projectName: graph.projectName,
+    parentBranchId,
+    createdAt: new Date().toISOString(),
+    graph: blueprintGraphSchema.parse(structuredClone(graph))
+  };
+};
 
 // ── Diff helpers ────────────────────────────────────────────────────────────
 
