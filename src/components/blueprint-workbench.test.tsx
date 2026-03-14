@@ -707,4 +707,208 @@ describe("BlueprintWorkbench", () => {
       );
     });
   });
+
+  it("runs architecture analysis and shows the analysis panel with metrics, smells, cycles, and mermaid output", async () => {
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (input === "/api/generate-blueprint" && (!init?.method || init.method === "GET")) {
+        return {
+          ok: true,
+          json: async () => ({ serverApiKeyConfigured: false })
+        };
+      }
+
+      if (input === "/api/analysis/cycles") {
+        return {
+          ok: true,
+          json: async () => ({
+            report: {
+              analyzedAt: "2026-03-14T00:00:00.000Z",
+              totalCycles: 0,
+              maxCycleLength: 0,
+              cycles: [],
+              affectedNodeIds: []
+            }
+          })
+        };
+      }
+
+      if (input === "/api/analysis/smells") {
+        return {
+          ok: true,
+          json: async () => ({
+            report: {
+              analyzedAt: "2026-03-14T00:00:00.000Z",
+              totalSmells: 1,
+              healthScore: 85,
+              smells: [
+                {
+                  code: "orphan-node",
+                  severity: "info",
+                  nodeId: "function:save-task",
+                  message: "Node \"saveTask\" has no connections.",
+                  suggestion: "Connect this node or remove it."
+                }
+              ]
+            }
+          })
+        };
+      }
+
+      if (input === "/api/analysis/metrics") {
+        return {
+          ok: true,
+          json: async () => ({
+            metrics: {
+              analyzedAt: "2026-03-14T00:00:00.000Z",
+              nodeCount: 1,
+              edgeCount: 0,
+              nodesByKind: { function: 1 },
+              edgesByKind: {},
+              nodesByStatus: { spec_only: 1 },
+              density: 0,
+              avgDegree: 0,
+              maxInDegree: 0,
+              maxOutDegree: 0,
+              maxInDegreeNodeId: undefined,
+              maxOutDegreeNodeId: undefined,
+              avgMethodsPerNode: 0,
+              avgResponsibilitiesPerNode: 0,
+              totalMethods: 0,
+              totalResponsibilities: 0,
+              connectedComponents: 0,
+              isolatedNodes: 1,
+              leafNodes: 0
+            }
+          })
+        };
+      }
+
+      if (input === "/api/export/mermaid") {
+        return {
+          ok: true,
+          json: async () => ({
+            diagram: "graph TD\n  function_save_task([saveTask])\n",
+            format: "flowchart"
+          })
+        };
+      }
+
+      // Default: blueprint build response
+      return {
+        ok: true,
+        json: async () => ({
+          graph: {
+            projectName: "Analysis Test",
+            mode: "essential",
+            generatedAt: "2026-03-14T00:00:00.000Z",
+            warnings: [],
+            workflows: [],
+            edges: [],
+            nodes: [
+              {
+                id: "function:save-task",
+                kind: "function",
+                name: "saveTask",
+                summary: "Save a task.",
+                contract: {
+                  summary: "Save a task.",
+                  inputs: [],
+                  outputs: [],
+                  sideEffects: [],
+                  errors: [],
+                  dependencies: [],
+                  uiAccess: [],
+                  backendAccess: [],
+                  notes: []
+                },
+                sourceRefs: [],
+                generatedRefs: [],
+                traceRefs: []
+              }
+            ]
+          },
+          runPlan: {
+            generatedAt: "2026-03-14T00:00:00.000Z",
+            tasks: [],
+            batches: [],
+            warnings: []
+          },
+          session: {
+            sessionId: "session-analysis",
+            projectName: "Analysis Test",
+            updatedAt: "2026-03-14T00:00:00.000Z",
+            graph: {
+              projectName: "Analysis Test",
+              mode: "essential",
+              generatedAt: "2026-03-14T00:00:00.000Z",
+              warnings: [],
+              workflows: [],
+              edges: [],
+              nodes: []
+            },
+            runPlan: {
+              generatedAt: "2026-03-14T00:00:00.000Z",
+              tasks: [],
+              batches: [],
+              warnings: []
+            },
+            approvalIds: []
+          }
+        })
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BlueprintWorkbench />);
+
+    // Build the blueprint first (using legacy mode for determinism)
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    fireEvent.click(screen.getByLabelText("PRD / Repo (JS/TS)"));
+    fireEvent.change(screen.getByLabelText("PRD markdown"), {
+      target: { value: "# Functions\n- Function: saveTask()" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Build blueprint" }));
+
+    // Wait for the graph to be built
+    expect(await screen.findByRole("button", { name: "saveTask" })).toBeInTheDocument();
+
+    // Click the Analyze button
+    fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
+
+    // Verify all 4 analysis endpoints were called
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/analysis/cycles",
+        expect.objectContaining({ method: "POST" })
+      );
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/analysis/smells",
+        expect.objectContaining({ method: "POST" })
+      );
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/analysis/metrics",
+        expect.objectContaining({ method: "POST" })
+      );
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/export/mermaid",
+        expect.objectContaining({ method: "POST" })
+      );
+    });
+
+    // Analysis panel should appear and render each section
+    expect(await screen.findByText("Architecture Analysis")).toBeInTheDocument();
+    expect(await screen.findByText("Graph Metrics")).toBeInTheDocument();
+    expect(await screen.findByText(/Nodes: 1/)).toBeInTheDocument();
+    expect(await screen.findByText("Architecture Health: 85/100")).toBeInTheDocument();
+    expect(await screen.findByText(/1 smell detected/)).toBeInTheDocument();
+    expect(await screen.findByText(/orphan-node/)).toBeInTheDocument();
+    expect(await screen.findByText("Dependency Cycles")).toBeInTheDocument();
+    expect(await screen.findByText("No dependency cycles found. Graph is a clean DAG!")).toBeInTheDocument();
+    expect(await screen.findByText("Mermaid Diagram")).toBeInTheDocument();
+    expect(await screen.findByText(/graph TD/)).toBeInTheDocument();
+
+    // The status callout should show analysis summary
+    expect(await screen.findByText("Analysis complete")).toBeInTheDocument();
+    expect(await screen.findByText(/1 smells.*0 cycles.*Health 85\/100/)).toBeInTheDocument();
+  });
 });
