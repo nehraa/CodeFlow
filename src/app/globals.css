@@ -561,6 +561,14 @@ fieldset {
   animation: trace-pulse-active 2.6s ease-in-out infinite;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .graph-flow .react-flow__node.node-pulse-hot,
+  .graph-flow .react-flow__node.node-pulse-warm,
+  .graph-flow .react-flow__node.node-pulse-active {
+    animation: none;
+  }
+}
+
 /* ── Observability Dashboard panel ──────────────────────────────── */
 
 .observability-panel {
