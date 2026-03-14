@@ -3,8 +3,78 @@ import { z } from "zod";
 
 import { invokeMcpTool } from "@/lib/blueprint/mcp";
 
+function isPrivateOrLocalHostname(hostname: string): boolean {
+  const lower = hostname.toLowerCase();
+
+  if (
+    lower === "localhost" ||
+    lower === "127.0.0.1" ||
+    lower === "::1" ||
+    lower === "0.0.0.0"
+  ) {
+    return true;
+  }
+
+  // Basic checks for common private IPv4 ranges when provided as literals.
+  const ipv4Match = /^(\d{1,3}\.){3}\d{1,3}$/.test(lower);
+  if (ipv4Match) {
+    const [a, b] = lower.split(".").map((part) => parseInt(part, 10));
+    if (a === 10) return true;
+    if (a === 127) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+  }
+
+  // Basic checks for common private/loopback IPv6 when provided as literals.
+  if (lower === "::1") {
+    return true;
+  }
+  if (lower.startsWith("fc") || lower.startsWith("fd")) {
+    // Unique local addresses (fc00::/7)
+    return true;
+  }
+  if (lower.startsWith("fe80")) {
+    // Link-local unicast (fe80::/10)
+    return true;
+  }
+
+  return false;
+}
+
+const serverUrlSchema = z.string().min(1).transform((value, ctx) => {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Invalid serverUrl: must be a valid URL."
+    });
+    return z.NEVER;
+  }
+
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Invalid serverUrl: only http and https schemes are allowed."
+    });
+    return z.NEVER;
+  }
+
+  if (isPrivateOrLocalHostname(url.hostname)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Invalid serverUrl: connections to localhost or private networks are not allowed."
+    });
+    return z.NEVER;
+  }
+
+  // Return a normalized URL string.
+  return url.toString();
+});
+
 const requestSchema = z.object({
-  serverUrl: z.string().min(1),
+  serverUrl: serverUrlSchema,
   toolName: z.string().min(1),
   args: z.record(z.string(), z.unknown()).default({}),
   headers: z.record(z.string(), z.string()).optional()
@@ -21,7 +91,24 @@ export async function POST(request: Request) {
       toolName: body.toolName
     });
 
-    const result = await invokeMcpTool(body.serverUrl, body.toolName, body.args, body.headers);
+    // Limit which headers can be forwarded to the MCP server to reduce SSRF risk.
+    const allowedHeaderNames = new Set([
+      "authorization",
+      "content-type",
+      "accept",
+      "x-mcp-auth"
+    ]);
+
+    const safeHeaders =
+      body.headers == null
+        ? undefined
+        : Object.fromEntries(
+            Object.entries(body.headers).filter(([name]) =>
+              allowedHeaderNames.has(name.toLowerCase())
+            )
+          );
+
+    const result = await invokeMcpTool(body.serverUrl, body.toolName, body.args, safeHeaders);
 
     return NextResponse.json({ result });
   } catch (error) {
