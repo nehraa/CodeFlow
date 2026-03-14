@@ -35,6 +35,7 @@ import type {
   RiskReport,
   RunPlan,
   RuntimeExecutionResult,
+  TournamentResult,
   VcrRecording
 } from "@/lib/blueprint/schema";
 import { emptyContract, traceSpanSchema } from "@/lib/blueprint/schema";
@@ -297,6 +298,13 @@ export function BlueprintWorkbench() {
   const [simulateNodeIds, setSimulateNodeIds] = useState("");
   const [simulateLabel, setSimulateLabel] = useState("");
   const [digitalTwinError, setDigitalTwinError] = useState<string | null>(null);
+
+  // ── Architectural Genetic Algorithms ──────────────────────────────────────
+  const [showGeneticPanel, setShowGeneticPanel] = useState(false);
+  const [geneticGenerations, setGeneticGenerations] = useState(3);
+  const [geneticPopulationSize, setGeneticPopulationSize] = useState(6);
+  const [tournamentResult, setTournamentResult] = useState<TournamentResult | null>(null);
+  const [geneticError, setGeneticError] = useState<string | null>(null);
 
   const selectedNode = graph?.nodes.find((node) => node.id === selectedNodeId) ?? null;
   const drilldownNodeId = drilldownStack.at(-1) ?? null;
@@ -669,6 +677,40 @@ export function BlueprintWorkbench() {
       setBusyLabel(null);
     }
   }, [projectName, simulateNodeIds, simulateLabel, handleLoadDigitalTwin]);
+
+  // ── Genetic Evolution handler ─────────────────────────────────────────────
+  const handleRunGeneticEvolution = useCallback(async () => {
+    if (!graph) return;
+    setBusyLabel("Running genetic evolution");
+    setGeneticError(null);
+    try {
+      const response = await fetch("/api/genetic/evolve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          graph,
+          generations: geneticGenerations,
+          populationSize: geneticPopulationSize
+        })
+      });
+      const body = (await response.json()) as { result?: TournamentResult; error?: string };
+      if (!response.ok || !body.result) {
+        throw new Error(body.error ?? "Failed to run genetic evolution.");
+      }
+      setTournamentResult(body.result);
+      setStatusTitle("Genetic evolution complete");
+      setStatusDetail(body.result.summary);
+      setStatusTone("success");
+    } catch (caughtError) {
+      const message = caughtError instanceof Error ? caughtError.message : "Failed to run genetic evolution.";
+      setGeneticError(message);
+      setStatusTitle("Genetic evolution failed");
+      setStatusDetail(message);
+      setStatusTone("danger");
+    } finally {
+      setBusyLabel(null);
+    }
+  }, [graph, geneticGenerations, geneticPopulationSize]);
 
   const handleBuild = async () => {
     const buildStartedAt = performance.now();
@@ -1958,6 +2000,14 @@ export function BlueprintWorkbench() {
               {showDigitalTwinPanel ? "Hide Digital Twin" : "Digital Twin"}
             </button>
           ) : null}
+          {graph ? (
+            <button
+              onClick={() => setShowGeneticPanel((current) => !current)}
+              type="button"
+            >
+              {showGeneticPanel ? "Hide Evolution" : "Genetic Evolution"}
+            </button>
+          ) : null}
         </div>
       </header>
 
@@ -3186,6 +3236,114 @@ export function BlueprintWorkbench() {
               {busyLabel === "Simulating user action" ? "Simulating..." : "Run simulation"}
             </button>
           </div>
+        </aside>
+      ) : null}
+
+      {showGeneticPanel && graph ? (
+        <aside className="floating-panel genetic-panel">
+          <div className="floating-panel-header">
+            <h2>Genetic Evolution</h2>
+            <button onClick={() => setShowGeneticPanel(false)} type="button">
+              Close
+            </button>
+          </div>
+
+          <p className="lead">
+            Generate, benchmark, and evolve multiple architecture designs — monolith, microservices,
+            and serverless — then run an evolutionary tournament to surface the best fit for your
+            project constraints.
+          </p>
+
+          <div className="callout">
+            <h3>Tournament settings</h3>
+            <label className="field">
+              <span>Generations</span>
+              <input
+                aria-label="Number of generations"
+                min={1}
+                max={10}
+                onChange={(event) => {
+                  const v = Number(event.target.value);
+                  if (Number.isFinite(v)) setGeneticGenerations(Math.max(1, Math.min(10, Math.floor(v))));
+                }}
+                type="number"
+                value={geneticGenerations}
+              />
+            </label>
+            <label className="field">
+              <span>Population size</span>
+              <input
+                aria-label="Population size"
+                min={3}
+                max={12}
+                onChange={(event) => {
+                  const v = Number(event.target.value);
+                  if (Number.isFinite(v)) setGeneticPopulationSize(Math.max(3, Math.min(12, Math.floor(v))));
+                }}
+                type="number"
+                value={geneticPopulationSize}
+              />
+            </label>
+            <button
+              disabled={isBusy}
+              onClick={() => void handleRunGeneticEvolution()}
+              type="button"
+            >
+              {busyLabel === "Running genetic evolution" ? "Evolving..." : "Run tournament"}
+            </button>
+          </div>
+
+          {geneticError ? (
+            <p className="error">{geneticError}</p>
+          ) : null}
+
+          {tournamentResult ? (
+            <>
+              <div className="callout">
+                <h3>🏆 Winner: {tournamentResult.variants.find((v) => v.id === tournamentResult.winnerId)?.style}</h3>
+                <p className="status-meta">{tournamentResult.summary}</p>
+                <p className="status-meta">
+                  {tournamentResult.generationCount} generation{tournamentResult.generationCount !== 1 ? "s" : ""} · {tournamentResult.populationSize} variants · evolved {new Date(tournamentResult.evolvedAt).toLocaleTimeString()}
+                </p>
+              </div>
+
+              <div className="callout">
+                <h3>All variants ({tournamentResult.variants.length})</h3>
+                <div className="genetic-variants">
+                  {tournamentResult.variants.map((variant) => {
+                    const isWinner = variant.id === tournamentResult.winnerId;
+                    return (
+                      <div
+                        key={variant.id}
+                        className={`genetic-variant${isWinner ? " genetic-variant-winner" : ""}`}
+                      >
+                        <div className="genetic-variant-header">
+                          <span className="genetic-variant-rank">#{variant.rank}</span>
+                          <span className="genetic-variant-style">{variant.style}</span>
+                          {isWinner ? <span className="genetic-winner-badge">🏆 Winner</span> : null}
+                          <span className="genetic-variant-fitness">Fitness: {variant.benchmark.fitness}</span>
+                        </div>
+                        <div className="genetic-variant-graph-info">
+                          {variant.graph.nodes.length} nodes · {variant.graph.edges.length} edges
+                          {" · "}gen {variant.generation}
+                        </div>
+                        <div className="genetic-benchmark-scores">
+                          <span title="Scalability">📈 {variant.benchmark.scalability}</span>
+                          <span title="Cost efficiency">💰 {variant.benchmark.estimatedCostScore}</span>
+                          <span title="Performance">⚡ {variant.benchmark.performance}</span>
+                          <span title="Maintainability">🔧 {variant.benchmark.maintainability}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="callout">
+              <p>Click &quot;Run tournament&quot; to evolve and benchmark architecture variants.</p>
+            </div>
+          )}
         </aside>
       ) : null}
 
