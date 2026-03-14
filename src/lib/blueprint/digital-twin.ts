@@ -185,6 +185,16 @@ export const buildSimulationSpans = (
   });
 };
 
+type NodeTraceState = NonNullable<BlueprintGraph["nodes"][number]["traceState"]>;
+
+const idleTraceState = (): NodeTraceState => ({
+  status: "idle" as const,
+  count: 0,
+  errors: 0,
+  totalDurationMs: 0,
+  lastSpanIds: []
+});
+
 /**
  * Overlay `activeNodeIds` onto a graph as a trace state so that the heatmap
  * and canvas can highlight currently live nodes.  Nodes not in the active set
@@ -201,13 +211,7 @@ export const overlayActiveNodes = (
     nodes: graph.nodes.map((node) => {
       if (!activeSet.has(node.id)) return node;
 
-      const existing = node.traceState ?? {
-        status: "idle" as const,
-        count: 0,
-        errors: 0,
-        totalDurationMs: 0,
-        lastSpanIds: []
-      };
+      const existing = node.traceState ?? idleTraceState();
 
       return {
         ...node,
