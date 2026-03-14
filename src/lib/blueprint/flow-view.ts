@@ -155,6 +155,10 @@ export const buildFlowNodes = (
   heatmapData?: HeatmapData
 ): Array<Node<FlowNodeData>> => {
   const rowCounts = new Map<number, number>();
+  const heatMetricByNodeId =
+    heatmapData?.nodes != null
+      ? new Map(heatmapData.nodes.map((m) => [m.nodeId, m] as const))
+      : undefined;
 
   return graph.nodes.map((node) => {
     const column = kindOrder[node.kind];
@@ -162,7 +166,7 @@ export const buildFlowNodes = (
     rowCounts.set(column, row + 1);
 
     const traceStatus = node.traceState?.status ?? "idle";
-    const heatMetric = heatmapData?.nodes.find((m) => m.nodeId === node.id);
+    const heatMetric = heatMetricByNodeId?.get(node.id);
     const intensity = heatMetric?.heatIntensity ?? 0;
 
     const baseStyle = kindTheme(node.kind, selectedNodeId === node.id, traceStatus);
