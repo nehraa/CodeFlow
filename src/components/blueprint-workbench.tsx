@@ -3067,7 +3067,14 @@ export function BlueprintWorkbench() {
               <input
                 aria-label="Active window seconds"
                 min={1}
-                onChange={(event) => setDigitalTwinWindowSecs(Math.max(1, Number(event.target.value)))}
+                onChange={(event) => {
+                  const rawValue = Number(event.target.value);
+                  if (!Number.isFinite(rawValue)) {
+                    return;
+                  }
+                  const sanitizedValue = Math.max(1, Math.floor(rawValue));
+                  setDigitalTwinWindowSecs(sanitizedValue);
+                }}
                 type="number"
                 value={digitalTwinWindowSecs}
               />
