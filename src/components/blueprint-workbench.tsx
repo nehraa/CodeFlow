@@ -1023,12 +1023,34 @@ export function BlueprintWorkbench() {
   };
 
   const parseMcpHeaders = (): Record<string, string> | undefined => {
-    try {
-      const parsed = JSON.parse(mcpHeadersJson.trim() || "{}") as Record<string, string>;
-      return Object.keys(parsed).length ? parsed : undefined;
-    } catch {
+    const raw = mcpHeadersJson.trim();
+
+    // Treat empty/whitespace-only input as "no headers".
+    if (!raw) {
       return undefined;
     }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      throw new Error("MCP headers must be valid JSON.");
+    }
+
+    // Ensure we have a plain object (not null/array/etc.).
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error("MCP headers must be a JSON object whose values are strings.");
+    }
+
+    const result: Record<string, string> = {};
+    for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof value !== "string") {
+        throw new Error(`MCP header "${key}" must have a string value.`);
+      }
+      result[key] = value;
+    }
+
+    return Object.keys(result).length ? result : undefined;
   };
 
   const parseMcpArgs = (): Record<string, unknown> => {
@@ -1045,6 +1067,14 @@ export function BlueprintWorkbench() {
       return;
     }
 
+    let headersConfig: Record<string, string> | undefined;
+    try {
+      headersConfig = parseMcpHeaders();
+    } catch (parseError) {
+      setMcpError(parseError instanceof Error ? parseError.message : "Invalid MCP headers.");
+      return;
+    }
+
     setBusyLabel("Listing MCP tools");
     setMcpError(null);
     setAvailableMcpTools([]);
@@ -1054,7 +1084,7 @@ export function BlueprintWorkbench() {
       const response = await fetch("/api/mcp/tools", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ serverUrl: mcpServerUrl.trim(), headers: parseMcpHeaders() })
+        body: JSON.stringify({ serverUrl: mcpServerUrl.trim(), headers: headersConfig })
       });
       const body = (await response.json()) as McpToolsResponse;
 
