@@ -89,17 +89,22 @@ const detectOrphanNodes = (graph: BlueprintGraph): Smell[] => {
 };
 
 const detectTightCoupling = (graph: BlueprintGraph): Smell[] => {
-  const pairCounts = new Map<string, number>();
+  const pairCounts = new Map<string, { a: string; b: string; count: number }>();
 
   for (const edge of graph.edges) {
-    const key = [edge.from, edge.to].sort().join("||");
-    pairCounts.set(key, (pairCounts.get(key) ?? 0) + 1);
+    const [a, b] = [edge.from, edge.to].sort();
+    const key = `${a}\0${b}`;
+    const entry = pairCounts.get(key);
+    if (entry) {
+      entry.count++;
+    } else {
+      pairCounts.set(key, { a, b, count: 1 });
+    }
   }
 
   const smells: Smell[] = [];
-  for (const [key, count] of pairCounts) {
+  for (const { a, b, count } of pairCounts.values()) {
     if (count >= TIGHT_COUPLING_MIN_EDGES) {
-      const [a, b] = key.split("||");
       smells.push({
         code: "tight-coupling",
         severity: "warning",

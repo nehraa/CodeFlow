@@ -941,42 +941,40 @@ export function BlueprintWorkbench() {
     setShowAnalysisPanel(true);
 
     try {
-      const [cyclesRes, smellsRes, metricsRes, mermaidRes] = await Promise.all([
+      const [cyclesResult, smellsResult, metricsResult, mermaidResult] = await Promise.allSettled([
         fetch("/api/analysis/cycles", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify(graph)
-        }),
+        }).then((r) => r.json() as Promise<CyclesResponse>),
         fetch("/api/analysis/smells", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify(graph)
-        }),
+        }).then((r) => r.json() as Promise<SmellsResponse>),
         fetch("/api/analysis/metrics", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify(graph)
-        }),
+        }).then((r) => r.json() as Promise<MetricsResponse>),
         fetch("/api/export/mermaid", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ graph, format: "flowchart" })
-        })
+        }).then((r) => r.json() as Promise<MermaidResponse>)
       ]);
 
-      const cyclesBody = (await cyclesRes.json()) as CyclesResponse;
-      const smellsBody = (await smellsRes.json()) as SmellsResponse;
-      const metricsBody = (await metricsRes.json()) as MetricsResponse;
-      const mermaidBody = (await mermaidRes.json()) as MermaidResponse;
+      if (cyclesResult.status === "fulfilled" && cyclesResult.value.report) setCycleReport(cyclesResult.value.report);
+      if (smellsResult.status === "fulfilled" && smellsResult.value.report) setSmellReport(smellsResult.value.report);
+      if (metricsResult.status === "fulfilled" && metricsResult.value.metrics) setGraphMetrics(metricsResult.value.metrics);
+      if (mermaidResult.status === "fulfilled" && mermaidResult.value.diagram) setMermaidDiagram(mermaidResult.value.diagram);
 
-      if (cyclesBody.report) setCycleReport(cyclesBody.report);
-      if (smellsBody.report) setSmellReport(smellsBody.report);
-      if (metricsBody.metrics) setGraphMetrics(metricsBody.metrics);
-      if (mermaidBody.diagram) setMermaidDiagram(mermaidBody.diagram);
+      const smellsReport = smellsResult.status === "fulfilled" ? smellsResult.value.report : null;
+      const cyclesReport = cyclesResult.status === "fulfilled" ? cyclesResult.value.report : null;
 
       setStatusTitle("Analysis complete");
       setStatusDetail(
-        `${smellsBody.report?.totalSmells ?? 0} smells · ${cyclesBody.report?.totalCycles ?? 0} cycles · Health ${smellsBody.report?.healthScore ?? 100}/100`
+        `${smellsReport?.totalSmells ?? 0} smells · ${cyclesReport?.totalCycles ?? 0} cycles · Health ${smellsReport?.healthScore ?? 100}/100`
       );
       setStatusTone("success");
     } catch (caughtError) {
@@ -1167,11 +1165,6 @@ export function BlueprintWorkbench() {
           {graph ? (
             <button onClick={() => setShowEditPanel((current) => !current)} type="button">
               {showEditPanel ? "Hide edit" : "Edit graph"}
-            </button>
-          ) : null}
-          {graph ? (
-            <button onClick={() => setShowAnalysisPanel((current) => !current)} type="button">
-              {showAnalysisPanel ? "Hide analysis" : "Analyze"}
             </button>
           ) : null}
         </div>

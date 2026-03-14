@@ -8,4 +8,3 @@ artifacts
 *.tsbuildinfo
 .env.local
 .env*.local
-node_modules/
