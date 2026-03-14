@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, type TestContext } from "vitest";
 
 import { POST as buildPOST } from "@/app/api/blueprint/route";
 import { POST } from "@/app/api/digital-twin/simulate/route";
@@ -66,7 +66,7 @@ describe("POST /api/digital-twin/simulate", () => {
     expect(response.status).toBe(400);
   });
 
-  it("accepts a valid simulation request and returns spans", async () => {
+  it("accepts a valid simulation request and returns spans", async function (this: TestContext) {
     const storeRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codeflow-sim2-"));
     createdDirs.push(storeRoot);
     process.env.CODEFLOW_STORE_ROOT = storeRoot;
@@ -89,7 +89,7 @@ describe("POST /api/digital-twin/simulate", () => {
 
     if (nodeIds.length === 0) {
       // Blueprint may not have generated nodes in all environments; skip.
-      return;
+      this.skip();
     }
 
     const response = await POST(
