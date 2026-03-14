@@ -1,5 +1,7 @@
 import type { Edge, Node } from "@xyflow/react";
 
+import type { HeatmapData } from "@/lib/blueprint/heatmap";
+import { heatColor, heatGlow } from "@/lib/blueprint/heatmap";
 import type { BlueprintGraph, BlueprintNode, ContractField, MethodSpec, TraceStatus } from "@/lib/blueprint/schema";
 import { emptyContract } from "@/lib/blueprint/schema";
 
@@ -149,7 +151,8 @@ const buildNodeSections = (node: BlueprintNode): InspectorSection[] => [
 
 export const buildFlowNodes = (
   graph: BlueprintGraph,
-  selectedNodeId?: string
+  selectedNodeId?: string,
+  heatmapData?: HeatmapData
 ): Array<Node<FlowNodeData>> => {
   const rowCounts = new Map<number, number>();
 
@@ -159,6 +162,30 @@ export const buildFlowNodes = (
     rowCounts.set(column, row + 1);
 
     const traceStatus = node.traceState?.status ?? "idle";
+    const heatMetric = heatmapData?.nodes.find((m) => m.nodeId === node.id);
+    const intensity = heatMetric?.heatIntensity ?? 0;
+
+    const baseStyle = kindTheme(node.kind, selectedNodeId === node.id, traceStatus);
+    const baseBoxShadow = baseStyle?.boxShadow;
+    const combinedBoxShadow =
+      baseBoxShadow && baseBoxShadow !== "none"
+        ? `${heatGlow(intensity)}, ${String(baseBoxShadow)}`
+        : heatGlow(intensity);
+
+    const heatStyle: Node<FlowNodeData>["style"] =
+      intensity > 0
+        ? {
+            ...baseStyle,
+            background: `linear-gradient(180deg, ${heatColor(intensity)} 0%, ${String(baseStyle?.background ?? "transparent")} 100%)`,
+            boxShadow: combinedBoxShadow,
+            outline:
+              intensity > 0.66
+                ? `2px solid rgba(239,68,68,${(0.3 + intensity * 0.5).toFixed(2)})`
+                : intensity > 0.33
+                  ? `2px solid rgba(245,158,11,${(0.2 + intensity * 0.4).toFixed(2)})`
+                  : undefined
+          }
+        : baseStyle;
 
     return {
       id: node.id,
@@ -173,7 +200,15 @@ export const buildFlowNodes = (
         traceStatus,
         selected: selectedNodeId === node.id
       },
-      style: kindTheme(node.kind, selectedNodeId === node.id, traceStatus)
+      style: heatStyle,
+      className:
+        intensity > 0.66
+          ? "node-pulse-hot"
+          : intensity > 0.33
+            ? "node-pulse-warm"
+            : traceStatus !== "idle"
+              ? "node-pulse-active"
+              : undefined
     };
   });
 };
