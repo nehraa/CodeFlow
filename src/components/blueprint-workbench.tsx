@@ -1100,11 +1100,11 @@ export function BlueprintWorkbench() {
         throw new Error(body.error ?? "Failed to invoke MCP tool.");
       }
 
-      const text =
-        body.result?.content
-          .filter((item) => item.type === "text" && item.text)
-          .map((item) => item.text as string)
-          .join("\n") ?? "(empty result)";
+      const content = body.result?.content ?? [];
+      const textItems = content
+        .filter((item) => item.type === "text" && item.text)
+        .map((item) => item.text as string);
+      const text = textItems.length > 0 ? textItems.join("\n") : "(empty result)";
 
       setMcpInvokeResult(body.result?.isError ? `Error: ${text}` : text);
     } catch (caughtError) {
