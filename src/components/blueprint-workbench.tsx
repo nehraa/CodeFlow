@@ -493,6 +493,9 @@ export function BlueprintWorkbench() {
     if (!showVcrPanel) {
       setVcrGraph(null);
       setVcrPlaying(false);
+      setVcrRecording(null);
+      setVcrFrameIndex(0);
+      setVcrError(null);
     }
   }, [showVcrPanel]);
 
