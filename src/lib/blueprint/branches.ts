@@ -70,11 +70,31 @@ const nodeKey = (node: BlueprintNode): string => {
 
 const edgeKey = (edge: BlueprintEdge): string => `${edge.from}→${edge.to}:${edge.kind}`;
 
+// Cache, per edge array, the number of incident edges for each node.
+const edgeIncidenceCache: WeakMap<BlueprintEdge[], Map<string, number>> = new WeakMap();
+
+const getEdgeIncidenceMap = (edges: BlueprintEdge[]): Map<string, number> => {
+  let incidenceMap = edgeIncidenceCache.get(edges);
+  if (!incidenceMap) {
+    incidenceMap = new Map<string, number>();
+    for (const edge of edges) {
+      const fromCount = incidenceMap.get(edge.from) ?? 0;
+      incidenceMap.set(edge.from, fromCount + 1);
+      const toCount = incidenceMap.get(edge.to) ?? 0;
+      incidenceMap.set(edge.to, toCount + 1);
+    }
+    edgeIncidenceCache.set(edges, incidenceMap);
+  }
+  return incidenceMap;
+};
+
 /**
  * Count how many edges in `edges` involve `nodeId`.
  */
-const countImpactedEdges = (nodeId: string, edges: BlueprintEdge[]): number =>
-  edges.filter((e) => e.from === nodeId || e.to === nodeId).length;
+const countImpactedEdges = (nodeId: string, edges: BlueprintEdge[]): number => {
+  const incidenceMap = getEdgeIncidenceMap(edges);
+  return incidenceMap.get(nodeId) ?? 0;
+};
 
 /**
  * Compare two blueprint graphs and produce a structured diff.
