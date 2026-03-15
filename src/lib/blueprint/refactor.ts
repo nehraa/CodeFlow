@@ -1,4 +1,4 @@
-import type { BlueprintEdge, BlueprintGraph, BlueprintNode } from "@/lib/blueprint/schema";
+import type { BlueprintEdge, BlueprintEdgeKind, BlueprintGraph, BlueprintNode } from "@/lib/blueprint/schema";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -16,6 +16,7 @@ export type DriftKind = "broken-edge" | "missing-edge" | "signature-drift";
  */
 export interface DriftIssue {
   kind: DriftKind;
+  /** ID of the existing node most closely associated with this issue. */
   nodeId: string;
   nodeName: string;
   description: string;
@@ -23,6 +24,18 @@ export interface DriftIssue {
   edgeFrom?: string;
   /** Target node ID of the affected edge (present for edge-related issues). */
   edgeTo?: string;
+  /**
+   * The node ID referenced by the edge that no longer exists in the graph
+   * (only set for `broken-edge` issues where the missing ID differs from
+   * `nodeId`).
+   */
+  missingNodeId?: string;
+  /**
+   * For `missing-edge` issues: the edge `kind` declared in the contract call.
+   * Used during healing to distinguish multiple calls between the same pair of
+   * nodes with different relationship kinds (e.g. `calls` vs `reads-state`).
+   */
+  edgeKind?: BlueprintEdgeKind;
 }
 
 /** Summary of all drift issues detected in a graph. */
@@ -85,24 +98,30 @@ export const detectDrift = (graph: BlueprintGraph): RefactorReport => {
   // ── 1. Broken edges ────────────────────────────────────────────────────────
   for (const edge of graph.edges) {
     if (!index.has(edge.from)) {
+      // The source node is missing; anchor the issue on the existing target.
+      const existingNode = index.get(edge.to);
       issues.push({
         kind: "broken-edge",
-        nodeId: edge.from,
-        nodeName: edge.from,
+        nodeId: existingNode?.id ?? edge.to,
+        nodeName: existingNode?.name ?? edge.to,
         description: `Edge "${edge.from}" → "${edge.to}" references a non-existent source node.`,
         edgeFrom: edge.from,
-        edgeTo: edge.to
+        edgeTo: edge.to,
+        missingNodeId: edge.from
       });
     }
 
     if (!index.has(edge.to)) {
+      // The target node is missing; anchor the issue on the existing source.
+      const existingNode = index.get(edge.from);
       issues.push({
         kind: "broken-edge",
-        nodeId: edge.to,
-        nodeName: edge.to,
+        nodeId: existingNode?.id ?? edge.from,
+        nodeName: existingNode?.name ?? edge.from,
         description: `Edge "${edge.from}" → "${edge.to}" references a non-existent target node.`,
         edgeFrom: edge.from,
-        edgeTo: edge.to
+        edgeTo: edge.to,
+        missingNodeId: edge.to
       });
     }
   }
@@ -141,7 +160,8 @@ export const detectDrift = (graph: BlueprintGraph): RefactorReport => {
           nodeName: node.name,
           description: `Node "${node.name}" declares a "${edgeKind}" call to "${call.target}" in its contract but no graph edge exists.`,
           edgeFrom: node.id,
-          edgeTo: targetNode.id
+          edgeTo: targetNode.id,
+          edgeKind
         });
       }
     }
@@ -197,23 +217,26 @@ export const healGraph = (
   for (const issue of missingEdgeIssues) {
     if (!issue.edgeFrom || !issue.edgeTo) continue;
 
-    // Avoid duplicate new edges (two issues might point at the same pair).
+    // Avoid duplicate new edges (two issues might point at the same triplet).
+    const issueEdgeKind = issue.edgeKind ?? "calls";
     const alreadyAdded = newEdges.some(
-      (e) => e.from === issue.edgeFrom && e.to === issue.edgeTo
+      (e) => e.from === issue.edgeFrom && e.to === issue.edgeTo && e.kind === issueEdgeKind
     );
     if (alreadyAdded) continue;
 
-    // Find the original contract call to preserve kind/label.
+    // Find the original contract call to preserve kind/label.  Match on both
+    // target node ID and kind so that multiple calls between the same pair with
+    // different kinds each resolve to their own contract entry.
     const fromNode = index.get(issue.edgeFrom);
     const call = fromNode?.contract.calls?.find((c) => {
       const target = resolveCallTarget(graph, c.target);
-      return target?.id === issue.edgeTo;
+      return target?.id === issue.edgeTo && (c.kind ?? "calls") === issueEdgeKind;
     });
 
     newEdges.push({
       from: issue.edgeFrom,
       to: issue.edgeTo,
-      kind: call?.kind ?? "calls",
+      kind: issueEdgeKind,
       required: false,
       confidence: 0.8,
       label: call?.description

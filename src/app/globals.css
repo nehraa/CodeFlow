@@ -759,12 +759,12 @@ fieldset {
   85%       { transform: translate( 1px,  2px) rotate( 0.2deg); }
 }
 
-.graph-flow .react-flow__node.node-drift-shake {
+.graph-flow .react-flow__node.node-drift-shake .policy-node-card {
   animation: node-drift-shake 0.7s ease-in-out 3;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .graph-flow .react-flow__node.node-drift-shake {
+  .graph-flow .react-flow__node.node-drift-shake .policy-node-card {
     animation: none;
   }
 }
