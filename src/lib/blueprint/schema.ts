@@ -662,7 +662,7 @@ export const architectureVariantSchema = z.object({
   graph: z.custom<BlueprintGraph>(),
   /** Computed benchmark scores. */
   benchmark: variantBenchmarkSchema,
-  /** 1-based rank among all final variants (1 = best). */
+  /** 1-based rank within the final ranked population (1 = best). */
   rank: z.number().int().positive()
 });
 export type ArchitectureVariant = z.infer<typeof architectureVariantSchema>;
@@ -676,7 +676,7 @@ export const tournamentResultSchema = z.object({
   generationCount: z.number().int().positive(),
   /** Number of variants that competed in the tournament. */
   populationSize: z.number().int().positive(),
-  /** All final-generation variants, sorted by rank (best first). */
+  /** All variants in the final ranked population, sorted by rank (best first). */
   variants: z.array(architectureVariantSchema),
   /** ID of the winning variant. */
   winnerId: z.string(),
