@@ -69,8 +69,9 @@ const generateMonolithVariant = (base: BlueprintGraph, generation: number): Blue
     groups.set(node.kind, list);
   }
 
-  // Build one aggregate node per kind group (kept at the first real node's id
-  // so that existing edges still resolve correctly).
+  // Build one aggregate node per kind group. Each aggregate gets a synthetic
+  // "monolith:<kind>" id, and existing edges are remapped via memberToAggregate
+  // so that relationships still resolve correctly.
   const aggregateNodes: BlueprintNode[] = [];
   const memberToAggregate = new Map<string, string>();
 
