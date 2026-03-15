@@ -77,7 +77,14 @@ describe("detectDrift", () => {
 
     const brokenIssues = report.issues.filter((i) => i.kind === "broken-edge");
     expect(brokenIssues.length).toBeGreaterThanOrEqual(1);
-    expect(brokenIssues.some((i) => i.nodeId === "node:ghost")).toBe(true);
+    // nodeId anchors on the *existing* endpoint (the target); the missing ID
+    // is stored separately in missingNodeId.
+    const issue = brokenIssues[0];
+    expect(issue.nodeId).toBe("function:auth");
+    expect(issue.missingNodeId).toBe("node:ghost");
+    // driftedNodeIds only contains real node IDs so the canvas can highlight them.
+    expect(report.driftedNodeIds).toContain("function:auth");
+    expect(report.driftedNodeIds).not.toContain("node:ghost");
   });
 
   it("detects a broken edge whose target node does not exist", () => {
@@ -86,10 +93,14 @@ describe("detectDrift", () => {
     });
 
     const report = detectDrift(graph);
-    const brokenIssues = report.issues.filter(
-      (i) => i.kind === "broken-edge" && i.nodeId === "node:deleted"
-    );
+    const brokenIssues = report.issues.filter((i) => i.kind === "broken-edge");
     expect(brokenIssues.length).toBeGreaterThanOrEqual(1);
+    // nodeId anchors on the existing source; missing ID is in missingNodeId.
+    const issue = brokenIssues[0];
+    expect(issue.nodeId).toBe("function:auth");
+    expect(issue.missingNodeId).toBe("node:deleted");
+    expect(report.driftedNodeIds).toContain("function:auth");
+    expect(report.driftedNodeIds).not.toContain("node:deleted");
   });
 
   it("detects a missing edge when a contract call has no graph edge", () => {
@@ -203,9 +214,12 @@ describe("detectDrift", () => {
       edges: [makeEdge({ from: "node:ghost", to: "function:auth" })]
     });
     const report = detectDrift(graph);
-    expect(report.driftedNodeIds).toContain("node:ghost");
-    // node:ghost appears only once even though one edge check fires
-    expect(report.driftedNodeIds.filter((id) => id === "node:ghost")).toHaveLength(1);
+    // Broken-edge anchors on the existing endpoint (function:auth).
+    expect(report.driftedNodeIds).toContain("function:auth");
+    // The missing ID is NOT in driftedNodeIds (it's in missingNodeId).
+    expect(report.driftedNodeIds).not.toContain("node:ghost");
+    // Each existing node ID appears at most once.
+    expect(report.driftedNodeIds.filter((id) => id === "function:auth")).toHaveLength(1);
   });
 
   it("includes projectName and detectedAt in the report", () => {
@@ -349,5 +363,44 @@ describe("healGraph", () => {
 
     expect(result.projectName).toBe("TestApp");
     expect(result.healedAt).toBeTruthy();
+  });
+
+  it("synthesises one edge per distinct (from, to, kind) when a node has multiple calls to the same target with different kinds", () => {
+    // authenticate calls GET /products with both "calls" and "reads-state".
+    const graph = makeGraph({
+      nodes: makeGraph().nodes.map((n) =>
+        n.id === "function:auth"
+          ? {
+              ...n,
+              contract: {
+                ...emptyContract(),
+                calls: [
+                  { target: "GET /products", kind: "calls" as const },
+                  { target: "GET /products", kind: "reads-state" as const }
+                ]
+              }
+            }
+          : n
+      )
+    });
+
+    const report = detectDrift(graph);
+    const missingIssues = report.issues.filter((i) => i.kind === "missing-edge");
+    // Both calls are missing → two distinct missing-edge issues.
+    expect(missingIssues).toHaveLength(2);
+
+    const result = healGraph(graph, report);
+
+    // Each (from, to, kind) triplet must produce its own edge.
+    const callsEdges = result.graph.edges.filter(
+      (e) => e.from === "function:auth" && e.to === "api:products" && e.kind === "calls"
+    );
+    const readsEdges = result.graph.edges.filter(
+      (e) => e.from === "function:auth" && e.to === "api:products" && e.kind === "reads-state"
+    );
+    expect(callsEdges).toHaveLength(1);
+    expect(readsEdges).toHaveLength(1);
+    // Neither edge should be silently dropped.
+    expect(result.issuesFixed).toBe(2);
   });
 });

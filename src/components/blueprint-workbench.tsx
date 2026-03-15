@@ -315,6 +315,13 @@ export function BlueprintWorkbench() {
   const [refactorReport, setRefactorReport] = useState<RefactorReport | null>(null);
   const [healResult, setHealResult] = useState<HealResult | null>(null);
   const [refactorError, setRefactorError] = useState<string | null>(null);
+  /**
+   * Set to `true` right before a heal replaces the graph so the graph-change
+   * effect doesn't immediately wipe the post-heal report.
+   */
+  const graphReplacedByHealRef = useRef(false);
+  /** AbortController for the currently in-flight detect or heal fetch. */
+  const refactorAbortRef = useRef<AbortController | null>(null);
 
   const selectedNode = graph?.nodes.find((node) => node.id === selectedNodeId) ?? null;
   const drilldownNodeId = drilldownStack.at(-1) ?? null;
@@ -552,14 +559,31 @@ export function BlueprintWorkbench() {
     }
   }, [showDigitalTwinPanel]);
 
-  // Clear refactor state when the panel is closed.
+  // Clear transient refactor state when the panel is closed, but keep the
+  // last report so the badge and canvas highlighting persist.
   useEffect(() => {
     if (!showRefactorPanel) {
-      setRefactorReport(null);
+      // Abort any in-flight drift detection or healing request so it cannot update state after close.
+      refactorAbortRef.current?.abort();
+      refactorAbortRef.current = null;
       setHealResult(null);
       setRefactorError(null);
     }
   }, [showRefactorPanel]);
+
+  // Clear the full refactor report when the graph is replaced by an external
+  // action (new build, branch switch, etc.) so stale drift highlighting doesn't
+  // linger.  Skip when the graph was just replaced by a heal operation — the
+  // heal handler sets a fresh post-heal report in the same render batch.
+  useEffect(() => {
+    if (graphReplacedByHealRef.current) {
+      graphReplacedByHealRef.current = false;
+      return;
+    }
+    setRefactorReport(null);
+    setHealResult(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [graph]);
 
   const pollObservability = useCallback(async () => {
     if (!projectName.trim() || !autoObsRef.current) {
@@ -699,6 +723,11 @@ export function BlueprintWorkbench() {
 
   const handleDetectDrift = useCallback(async () => {
     if (!graph) return;
+    // Abort any previous in-flight request.
+    refactorAbortRef.current?.abort();
+    const controller = new AbortController();
+    refactorAbortRef.current = controller;
+
     setBusyLabel("Detecting drift");
     setRefactorError(null);
     setHealResult(null);
@@ -707,7 +736,8 @@ export function BlueprintWorkbench() {
       const response = await fetch("/api/refactor/detect", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(graph)
+        body: JSON.stringify(graph),
+        signal: controller.signal
       });
       const body = (await response.json()) as RefactorDetectResponse;
 
@@ -717,16 +747,25 @@ export function BlueprintWorkbench() {
 
       setRefactorReport(body.report ?? null);
     } catch (caughtError) {
+      if ((caughtError as { name?: string }).name === "AbortError") return;
       setRefactorError(
         caughtError instanceof Error ? caughtError.message : "Failed to detect drift."
       );
     } finally {
+      if (refactorAbortRef.current === controller) {
+        refactorAbortRef.current = null;
+      }
       setBusyLabel(null);
     }
   }, [graph]);
 
   const handleHealArchitecture = useCallback(async () => {
     if (!graph) return;
+    // Abort any previous in-flight request.
+    refactorAbortRef.current?.abort();
+    const controller = new AbortController();
+    refactorAbortRef.current = controller;
+
     setBusyLabel("Healing architecture");
     setRefactorError(null);
 
@@ -734,7 +773,8 @@ export function BlueprintWorkbench() {
       const response = await fetch("/api/refactor/heal", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(graph)
+        body: JSON.stringify(graph),
+        signal: controller.signal
       });
       const body = (await response.json()) as RefactorHealResponse;
 
@@ -743,6 +783,7 @@ export function BlueprintWorkbench() {
       }
 
       if (body.result?.graph) {
+        graphReplacedByHealRef.current = true;
         setGraph(body.result.graph);
       }
       setRefactorReport(body.report ?? null);
@@ -754,10 +795,14 @@ export function BlueprintWorkbench() {
       );
       setStatusTone("success");
     } catch (caughtError) {
+      if ((caughtError as { name?: string }).name === "AbortError") return;
       setRefactorError(
         caughtError instanceof Error ? caughtError.message : "Failed to heal architecture."
       );
     } finally {
+      if (refactorAbortRef.current === controller) {
+        refactorAbortRef.current = null;
+      }
       setBusyLabel(null);
     }
   }, [graph]);
