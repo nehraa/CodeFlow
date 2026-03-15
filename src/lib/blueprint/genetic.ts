@@ -115,6 +115,7 @@ const generateMonolithVariant = (base: BlueprintGraph, generation: number): Blue
     generatedAt: new Date().toISOString(),
     nodes: aggregateNodes,
     edges: remappedEdges,
+    workflows: [],
     warnings: []
   };
 };
