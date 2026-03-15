@@ -216,6 +216,7 @@ const generateMicroservicesVariant = (base: BlueprintGraph, generation: number):
     generatedAt: new Date().toISOString(),
     nodes: [...serviceNodes, ...apiNodes, ...uiNodes],
     edges: [...serviceEdges, ...uiEdges],
+    workflows: [],
     warnings: []
   };
 };
