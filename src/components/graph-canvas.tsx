@@ -32,6 +32,8 @@ type GraphCanvasProps = {
   onGhostNodeClick?: (ghost: GhostNode) => void;
   heatmapData?: HeatmapData;
   activeNodeIds?: string[];
+  /** Node IDs that have detected architectural drift (rendered with shake + highlight). */
+  driftedNodeIds?: string[];
   detailMode?: boolean;
   theme?: "light" | "dark";
 };
@@ -127,11 +129,12 @@ export function GraphCanvas({
   onGhostNodeClick,
   heatmapData,
   activeNodeIds,
+  driftedNodeIds,
   detailMode = false,
   theme = "light"
 }: GraphCanvasProps) {
   const baseFlowNodes =
-    nodes ?? (graph ? buildFlowNodes(graph, selectedNodeId ?? undefined, heatmapData, activeNodeIds) : []);
+    nodes ?? (graph ? buildFlowNodes(graph, selectedNodeId ?? undefined, heatmapData, activeNodeIds, driftedNodeIds) : []);
   const typedBaseFlowNodes = baseFlowNodes.map((node) => ({
     ...node,
     type: node.type ?? "policyNode"
