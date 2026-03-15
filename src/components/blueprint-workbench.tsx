@@ -3331,10 +3331,30 @@ export function BlueprintWorkbench() {
                               {" · "}gen {variant.generation}
                             </div>
                             <div className="genetic-benchmark-scores">
-                              <span title="Scalability">📈 {variant.benchmark.scalability}</span>
-                              <span title="Cost efficiency">💰 {variant.benchmark.estimatedCostScore}</span>
-                              <span title="Performance">⚡ {variant.benchmark.performance}</span>
-                              <span title="Maintainability">🔧 {variant.benchmark.maintainability}</span>
+                              <span
+                                title="Scalability"
+                                aria-label={`Scalability score ${variant.benchmark.scalability}`}
+                              >
+                                <span aria-hidden="true">📈</span> {variant.benchmark.scalability}
+                              </span>
+                              <span
+                                title="Cost efficiency"
+                                aria-label={`Cost efficiency score ${variant.benchmark.estimatedCostScore}`}
+                              >
+                                <span aria-hidden="true">💰</span> {variant.benchmark.estimatedCostScore}
+                              </span>
+                              <span
+                                title="Performance"
+                                aria-label={`Performance score ${variant.benchmark.performance}`}
+                              >
+                                <span aria-hidden="true">⚡</span> {variant.benchmark.performance}
+                              </span>
+                              <span
+                                title="Maintainability"
+                                aria-label={`Maintainability score ${variant.benchmark.maintainability}`}
+                              >
+                                <span aria-hidden="true">🔧</span> {variant.benchmark.maintainability}
+                              </span>
                             </div>
                           </div>
                         );
