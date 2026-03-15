@@ -683,6 +683,10 @@ export function BlueprintWorkbench() {
     if (!graph) return;
     setBusyLabel("Running genetic evolution");
     setGeneticError(null);
+    setTournamentResult(null);
+    setStatusTitle("Running genetic evolution");
+    setStatusDetail("Evolution in progress...");
+    setStatusTone("info");
     try {
       const response = await fetch("/api/genetic/evolve", {
         method: "POST",
