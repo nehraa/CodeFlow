@@ -1989,3 +1989,106 @@ pre {
 .code-suggestion-panel {
   margin-top: 1rem;
 }
+
+/* ── Genetic Evolution panel ─────────────────────────────────────── */
+
+.genetic-panel {
+  background: var(--surface-elevated);
+  backdrop-filter: blur(28px) saturate(145%);
+}
+
+.genetic-panel .callout {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(16px);
+}
+
+:root[data-theme="light"] .genetic-panel .callout {
+  background: rgba(255, 255, 255, 0.56);
+}
+
+.genetic-variants {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.genetic-variant {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.65rem 0.85rem;
+  background: rgba(148, 163, 184, 0.06);
+  transition: background 150ms ease;
+}
+
+.genetic-variant-winner {
+  border-color: rgba(250, 204, 21, 0.5);
+  background: rgba(250, 204, 21, 0.07);
+}
+
+.genetic-variant-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.2rem;
+}
+
+.genetic-variant-rank {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--muted);
+  min-width: 1.8rem;
+}
+
+.genetic-variant-style {
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  letter-spacing: 0.02em;
+}
+
+.genetic-winner-badge {
+  font-size: 0.76rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(250, 204, 21, 0.18);
+  border: 1px solid rgba(250, 204, 21, 0.4);
+  color: #92400e;
+}
+
+:root[data-theme="light"] .genetic-winner-badge {
+  color: #78350f;
+}
+
+.genetic-variant-fitness {
+  margin-left: auto;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.genetic-variant-graph-info {
+  font-size: 0.76rem;
+  color: var(--muted);
+  margin-bottom: 0.3rem;
+}
+
+.genetic-benchmark-scores {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.genetic-benchmark-scores span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  background: rgba(148, 163, 184, 0.1);
+  border: 1px solid var(--line);
+}
