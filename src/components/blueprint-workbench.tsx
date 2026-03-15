@@ -3303,7 +3303,7 @@ export function BlueprintWorkbench() {
               return (
                 <>
                   <div className="callout">
-                    <h3>🏆 Winner: {winner?.style}</h3>
+                    <h3><span aria-hidden="true">🏆</span> Winner: {winner?.style}</h3>
                     <p className="status-meta">{tournamentResult.summary}</p>
                     <p className="status-meta">
                       {tournamentResult.generationCount} generation{tournamentResult.generationCount !== 1 ? "s" : ""} · {tournamentResult.populationSize} variants · evolved {new Date(tournamentResult.evolvedAt).toLocaleTimeString()}
@@ -3323,7 +3323,7 @@ export function BlueprintWorkbench() {
                             <div className="genetic-variant-header">
                               <span className="genetic-variant-rank">#{variant.rank}</span>
                               <span className="genetic-variant-style">{variant.style}</span>
-                              {isWinner ? <span className="genetic-winner-badge">🏆 Winner</span> : null}
+                              {isWinner ? <span className="genetic-winner-badge"><span aria-hidden="true">🏆</span> Winner</span> : null}
                               <span className="genetic-variant-fitness">Fitness: {variant.benchmark.fitness}</span>
                             </div>
                             <div className="genetic-variant-graph-info">
