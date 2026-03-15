@@ -244,7 +244,8 @@ export const buildFlowNodes = (
   graph: BlueprintGraph,
   selectedNodeId?: string,
   heatmapData?: HeatmapData,
-  activeNodeIds?: string[]
+  activeNodeIds?: string[],
+  driftedNodeIds?: string[]
 ): Array<Node<FlowNodeData>> => {
   const rowCounts = new Map<number, number>();
   const heatMetricByNodeId =
@@ -252,6 +253,7 @@ export const buildFlowNodes = (
       ? new Map(heatmapData.nodes.map((m) => [m.nodeId, m] as const))
       : undefined;
   const activeNodeIdSet = new Set(activeNodeIds ?? []);
+  const driftedNodeIdSet = new Set(driftedNodeIds ?? []);
 
   return graph.nodes.map((node) => {
     const column = kindOrder[node.kind];
@@ -262,7 +264,10 @@ export const buildFlowNodes = (
     const heatMetric = heatMetricByNodeId?.get(node.id);
     const intensity = heatMetric?.heatIntensity ?? 0;
     const isActiveBatch = activeNodeIdSet.has(node.id);
-    const healthState = resolveNodeHealthState(node, traceStatus);
+    const isDrifted = driftedNodeIdSet.has(node.id);
+    // Drifted nodes are forced to the "heal" health state so they render with
+    // the red highlight that signals the architecture needs attention.
+    const healthState = isDrifted ? "heal" : resolveNodeHealthState(node, traceStatus);
     const isGhost = healthState === "ghost";
 
     const baseStyle = kindTheme(node.kind, selectedNodeId === node.id, traceStatus);
@@ -327,7 +332,8 @@ export const buildFlowNodes = (
         healthState === "drift" ? "node-health-drift" : undefined,
         healthState === "heal" ? "node-health-heal" : undefined,
         isGhost ? "node-ghost" : undefined,
-        isActiveBatch ? "node-batch-focus" : undefined
+        isActiveBatch ? "node-batch-focus" : undefined,
+        isDrifted ? "node-drift-shake" : undefined
       ]
         .filter(Boolean)
         .join(" ")
