@@ -265,6 +265,7 @@ const generateServerlessVariant = (base: BlueprintGraph, generation: number): Bl
     generatedAt: new Date().toISOString(),
     nodes: lambdaNodes,
     edges: lambdaEdges,
+    workflows: [],
     warnings: []
   };
 };
