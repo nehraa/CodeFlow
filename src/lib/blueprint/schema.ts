@@ -656,10 +656,10 @@ export const architectureVariantSchema = z.object({
   generation: z.number().int().nonnegative(),
   /**
    * The blueprint graph for this variant.
-   * Stored as a passthrough so that graphs constructed in code (which use the
-   * `z.input` type with optional `phase`) are accepted without re-validation.
+   * Validated using the standard blueprintGraphSchema so structure and
+   * defaults (e.g., phase) are consistently applied.
    */
-  graph: z.custom<BlueprintGraph>(),
+  graph: blueprintGraphSchema,
   /** Computed benchmark scores. */
   benchmark: variantBenchmarkSchema,
   /** 1-based rank within the final ranked population (1 = best). */
