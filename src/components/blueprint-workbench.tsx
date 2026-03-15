@@ -690,7 +690,7 @@ export function BlueprintWorkbench() {
     try {
       const response = await fetch("/api/genetic/evolve", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({
           graph,
           generations: geneticGenerations,
