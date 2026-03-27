@@ -10,7 +10,7 @@ CodeFlow is a blueprint-first coding workbench. It ingests a PRD and/or a local 
 - React Flow workbench for graph visualization and node inspection/editing
 - Workbench graph editing for adding/removing nodes and edges without rebuilding from the PRD
 - Execution planning with dependency batches and per-node task ownership paths
-- Local persistence under `.codeflow-store/` for sessions, runs, approvals, and checkpoints
+- Local persistence under `~/.codeflow-store/` by default for sessions, runs, approvals, and checkpoints
 - Risk-aware export flow with approval gating in `essential` mode and checkpoint creation before overwriting exports
 - Local sandboxed `yolo` export runs with diff manifests before syncing to the target directory
 - Conflict/drift analysis against a live TypeScript repo snapshot
@@ -36,6 +36,7 @@ Then open `http://localhost:3000`.
 ## Test and verify
 
 ```bash
+npm run lint
 npm test
 npm run check
 npm run build
@@ -43,13 +44,19 @@ npm run build
 
 Run `npm run check` separately from `npm run build`; they both touch Next type generation and should not be launched in parallel.
 
+## Engineering docs
+
+- `AGENTS.md` is the default repo contract for human and AI changes.
+- `docs/execution-validation-contract.md` defines the required target behavior for node execution, graph pass/fail truthfulness, and drill-down failure visibility.
+- `docs/ai-coding-risk-playbook.md` defines the failure modes of AI-assisted coding and the required countermeasures for this repo.
+
 ## How to use
 
 ### AI Blueprint Generation (Recommended)
 
 1. Enter a project name.
 2. Select **AI Prompt (NVIDIA)** mode.
-3. Enter your NVIDIA API key (saved to localStorage) or set `NVIDIA_API_KEY` environment variable.
+3. Enter your NVIDIA API key for the current browser session or set `NVIDIA_API_KEY` in the environment.
 4. Describe your project in natural language (e.g., "A task management app with React frontend and Node.js backend..." or "A Rails monolith with Sidekiq jobs and a React admin panel...").
 5. Choose `essential` or `yolo` mode.
 6. Click `Build blueprint`.
@@ -114,10 +121,13 @@ obsidian-index.md
 Local state is stored in:
 
 ```text
-.codeflow-store/
+~/.codeflow-store/
 ```
 
 This includes latest sessions, run records, approval records, and checkpoints for overwritten export directories.
+Set `CODEFLOW_STORE_ROOT` to override the default location.
+
+Browser-only preferences such as live completions, auto-implement, and theme stay in local storage. The raw NVIDIA API key is no longer persisted there; it is held in the current browser session only unless you provide it through `NVIDIA_API_KEY`.
 
 ## API routes
 
