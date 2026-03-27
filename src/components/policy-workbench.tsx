@@ -30,6 +30,17 @@ import type {
   RuntimeExecutionResult
 } from "@/lib/blueprint/schema";
 import { emptyContract, traceSpanSchema } from "@/lib/blueprint/schema";
+import {
+  AUTO_IMPLEMENT_STORAGE_KEY,
+  LIVE_COMPLETIONS_STORAGE_KEY,
+  THEME_STORAGE_KEY,
+  loadSessionApiKey,
+  readLocalBooleanPreference,
+  readLocalPreference,
+  storeSessionApiKey,
+  writeLocalBooleanPreference,
+  writeLocalPreference
+} from "@/lib/browser/storage";
 
 type BuildResponse = {
   graph?: BlueprintGraph;
@@ -279,7 +290,7 @@ export function PolicyWorkbench() {
   );
   const canRunIntegration = Boolean(graph?.phase === "integration");
   const apiKeyStatus = nvidiaApiKey.trim()
-    ? `Browser key saved (${maskApiKey(nvidiaApiKey)}).`
+    ? `Browser session key active (${maskApiKey(nvidiaApiKey)}).`
     : serverApiKeyConfigured
       ? "Server environment key detected."
       : apiKeyStatusLoaded
@@ -425,22 +436,22 @@ export function PolicyWorkbench() {
   }, [graph]);
 
   useEffect(() => {
-    const storedApiKey = localStorage.getItem("nvidia_api_key");
+    const storedApiKey = loadSessionApiKey();
     if (storedApiKey) {
       setNvidiaApiKey(storedApiKey);
     }
 
-    const storedCompletionPreference = localStorage.getItem("codeflow_live_completions");
-    if (storedCompletionPreference) {
-      setLiveCompletionsEnabled(storedCompletionPreference === "true");
+    const storedCompletionPreference = readLocalBooleanPreference(LIVE_COMPLETIONS_STORAGE_KEY);
+    if (storedCompletionPreference !== null) {
+      setLiveCompletionsEnabled(storedCompletionPreference);
     }
 
-    const storedAutoImplement = localStorage.getItem("codeflow_auto_implement");
-    if (storedAutoImplement) {
-      setAutoImplementNodes(storedAutoImplement === "true");
+    const storedAutoImplement = readLocalBooleanPreference(AUTO_IMPLEMENT_STORAGE_KEY);
+    if (storedAutoImplement !== null) {
+      setAutoImplementNodes(storedAutoImplement);
     }
 
-    const storedThemePreference = localStorage.getItem("codeflow_theme");
+    const storedThemePreference = readLocalPreference(THEME_STORAGE_KEY);
     if (
       storedThemePreference === "system" ||
       storedThemePreference === "light" ||
@@ -497,23 +508,19 @@ export function PolicyWorkbench() {
   }, []);
 
   useEffect(() => {
-    if (nvidiaApiKey.trim()) {
-      localStorage.setItem("nvidia_api_key", nvidiaApiKey);
-    } else {
-      localStorage.removeItem("nvidia_api_key");
-    }
+    storeSessionApiKey(nvidiaApiKey);
   }, [nvidiaApiKey]);
 
   useEffect(() => {
-    localStorage.setItem("codeflow_live_completions", String(liveCompletionsEnabled));
+    writeLocalBooleanPreference(LIVE_COMPLETIONS_STORAGE_KEY, liveCompletionsEnabled);
   }, [liveCompletionsEnabled]);
 
   useEffect(() => {
-    localStorage.setItem("codeflow_auto_implement", String(autoImplementNodes));
+    writeLocalBooleanPreference(AUTO_IMPLEMENT_STORAGE_KEY, autoImplementNodes);
   }, [autoImplementNodes]);
 
   useEffect(() => {
-    localStorage.setItem("codeflow_theme", themePreference);
+    writeLocalPreference(THEME_STORAGE_KEY, themePreference);
   }, [themePreference]);
 
   useEffect(() => {

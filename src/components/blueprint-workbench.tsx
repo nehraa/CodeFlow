@@ -2,13 +2,15 @@
 
 import { z } from "zod";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
+import { CodeflowCatLogo } from "@/components/codeflow-brand";
 import { CodeEditor } from "@/components/code-editor";
+import { CodeflowCatShowcase } from "@/components/codeflow-cat-showcase";
 import { GraphCanvas } from "@/components/graph-canvas";
 import { generateNodeCode, getNodeStubPath, isCodeBearingNode } from "@/lib/blueprint/codegen";
 import { addEdgeToGraph, addNodeToGraph, deleteNodeFromGraph } from "@/lib/blueprint/edit";
-import { buildDetailFlow } from "@/lib/blueprint/flow-view";
+import { buildDetailFlow, indexRuntimeExecutionResult } from "@/lib/blueprint/flow-view";
 import { computeHeatmap } from "@/lib/blueprint/heatmap";
 import type { HeatmapData } from "@/lib/blueprint/heatmap";
 import { canEnterImplementationPhase, canEnterIntegrationPhase, setGraphPhase } from "@/lib/blueprint/phases";
@@ -18,6 +20,14 @@ import type { CycleReport } from "@/lib/blueprint/cycles";
 import type { SmellReport } from "@/lib/blueprint/smells";
 import type { GraphMetrics } from "@/lib/blueprint/metrics";
 import type { RefactorReport, HealResult } from "@/lib/blueprint/refactor";
+import {
+  AUTO_IMPLEMENT_STORAGE_KEY,
+  LIVE_COMPLETIONS_STORAGE_KEY,
+  loadSessionApiKey,
+  readLocalBooleanPreference,
+  storeSessionApiKey,
+  writeLocalBooleanPreference
+} from "@/lib/browser/storage";
 import type {
   ApprovalRecord,
   BlueprintGraph,
@@ -27,6 +37,8 @@ import type {
   DigitalTwinSnapshot,
   ExecutionMode,
   ExportResult,
+  ExecutionArtifact,
+  ExecutionStep,
   GhostNode,
   GraphBranch,
   McpServerConfig,
@@ -81,7 +93,7 @@ type ImplementNodeResponse = {
 
 type ObservabilityLatestResponse = {
   graph?: BlueprintGraph | null;
-  latestSpans?: Array<{ spanId: string; name: string; status: string; runtime: string }>;
+  latestSpans?: Array<{ spanId: string; name: string; status: string; runtime: string; provenance?: string }>;
   latestLogs?: ObservabilityLog[];
   error?: string;
 };
@@ -214,6 +226,44 @@ const normalizeContract = (contract: Partial<BlueprintNode["contract"]>) => ({
   ...contract
 });
 
+type ToolbarMenuKey = "brand" | "build" | "view" | "tools" | null;
+
+function ToolbarMenu({
+  active,
+  label,
+  onToggle,
+  children
+}: {
+  active: boolean;
+  label: ReactNode;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className={`toolbar-menu${active ? " is-open" : ""}`}>
+      <button
+        aria-expanded={active}
+        className={`toolbar-menu-trigger${active ? " is-open" : ""}`}
+        onClick={onToggle}
+        type="button"
+      >
+        {label}
+        <span aria-hidden="true">▾</span>
+      </button>
+      {active ? <div className="toolbar-menu-popover">{children}</div> : null}
+    </div>
+  );
+}
+
+function ToolbarMenuSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="toolbar-menu-section">
+      <p>{title}</p>
+      {children}
+    </div>
+  );
+}
+
 export function BlueprintWorkbench() {
   const MIN_OBSERVABILITY_INTERVAL_SECS = 2;
   const [projectName, setProjectName] = useState("CodeFlow Workspace");
@@ -257,6 +307,8 @@ export function BlueprintWorkbench() {
     "Enter a project description or repo input, then build a blueprint."
   );
   const [statusTone, setStatusTone] = useState<StatusTone>("info");
+  const [openToolbarMenu, setOpenToolbarMenu] = useState<ToolbarMenuKey>(null);
+  const toolbarRef = useRef<HTMLDivElement | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showPromptPanel, setShowPromptPanel] = useState(true);
   const [showEditPanel, setShowEditPanel] = useState(false);
@@ -265,6 +317,8 @@ export function BlueprintWorkbench() {
   const [showObservabilityPanel, setShowObservabilityPanel] = useState(false);
   const [autoObservability, setAutoObservability] = useState(false);
   const [observabilityIntervalSecs, setObservabilityIntervalSecs] = useState(5);
+  const [observabilityPollError, setObservabilityPollError] = useState<string | null>(null);
+  const [observabilityLastUpdatedAt, setObservabilityLastUpdatedAt] = useState<string | null>(null);
   const autoObsRef = useRef(autoObservability);
   autoObsRef.current = autoObservability;
   const [autoImplementNodes, setAutoImplementNodes] = useState(false);
@@ -310,6 +364,8 @@ export function BlueprintWorkbench() {
   const [simulateNodeIds, setSimulateNodeIds] = useState("");
   const [simulateLabel, setSimulateLabel] = useState("");
   const [digitalTwinError, setDigitalTwinError] = useState<string | null>(null);
+  const [digitalTwinPollError, setDigitalTwinPollError] = useState<string | null>(null);
+  const [digitalTwinLastUpdatedAt, setDigitalTwinLastUpdatedAt] = useState<string | null>(null);
 
   // ── Neural Auto-Refactoring ────────────────────────────────────────────
   const [showRefactorPanel, setShowRefactorPanel] = useState(false);
@@ -326,6 +382,8 @@ export function BlueprintWorkbench() {
 
   // ── Architectural Genetic Algorithms ──────────────────────────────────────
   const [showGeneticPanel, setShowGeneticPanel] = useState(false);
+  const [showMascotPanel, setShowMascotPanel] = useState(false);
+  const [showPhasePanel, setShowPhasePanel] = useState(false);
   const [geneticGenerations, setGeneticGenerations] = useState(3);
   const [geneticPopulationSize, setGeneticPopulationSize] = useState(6);
   const [tournamentResult, setTournamentResult] = useState<TournamentResult | null>(null);
@@ -334,9 +392,13 @@ export function BlueprintWorkbench() {
   const selectedNode = graph?.nodes.find((node) => node.id === selectedNodeId) ?? null;
   const drilldownNodeId = drilldownStack.at(-1) ?? null;
   const drilldownRootNode = graph?.nodes.find((node) => node.id === drilldownNodeId) ?? null;
+  const executionIndex = useMemo(
+    () => indexRuntimeExecutionResult(executionResult),
+    [executionResult]
+  );
   const detailFlow =
     graph && drilldownNodeId
-      ? buildDetailFlow(graph, drilldownNodeId, selectedDetailNodeId ?? undefined)
+      ? buildDetailFlow(graph, drilldownNodeId, selectedDetailNodeId ?? undefined, executionResult)
       : null;
   const selectedDetailItem =
     detailFlow?.items.find((item) => item.id === selectedDetailNodeId) ?? detailFlow?.items[0] ?? null;
@@ -365,6 +427,9 @@ export function BlueprintWorkbench() {
         ""
       : "";
   const activeCodePath = activeCodeNode ? getNodeStubPath(activeCodeNode) : null;
+  const executionSummary = executionResult?.summary ?? null;
+  const failedExecutionStep = executionResult?.steps.find((step) => step.status === "failed") ?? null;
+  const blockedExecutionStep = executionResult?.steps.find((step) => step.status === "blocked") ?? null;
   const liveCompletionReady =
     liveCompletionsEnabled && (Boolean(nvidiaApiKey.trim()) || serverApiKeyConfigured);
   const isBusy = Boolean(busyLabel);
@@ -378,6 +443,58 @@ export function BlueprintWorkbench() {
     ).length ?? 0;
   const verifiedNodeCount =
     graph?.nodes.filter((node) => isCodeBearingNode(node) && node.status === "verified").length ?? 0;
+  const allCodeNodesVerified = codeBearingNodeCount > 0 && verifiedNodeCount === codeBearingNodeCount;
+  const activeMascotScene = useMemo(() => {
+    if (showGeneticPanel || tournamentResult) {
+      return "genetic" as const;
+    }
+
+    if (showObservabilityPanel || heatmapData) {
+      return "heatmap" as const;
+    }
+
+    if (showVcrPanel || vcrRecording) {
+      return "vcr" as const;
+    }
+
+    if (showDigitalTwinPanel || digitalTwinSnapshot) {
+      return "digitalTwin" as const;
+    }
+
+    if (showRefactorPanel || healResult) {
+      return refactorReport && !refactorReport.isHealthy ? ("error" as const) : ("heal" as const);
+    }
+
+    if (ghostSuggestions.length > 0) {
+      return "ghost" as const;
+    }
+
+    if (allCodeNodesVerified || exportResult) {
+      return "polish" as const;
+    }
+
+    if (graph?.phase === "implementation") {
+      return "implementation" as const;
+    }
+
+    return "spec" as const;
+  }, [
+    allCodeNodesVerified,
+    digitalTwinSnapshot,
+    exportResult,
+    ghostSuggestions.length,
+    graph?.phase,
+    healResult,
+    heatmapData,
+    refactorReport,
+    showDigitalTwinPanel,
+    showGeneticPanel,
+    showObservabilityPanel,
+    showRefactorPanel,
+    showVcrPanel,
+    tournamentResult,
+    vcrRecording
+  ]);
   const canStartImplementation = graph ? canEnterImplementationPhase(graph) : false;
   const canStartIntegration = graph ? canEnterIntegrationPhase(graph) : false;
   const canImplementActiveNode = Boolean(activeCodeNode && graph?.phase === "implementation");
@@ -387,8 +504,35 @@ export function BlueprintWorkbench() {
       ["implemented", "verified", "connected"].includes(activeCodeNode.status ?? "spec_only")
   );
   const canRunIntegration = Boolean(graph?.phase === "integration");
+  const getNodeExecutionSteps = useCallback(
+    (nodeId: string): ExecutionStep[] => executionIndex?.stepsByNodeId[nodeId] ?? [],
+    [executionIndex]
+  );
+  const getNodeTestCases = useCallback(
+    (nodeId: string) => executionIndex?.testCasesByNodeId[nodeId] ?? [],
+    [executionIndex]
+  );
+  const getNodeTestResults = useCallback(
+    (nodeId: string) => executionIndex?.testResultsByNodeId[nodeId] ?? [],
+    [executionIndex]
+  );
+  const getArtifactsForStep = useCallback(
+    (step: ExecutionStep): ExecutionArtifact[] =>
+      (step.artifactIds ?? [])
+        .map((artifactId) => executionIndex?.artifactsById[artifactId])
+        .filter((artifact): artifact is ExecutionArtifact => Boolean(artifact)),
+    [executionIndex]
+  );
+  const shouldShowPromptComposer = showPromptPanel || !graph;
+  const toolbarStatusLabel = statusTitle;
+  const toolbarStatusToneClass = `toolbar-status toolbar-status-${statusTone}`;
+  const closeToolbarMenus = () => setOpenToolbarMenu(null);
+  const runToolbarAction = (action: () => void) => {
+    closeToolbarMenus();
+    action();
+  };
   const apiKeyStatus = nvidiaApiKey.trim()
-    ? `Browser key saved (${maskApiKey(nvidiaApiKey)}).`
+    ? `Browser session key active (${maskApiKey(nvidiaApiKey)}).`
     : serverApiKeyConfigured
       ? "Server environment key detected."
       : apiKeyStatusLoaded
@@ -408,19 +552,35 @@ export function BlueprintWorkbench() {
   }, [drilldownNodeId, graph, selectedNodeId]);
 
   useEffect(() => {
-    const storedApiKey = localStorage.getItem("nvidia_api_key");
+    if (!openToolbarMenu) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (toolbarRef.current && target instanceof Node && !toolbarRef.current.contains(target)) {
+        setOpenToolbarMenu(null);
+      }
+    };
+
+    window.addEventListener("pointerdown", handlePointerDown);
+    return () => window.removeEventListener("pointerdown", handlePointerDown);
+  }, [openToolbarMenu]);
+
+  useEffect(() => {
+    const storedApiKey = loadSessionApiKey();
     if (storedApiKey) {
       setNvidiaApiKey(storedApiKey);
     }
 
-    const storedCompletionPreference = localStorage.getItem("codeflow_live_completions");
-    if (storedCompletionPreference) {
-      setLiveCompletionsEnabled(storedCompletionPreference === "true");
+    const storedCompletionPreference = readLocalBooleanPreference(LIVE_COMPLETIONS_STORAGE_KEY);
+    if (storedCompletionPreference !== null) {
+      setLiveCompletionsEnabled(storedCompletionPreference);
     }
 
-    const storedAutoImplement = localStorage.getItem("codeflow_auto_implement");
-    if (storedAutoImplement) {
-      setAutoImplementNodes(storedAutoImplement === "true");
+    const storedAutoImplement = readLocalBooleanPreference(AUTO_IMPLEMENT_STORAGE_KEY);
+    if (storedAutoImplement !== null) {
+      setAutoImplementNodes(storedAutoImplement);
     }
   }, []);
 
@@ -450,19 +610,15 @@ export function BlueprintWorkbench() {
   }, []);
 
   useEffect(() => {
-    if (nvidiaApiKey.trim()) {
-      localStorage.setItem("nvidia_api_key", nvidiaApiKey);
-    } else {
-      localStorage.removeItem("nvidia_api_key");
-    }
+    storeSessionApiKey(nvidiaApiKey);
   }, [nvidiaApiKey]);
 
   useEffect(() => {
-    localStorage.setItem("codeflow_live_completions", String(liveCompletionsEnabled));
+    writeLocalBooleanPreference(LIVE_COMPLETIONS_STORAGE_KEY, liveCompletionsEnabled);
   }, [liveCompletionsEnabled]);
 
   useEffect(() => {
-    localStorage.setItem("codeflow_auto_implement", String(autoImplementNodes));
+    writeLocalBooleanPreference(AUTO_IMPLEMENT_STORAGE_KEY, autoImplementNodes);
   }, [autoImplementNodes]);
 
   useEffect(() => {
@@ -564,6 +720,8 @@ export function BlueprintWorkbench() {
       setDigitalTwinSnapshot(null);
       setDigitalTwinGraph(null);
       setDigitalTwinError(null);
+      setDigitalTwinPollError(null);
+      setDigitalTwinLastUpdatedAt(null);
     }
   }, [showDigitalTwinPanel]);
 
@@ -590,7 +748,6 @@ export function BlueprintWorkbench() {
     }
     setRefactorReport(null);
     setHealResult(null);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [graph]);
 
   const pollObservability = useCallback(async () => {
@@ -613,8 +770,12 @@ export function BlueprintWorkbench() {
 
       setLatestSpans(body.latestSpans ?? []);
       setLatestLogs(body.latestLogs ?? []);
-    } catch {
-      // silently ignore poll errors to avoid flooding the UI
+      setObservabilityPollError(null);
+      setObservabilityLastUpdatedAt(new Date().toISOString());
+    } catch (caughtError) {
+      setObservabilityPollError(
+        caughtError instanceof Error ? caughtError.message : "Observability polling failed."
+      );
     }
   }, [projectName]);
 
@@ -648,8 +809,12 @@ export function BlueprintWorkbench() {
         setDigitalTwinGraph(body.graph);
         setGraph(body.graph);
       }
-    } catch {
-      // silently ignore poll errors
+      setDigitalTwinPollError(null);
+      setDigitalTwinLastUpdatedAt(body.snapshot?.computedAt ?? new Date().toISOString());
+    } catch (caughtError) {
+      setDigitalTwinPollError(
+        caughtError instanceof Error ? caughtError.message : "Digital Twin polling failed."
+      );
     }
   }, [projectName, digitalTwinWindowSecs]);
 
@@ -683,6 +848,8 @@ export function BlueprintWorkbench() {
         setDigitalTwinGraph(body.graph);
         setGraph(body.graph);
       }
+      setDigitalTwinPollError(null);
+      setDigitalTwinLastUpdatedAt(body.snapshot?.computedAt ?? new Date().toISOString());
     } catch (caughtError) {
       setDigitalTwinError(
         caughtError instanceof Error ? caughtError.message : "Failed to load digital twin."
@@ -1166,7 +1333,8 @@ export function BlueprintWorkbench() {
           graph,
           targetNodeId,
           input: runInput,
-          codeDrafts: Object.keys(codeDrafts).length ? codeDrafts : undefined
+          codeDrafts: Object.keys(codeDrafts).length ? codeDrafts : undefined,
+          includeGeneratedTests: true
         })
       });
       const body = (await response.json()) as ExecutionResponse;
@@ -1183,11 +1351,26 @@ export function BlueprintWorkbench() {
       if (body.result.success) {
         setStatusTone("success");
         setStatusTitle(graph.phase === "integration" ? "Integration succeeded" : "Node verified");
-        setStatusDetail(`Exit code ${body.result.exitCode ?? 0} in ${body.result.durationMs}ms.`);
+        setStatusDetail(
+          [
+            `Exit code ${body.result.exitCode ?? 0} in ${body.result.durationMs}ms.`,
+            body.result.summary
+              ? `${body.result.summary.passed} passed · ${body.result.summary.warning} warning · ${body.result.summary.failed} failed · ${body.result.summary.blocked} blocked`
+              : null,
+            body.result.testResults.length
+              ? `${body.result.testResults.length} generated test result${body.result.testResults.length === 1 ? "" : "s"} recorded.`
+              : null
+          ]
+            .filter(Boolean)
+            .join(" ")
+        );
       } else {
         setStatusTone("danger");
         setStatusTitle("Execution failed");
-        setStatusDetail(body.result.stderr || body.result.error || "Unknown execution failure.");
+        setStatusDetail(
+          body.result.steps.find((step) => step.status === "failed" || step.status === "blocked")?.message ??
+            (body.result.stderr || body.result.error || "Unknown execution failure.")
+        );
       }
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Failed to execute.");
@@ -1221,6 +1404,8 @@ export function BlueprintWorkbench() {
 
       setLatestSpans(body.latestSpans ?? []);
       setLatestLogs(body.latestLogs ?? []);
+      setObservabilityPollError(null);
+      setObservabilityLastUpdatedAt(new Date().toISOString());
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Failed to load observability.");
     } finally {
@@ -1495,8 +1680,8 @@ export function BlueprintWorkbench() {
       if (response.ok && body.branches) {
         setBranches(body.branches);
       }
-    } catch {
-      // silently ignore load errors
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Failed to load branches.");
     }
   };
 
@@ -1531,7 +1716,7 @@ export function BlueprintWorkbench() {
       }
 
       if (body.branch) {
-        setBranches((current) => [...current, body.branch]);
+        setBranches([...branches, body.branch]);
         setActiveBranchId(body.branch.id);
         setNewBranchName("");
         setNewBranchDescription("");
@@ -1571,6 +1756,14 @@ export function BlueprintWorkbench() {
       }
 
       setGhostSuggestions(body.suggestions ?? []);
+      if (body.suggestions?.length) {
+        const provenance = body.suggestions[0].provenance;
+        setStatusTone("info");
+        setStatusTitle("Ghost suggestions ready");
+        setStatusDetail(
+          `${body.suggestions.length} ${provenance} ${provenance === "ai" ? "AI-assisted" : "heuristic"} suggestion${body.suggestions.length === 1 ? "" : "s"} added to the graph as preview nodes.`
+        );
+      }
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Failed to generate ghost node suggestions.");
     } finally {
@@ -1799,13 +1992,14 @@ export function BlueprintWorkbench() {
       targetNodeId = createdNode ? createdNode.id : null;
     }
 
-    if (ghost.suggestedEdge) {
-      const fromExists = nextGraph.nodes.some((n) => n.id === ghost.suggestedEdge.from);
+    const suggestedEdge = ghost.suggestedEdge;
+    if (suggestedEdge) {
+      const fromExists = nextGraph.nodes.some((n) => n.id === suggestedEdge.from);
       if (fromExists && targetNodeId) {
         nextGraph = addEdgeToGraph(nextGraph, {
-          from: ghost.suggestedEdge.from,
+          from: suggestedEdge.from,
           to: targetNodeId,
-          kind: ghost.suggestedEdge.kind
+          kind: suggestedEdge.kind
         });
       }
     }
@@ -1843,8 +2037,8 @@ export function BlueprintWorkbench() {
           setDiffTargetBranchId(null);
         }
       }
-    } catch {
-      // silently ignore
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Failed to delete branch.");
     }
   };
 
@@ -1918,6 +2112,51 @@ export function BlueprintWorkbench() {
     ];
   };
 
+  const renderNodeRuntimeEvidence = (node: BlueprintNode) => {
+    const nodeSteps = getNodeExecutionSteps(node.id);
+    const testCases = getNodeTestCases(node.id);
+    const testResults = getNodeTestResults(node.id);
+
+    if (!nodeSteps.length && !testCases.length && !testResults.length) {
+      return null;
+    }
+
+    return (
+      <div className="callout">
+        <h3>Runtime evidence</h3>
+        {nodeSteps.length ? <p>{nodeSteps.length} execution step{nodeSteps.length === 1 ? "" : "s"} recorded for this node.</p> : null}
+        {nodeSteps.slice(0, 6).map((step) => {
+          const artifacts = getArtifactsForStep(step);
+          return (
+            <div key={step.id} className="smell-item">
+              <p>
+                <strong>{step.kind.toUpperCase()}</strong> {step.status.toUpperCase()} {step.methodName ? `· ${step.methodName}` : ""}
+              </p>
+              <p>{step.message}</p>
+              {step.inputPreview ? <p>Input: {step.inputPreview}</p> : null}
+              {step.outputPreview ? <p>Output: {step.outputPreview}</p> : null}
+              {step.blockedByStepId ? <p>Blocked by: {step.blockedByStepId}</p> : null}
+              {artifacts.length ? artifacts.slice(0, 3).map((artifact) => <p key={artifact.id}>Artifact: {artifact.preview}</p>) : null}
+              {step.contractChecks.slice(0, 3).map((check, index) => (
+                <p key={`${step.id}:${check.stage}:${index}`}>
+                  {check.stage} {check.status}: {check.message}
+                </p>
+              ))}
+            </div>
+          );
+        })}
+        {testCases.length ? <p>{testCases.length} generated contract test case{testCases.length === 1 ? "" : "s"}.</p> : null}
+        {testResults.length
+          ? testResults.slice(0, 6).map((result) => (
+              <p key={result.caseId}>
+                Test {result.kind}: {result.status} · {result.message}
+              </p>
+            ))
+          : null}
+      </div>
+    );
+  };
+
   const renderCodeEditorPanel = () => {
     if (!activeCodeNode || !activeCodePath) {
       return null;
@@ -1931,6 +2170,9 @@ export function BlueprintWorkbench() {
         </p>
         <p>
           Phase: <strong>{graph?.phase ?? "spec"}</strong> | Node status: <strong>{activeCodeNode.status}</strong>
+        </p>
+        <p className="status-meta">
+          Every runtime run now includes generated happy-path, edge-case, and invalid-input contract tests for directly runnable nodes.
         </p>
         <label className="field">
           <span>Editor instructions</span>
@@ -2050,115 +2292,213 @@ export function BlueprintWorkbench() {
     );
   };
 
+  const renderPrimaryActionButton = () => {
+    if (!graph || showPromptPanel) {
+      return (
+        <button
+          aria-label="Toolbar build blueprint"
+          className="toolbar-primary-action"
+          disabled={isBusy}
+          onClick={() => void handleBuild()}
+          type="button"
+        >
+          {busyLabel === "Building blueprint" ? "Building..." : "Build blueprint"}
+        </button>
+      );
+    }
+
+    if (canStartImplementation) {
+      return (
+        <button className="toolbar-primary-action" disabled={isBusy} onClick={() => void handleAdvanceToImplementation()} type="button">
+          {busyLabel === "Auto-implementing nodes" ? "Implementing..." : "Enter Phase 2"}
+        </button>
+      );
+    }
+
+    if (canRunActiveNode) {
+      return (
+        <button className="toolbar-primary-action" disabled={isBusy} onClick={() => void handleRunExecution()} type="button">
+          {busyLabel === "Running node" ? "Running node" : "Run node"}
+        </button>
+      );
+    }
+
+    if (canStartIntegration) {
+      return (
+        <button className="toolbar-primary-action" disabled={isBusy} onClick={handleAdvanceToIntegration} type="button">
+          Enter Phase 3
+        </button>
+      );
+    }
+
+    if (canRunIntegration) {
+      return (
+        <button className="toolbar-primary-action" disabled={isBusy} onClick={() => void handleRunExecution()} type="button">
+          {busyLabel === "Running integration" ? "Running integration" : "Run integration"}
+        </button>
+      );
+    }
+
+    return (
+      <button className="toolbar-primary-action" disabled={isBusy} onClick={() => void handleExport()} type="button">
+        {busyLabel === "Exporting artifacts" ? "Exporting..." : "Export"}
+      </button>
+    );
+  };
+
   return (
     <div className="workbench-shell">
-      <header className="workbench-topbar">
-        <div className="topbar-start">
-          <div className="brand-lockup">
-            <p className="brand-eyebrow">CodeFlow</p>
-            <h1>Blueprint Studio</h1>
+      <header className="workbench-topbar workbench-topbar-refined">
+        <div ref={toolbarRef} className="toolbar-shell">
+          <ToolbarMenu
+            active={openToolbarMenu === "brand"}
+            label={
+              <span className="toolbar-brand-trigger">
+                <CodeflowCatLogo size={18} />
+                CodeFlow
+              </span>
+            }
+            onToggle={() => setOpenToolbarMenu((current) => (current === "brand" ? null : "brand"))}
+          >
+            <div className="brand-popover">
+              <button className="brand-button" onClick={() => runToolbarAction(() => setShowMascotPanel((current) => !current))} type="button">
+                <CodeflowCatLogo size={44} />
+                <span>
+                  <strong>CodeFlow</strong>
+                  <small>v0.1.0 · Blueprint Studio</small>
+                </span>
+              </button>
+              <div className="brand-facts">
+                <p>Phase: {graph?.phase ?? "spec"}</p>
+                <p>Nodes: {graph?.nodes.length ?? 0}</p>
+                <p>Workflows: {graph?.workflows.length ?? 0}</p>
+                <p>Mode: {mode}</p>
+              </div>
+            </div>
+          </ToolbarMenu>
+
+          <div className="toolbar-cluster">
+            <ToolbarMenu
+              active={openToolbarMenu === "build"}
+              label="Build"
+              onToggle={() => setOpenToolbarMenu((current) => (current === "build" ? null : "build"))}
+            >
+              <ToolbarMenuSection title="Flow">
+                <button onClick={() => runToolbarAction(() => setShowPromptPanel((current) => !current))} type="button">
+                  {showPromptPanel ? "Hide prompt" : "Open prompt"}
+                </button>
+                <button disabled={isBusy} onClick={() => runToolbarAction(() => void handleBuild())} type="button">
+                  {busyLabel === "Building blueprint" ? "Building..." : "Build blueprint"}
+                </button>
+                <button
+                  disabled={isBusy || !canStartImplementation}
+                  onClick={() => runToolbarAction(() => void handleAdvanceToImplementation())}
+                  type="button"
+                >
+                  Enter Phase 2
+                </button>
+                <button disabled={isBusy || !canRunActiveNode} onClick={() => runToolbarAction(() => void handleRunExecution())} type="button">
+                  Run node
+                </button>
+                <button disabled={isBusy || !canStartIntegration} onClick={() => runToolbarAction(handleAdvanceToIntegration)} type="button">
+                  Enter Phase 3
+                </button>
+                <button disabled={isBusy || !canRunIntegration} onClick={() => runToolbarAction(() => void handleRunExecution())} type="button">
+                  Run integration
+                </button>
+                <button disabled={isBusy} onClick={() => runToolbarAction(() => void handleExport())} type="button">
+                  Export
+                </button>
+              </ToolbarMenuSection>
+            </ToolbarMenu>
+
+            <ToolbarMenu
+              active={openToolbarMenu === "view"}
+              label="View"
+              onToggle={() => setOpenToolbarMenu((current) => (current === "view" ? null : "view"))}
+            >
+              <ToolbarMenuSection title="Panels">
+                <button onClick={() => runToolbarAction(() => setShowPromptPanel((current) => !current))} type="button">
+                  {showPromptPanel ? "Hide prompt" : "Show prompt"}
+                </button>
+                <button disabled={!selectedNode && !selectedDetailItem} onClick={() => runToolbarAction(() => setShowInspector((current) => !current))} type="button">
+                  {showInspector ? "Hide inspector" : "Show inspector"}
+                </button>
+                <button onClick={() => runToolbarAction(() => setShowMascotPanel((current) => !current))} type="button">
+                  {showMascotPanel ? "Hide mascot" : "Show mascot"}
+                </button>
+                <button disabled={!graph} onClick={() => runToolbarAction(() => setShowPhasePanel((current) => !current))} type="button">
+                  {showPhasePanel ? "Hide phase stats" : "Show phase stats"}
+                </button>
+                <button disabled={!graph} onClick={() => runToolbarAction(() => setShowObservabilityPanel((current) => !current))} type="button">
+                  {showObservabilityPanel ? "Hide heatmap" : "Heatmap"}
+                </button>
+                <button disabled={!graph} onClick={() => runToolbarAction(() => setShowVcrPanel((current) => !current))} type="button">
+                  {showVcrPanel ? "Hide VCR" : "VCR Replay"}
+                </button>
+                <button disabled={!graph} onClick={() => runToolbarAction(() => setShowDigitalTwinPanel((current) => !current))} type="button">
+                  {showDigitalTwinPanel ? "Hide twin" : "Digital Twin"}
+                </button>
+              </ToolbarMenuSection>
+            </ToolbarMenu>
+
+            <ToolbarMenu
+              active={openToolbarMenu === "tools"}
+              label="Tools"
+              onToggle={() => setOpenToolbarMenu((current) => (current === "tools" ? null : "tools"))}
+            >
+              <ToolbarMenuSection title="Architecture">
+                <button disabled={isBusy || !graph} onClick={() => runToolbarAction(() => void handleRunAnalysis())} type="button">
+                  Analyze
+                </button>
+                <button disabled={isBusy || !graph} onClick={() => runToolbarAction(() => void handleSuggestGhostNodes())} type="button">
+                  Suggest nodes
+                </button>
+                <button disabled={!ghostSuggestions.length} onClick={() => runToolbarAction(() => setGhostSuggestions([]))} type="button">
+                  Clear ghosts
+                </button>
+                <button disabled={!graph} onClick={() => runToolbarAction(() => setShowRefactorPanel((current) => !current))} type="button">
+                  {showRefactorPanel ? "Hide heal" : "Heal"}
+                </button>
+                <button disabled={!graph} onClick={() => runToolbarAction(() => setShowGeneticPanel((current) => !current))} type="button">
+                  {showGeneticPanel ? "Hide evolution" : "Evolution"}
+                </button>
+              </ToolbarMenuSection>
+              <ToolbarMenuSection title="Workspace">
+                <button disabled={!graph} onClick={() => runToolbarAction(() => setShowEditPanel((current) => !current))} type="button">
+                  {showEditPanel ? "Hide edit graph" : "Edit graph"}
+                </button>
+                <button
+                  disabled={!graph}
+                  onClick={() =>
+                    runToolbarAction(() => {
+                      setShowBranchPanel((current) => !current);
+                      if (!showBranchPanel) {
+                        void handleLoadBranches();
+                      }
+                    })
+                  }
+                  type="button"
+                >
+                  {showBranchPanel ? "Hide branches" : `Branches${branches.length ? ` (${branches.length})` : ""}`}
+                </button>
+                <button disabled={!graph} onClick={() => runToolbarAction(() => setShowMcpPanel((current) => !current))} type="button">
+                  {showMcpPanel ? "Hide MCP" : "MCP"}
+                </button>
+                <button onClick={() => runToolbarAction(() => setShowSettings((current) => !current))} type="button">
+                  {showSettings ? "Hide settings" : "Settings"}
+                </button>
+              </ToolbarMenuSection>
+            </ToolbarMenu>
           </div>
-          <button onClick={() => setShowSettings((current) => !current)} type="button">
-            Settings
-          </button>
-          <button onClick={() => setShowPromptPanel((current) => !current)} type="button">
-            {showPromptPanel ? "Hide prompt" : "Prompt"}
-          </button>
-          {graph ? (
-            <button onClick={() => setShowEditPanel((current) => !current)} type="button">
-              {showEditPanel ? "Hide edit" : "Edit graph"}
-            </button>
-          ) : null}
-          {graph ? (
-            <button
-              onClick={() => {
-                setShowBranchPanel((current) => !current);
-                if (!showBranchPanel) {
-                  void handleLoadBranches();
-                }
-              }}
-              type="button"
-            >
-              {showBranchPanel ? "Hide branches" : `Branches${branches.length ? ` (${branches.length})` : ""}`}
-            </button>
-          ) : null}
-        </div>
-        <div className="topbar-center">
-          <button disabled={isBusy} onClick={handleBuild} type="button">
-            {busyLabel === "Building blueprint" ? "Building..." : "Build blueprint"}
-          </button>
-          <button disabled={isBusy || !canStartImplementation} onClick={() => void handleAdvanceToImplementation()} type="button">
-            {busyLabel === "Auto-implementing nodes" ? "Implementing..." : "Enter Phase 2"}
-          </button>
-          <button disabled={isBusy || !canRunActiveNode} onClick={() => void handleRunExecution()} type="button">
-            {busyLabel === "Running node" ? "Running..." : "Run node"}
-          </button>
-          <button disabled={isBusy || !canStartIntegration} onClick={handleAdvanceToIntegration} type="button">
-            Enter Phase 3
-          </button>
-          <button disabled={isBusy || !canRunIntegration} onClick={() => void handleRunExecution()} type="button">
-            {busyLabel === "Running integration" ? "Running..." : "Run integration"}
-          </button>
-          <button disabled={isBusy} onClick={() => void handleExport()} type="button">
-            {busyLabel === "Exporting artifacts" ? "Exporting..." : "Export"}
-          </button>
-          <button disabled={isBusy || !graph} onClick={() => void handleRunAnalysis()} type="button">
-            {busyLabel === "Analyzing architecture" ? "Analyzing..." : "Analyze"}
-          </button>
-          <button disabled={isBusy || !graph} onClick={() => void handleSuggestGhostNodes()} type="button">
-            {busyLabel === "Suggesting ghost nodes" ? "Suggesting..." : "Suggest nodes"}
-          </button>
-          {ghostSuggestions.length > 0 ? (
-            <button onClick={() => setGhostSuggestions([])} type="button">
-              Clear ghosts ({ghostSuggestions.length})
-            </button>
-          ) : null}
-          <button disabled={!graph} onClick={() => setShowMcpPanel((current) => !current)} type="button">
-            {showMcpPanel ? "Hide MCP" : "MCP"}
-          </button>
-          {graph ? (
-            <button onClick={() => setShowObservabilityPanel((current) => !current)} type="button">
-              {showObservabilityPanel ? "Hide heatmap" : "Heatmap"}
-            </button>
-          ) : null}
-          {graph ? (
-            <button
-              onClick={() => {
-                setShowVcrPanel((current) => !current);
-              }}
-              type="button"
-            >
-              {showVcrPanel ? "Hide VCR" : "VCR Replay"}
-            </button>
-          ) : null}
-          {graph ? (
-            <button
-              onClick={() => {
-                setShowDigitalTwinPanel((current) => !current);
-              }}
-              type="button"
-            >
-              {showDigitalTwinPanel ? "Hide Digital Twin" : "Digital Twin"}
-            </button>
-          ) : null}
-          {graph ? (
-            <button
-              onClick={() => {
-                setShowRefactorPanel((current) => !current);
-              }}
-              type="button"
-            >
-              {showRefactorPanel ? "Hide Heal" : `Heal${refactorReport && !refactorReport.isHealthy ? ` (${refactorReport.totalIssues})` : ""}`}
-            </button>
-          ) : null}
-          {graph ? (
-            <button
-              onClick={() => setShowGeneticPanel((current) => !current)}
-              type="button"
-            >
-              {showGeneticPanel ? "Hide Evolution" : "Genetic Evolution"}
-            </button>
-          ) : null}
+
+          <div className="toolbar-meta">
+            <div aria-live={statusTone === "danger" ? "assertive" : "polite"} className={toolbarStatusToneClass} role="status">
+              <strong>{toolbarStatusLabel}</strong>
+              <span>{statusDetail}</span>
+            </div>
+            {renderPrimaryActionButton()}
+          </div>
         </div>
       </header>
 
@@ -2308,56 +2648,6 @@ export function BlueprintWorkbench() {
             </button>
           </div>
         </aside>
-      ) : null}
-
-      {showPromptPanel ? (
-        <section className="floating-panel prompt-panel">
-          <div className="floating-panel-header">
-            <h2>Blueprint input</h2>
-            <button onClick={() => setShowPromptPanel(false)} type="button">
-              Hide
-            </button>
-          </div>
-          <p className="lead">
-            Build your structure once, then keep the canvas clean while you implement and verify nodes.
-          </p>
-          {useAI ? (
-            <label className="field">
-              <span>Describe your project</span>
-              <textarea
-                value={aiPrompt}
-                onChange={(event) => setAiPrompt(event.target.value)}
-                rows={8}
-                placeholder="A task management app with a React frontend and Node backend. Or a Rails monolith, a Django app, a Go service, a Swift iOS client, or any other stack you want to visualize."
-              />
-              <small>
-                AI prompt mode is stack-agnostic. Legacy repo analysis currently reads JavaScript
-                and TypeScript repos. Exported starter stubs are TS/TSX today.
-              </small>
-            </label>
-          ) : (
-            <>
-              <label className="field">
-                <span>Repo path</span>
-                <input
-                  value={repoPath}
-                  onChange={(event) => setRepoPath(event.target.value)}
-                  placeholder="/absolute/path/to/repo"
-                />
-              </label>
-              <label className="field">
-                <span>PRD markdown</span>
-                <textarea
-                  aria-label="PRD markdown"
-                  value={prdText}
-                  onChange={(event) => setPrdText(event.target.value)}
-                  rows={10}
-                  placeholder="# UI&#10;- Screen: Workspace&#10;&#10;# API&#10;- POST /api/blueprint"
-                />
-              </label>
-            </>
-          )}
-        </section>
       ) : null}
 
       {showEditPanel && graph ? (
@@ -2575,22 +2865,20 @@ export function BlueprintWorkbench() {
           <span className="mode-pill">{useAI ? "AI blueprint" : "Repo blueprint"}</span>
           <span className="mode-pill">{mode}</span>
           {autoImplementNodes ? <span className="mode-pill accent-pill">Auto implement on</span> : null}
-        </div>
-        <div
-          aria-live={statusTone === "danger" ? "assertive" : "polite"}
-          className={`callout status-callout floating-status ${statusTone === "danger" ? "danger-callout" : statusTone === "success" ? "success-callout" : "info-callout"}`}
-          role="status"
-        >
-          <h2>{statusTitle}</h2>
-          <p>{statusDetail}</p>
-          <p className="status-meta">
-            {useAI
-              ? `API key status: ${apiKeyStatus}`
-              : "Legacy mode analyzes PRD input plus JavaScript/TypeScript repos."}
-          </p>
+          <span className="mode-pill subtle-pill">{useAI ? apiKeyStatus : "Legacy PRD / repo mode"}</span>
         </div>
 
-        {graph ? (
+        {showMascotPanel ? (
+          <CodeflowCatShowcase
+            activeScene={activeMascotScene}
+            graphPhase={graph?.phase ?? null}
+            ghostCount={ghostSuggestions.length}
+            unhealthy={Boolean(refactorReport && !refactorReport.isHealthy)}
+            verifiedAll={allCodeNodesVerified}
+          />
+        ) : null}
+
+        {graph && showPhasePanel ? (
           <div className="callout phase-progress">
             <h2>Phase progress</h2>
             <p>Current phase: {graph.phase}</p>
@@ -2643,7 +2931,7 @@ export function BlueprintWorkbench() {
                   Back to parent graph
                 </button>
               ) : null}
-              <button disabled={isBusy} onClick={handleApplyTraces} type="button">
+              <button disabled={isBusy || !graph} onClick={handleApplyTraces} type="button">
                 Apply trace overlay
               </button>
             </div>
@@ -2656,6 +2944,80 @@ export function BlueprintWorkbench() {
             ) : null}
           </div>
 
+          {shouldShowPromptComposer ? (
+            <div className={`prompt-dock${graph ? " prompt-dock-overlay" : ""}`}>
+              <div className="prompt-dock-header">
+                <div>
+                  <p className="brand-eyebrow">Blueprint Input</p>
+                  <h3>{graph ? "Adjust the plan without leaving the graph" : "Describe what CodeFlow should build"}</h3>
+                  <p className="prompt-dock-note">A calm brief in. A clean graph out.</p>
+                </div>
+                <CodeflowCatLogo className="prompt-dock-logo" size={34} />
+                {graph ? (
+                  <button onClick={() => setShowPromptPanel(false)} type="button">
+                    Hide
+                  </button>
+                ) : null}
+              </div>
+
+              <fieldset className="field">
+                <span>Input mode</span>
+                <div className="choice-row">
+                  <label>
+                    <input checked={useAI} onChange={() => setUseAI(true)} type="radio" name="dockBuildMode" />
+                    AI Prompt
+                  </label>
+                  <label>
+                    <input checked={!useAI} onChange={() => setUseAI(false)} type="radio" name="dockBuildMode" />
+                    PRD / Repo
+                  </label>
+                </div>
+              </fieldset>
+
+              {useAI ? (
+                <label className="field">
+                  <span>Describe your project</span>
+                  <textarea
+                    value={aiPrompt}
+                    onChange={(event) => setAiPrompt(event.target.value)}
+                    rows={graph ? 5 : 8}
+                    placeholder="A task management app with a React frontend and Node backend. Or a Rails monolith, a Django app, a Go service, a Swift iOS client, or any other stack you want to visualize."
+                  />
+                </label>
+              ) : (
+                <div className="prompt-dock-split">
+                  <label className="field">
+                    <span>Repo path</span>
+                    <input
+                      value={repoPath}
+                      onChange={(event) => setRepoPath(event.target.value)}
+                      placeholder="/absolute/path/to/repo"
+                    />
+                  </label>
+                  <label className="field">
+                    <span>PRD markdown</span>
+                    <textarea
+                      aria-label="PRD markdown"
+                      value={prdText}
+                      onChange={(event) => setPrdText(event.target.value)}
+                      rows={graph ? 6 : 8}
+                      placeholder="# UI&#10;- Screen: Workspace&#10;&#10;# API&#10;- POST /api/blueprint"
+                    />
+                  </label>
+                </div>
+              )}
+
+              <div className="prompt-dock-actions">
+                <button className="toolbar-primary-action" disabled={isBusy} onClick={() => void handleBuild()} type="button">
+                  {busyLabel === "Building blueprint" ? "Building..." : "Build blueprint"}
+                </button>
+                <button aria-label="Settings" onClick={() => setShowSettings((current) => !current)} type="button">
+                  Advanced settings
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           <GraphCanvas
             graph={vcrGraph ?? graph}
             selectedNodeId={drilldownRootNode ? selectedDetailNodeId : selectedNodeId}
@@ -2667,6 +3029,7 @@ export function BlueprintWorkbench() {
             onGhostNodeClick={handleSolidifyGhostNode}
             heatmapData={drilldownRootNode ? undefined : heatmapData}
             driftedNodeIds={drilldownRootNode ? undefined : (refactorReport?.driftedNodeIds ?? undefined)}
+            executionResult={executionResult}
           />
         </section>
 
@@ -2681,6 +3044,17 @@ export function BlueprintWorkbench() {
             <p>{exportResult.docsDir}</p>
             <p>{exportResult.stubsDir}</p>
             <p>{exportResult.canvasPath}</p>
+            {exportResult.artifactManifestPath ? <p>{exportResult.artifactManifestPath}</p> : null}
+            {exportResult.artifactSummary ? (
+              <p className="status-meta">
+                {exportResult.artifactSummary.total} artifacts · {exportResult.artifactSummary.validated} validated · {exportResult.artifactSummary.draft} draft · {exportResult.artifactSummary.scaffold} scaffold
+              </p>
+            ) : null}
+            {exportResult.artifactSummary?.scaffold ? (
+              <p className="status-meta">
+                Scaffold exports are intentional placeholders. Replace them with validated implementation before treating the export as production-ready code.
+              </p>
+            ) : null}
             {exportResult.checkpointDir ? <p>{exportResult.checkpointDir}</p> : null}
             </div>
           ) : null}
@@ -2714,7 +3088,11 @@ export function BlueprintWorkbench() {
       {showAnalysisPanel && graph ? (
         <aside className="floating-panel analysis-panel">
           <div className="floating-panel-header">
-            <h2>Architecture Analysis</h2>
+            <div className="floating-panel-heading">
+              <p className="panel-kicker">Architecture</p>
+              <h2>Analysis</h2>
+              <p className="floating-panel-copy">Structural health, cycles, and blueprint density in one place.</p>
+            </div>
             <button onClick={() => setShowAnalysisPanel(false)} type="button">
               Close
             </button>
@@ -2723,11 +3101,28 @@ export function BlueprintWorkbench() {
           {graphMetrics ? (
             <div className="callout">
               <h3>Graph Metrics</h3>
-              <p>Nodes: {graphMetrics.nodeCount} · Edges: {graphMetrics.edgeCount}</p>
-              <p>Density: {graphMetrics.density.toFixed(3)} · Avg degree: {graphMetrics.avgDegree.toFixed(1)}</p>
-              <p>Connected components: {graphMetrics.connectedComponents} · Isolated: {graphMetrics.isolatedNodes} · Leaf: {graphMetrics.leafNodes}</p>
-              <p>Total methods: {graphMetrics.totalMethods} · Avg/node: {graphMetrics.avgMethodsPerNode.toFixed(1)}</p>
-              <p>Total responsibilities: {graphMetrics.totalResponsibilities} · Avg/node: {graphMetrics.avgResponsibilitiesPerNode.toFixed(1)}</p>
+              <div className="panel-stat-grid">
+                <div className="panel-stat-card">
+                  <span className="panel-stat-label">Topology</span>
+                  <strong>{graphMetrics.nodeCount} nodes</strong>
+                  <span>{graphMetrics.edgeCount} edges</span>
+                </div>
+                <div className="panel-stat-card">
+                  <span className="panel-stat-label">Density</span>
+                  <strong>{graphMetrics.density.toFixed(3)}</strong>
+                  <span>Avg degree {graphMetrics.avgDegree.toFixed(1)}</span>
+                </div>
+                <div className="panel-stat-card">
+                  <span className="panel-stat-label">Components</span>
+                  <strong>{graphMetrics.connectedComponents}</strong>
+                  <span>{graphMetrics.isolatedNodes} isolated · {graphMetrics.leafNodes} leaf</span>
+                </div>
+                <div className="panel-stat-card">
+                  <span className="panel-stat-label">Contract Load</span>
+                  <strong>{graphMetrics.totalMethods} methods</strong>
+                  <span>{graphMetrics.totalResponsibilities} responsibilities</span>
+                </div>
+              </div>
               {graphMetrics.maxInDegreeNodeId ? <p>Most depended-on: {graphMetrics.maxInDegreeNodeId} (in-degree {graphMetrics.maxInDegree})</p> : null}
               {graphMetrics.maxOutDegreeNodeId ? <p>Most dependent: {graphMetrics.maxOutDegreeNodeId} (out-degree {graphMetrics.maxOutDegree})</p> : null}
               <h4>Nodes by kind</h4>
@@ -2952,6 +3347,12 @@ export function BlueprintWorkbench() {
               </button>
             )}
           </div>
+          {observabilityPollError ? (
+            <p className="error">Polling stale: {observabilityPollError}</p>
+          ) : null}
+          {observabilityLastUpdatedAt ? (
+            <p className="status-meta">Last updated: {new Date(observabilityLastUpdatedAt).toLocaleString()}</p>
+          ) : null}
 
           {heatmapData ? (
             <div className="callout">
@@ -3016,7 +3417,7 @@ export function BlueprintWorkbench() {
                 <div key={span.spanId} className={`obs-span-row obs-span-${span.status}`}>
                   <span className="obs-span-status">{span.status.toUpperCase()}</span>
                   <span className="obs-span-name">{span.name}</span>
-                  <span className="obs-span-meta">[{span.runtime}]</span>
+                  <span className="obs-span-meta">[{span.runtime} · {span.provenance ?? "observed"}]</span>
                 </div>
               ))}
             </div>
@@ -3039,7 +3440,11 @@ export function BlueprintWorkbench() {
       {showVcrPanel && graph ? (
         <aside className="floating-panel vcr-panel">
           <div className="floating-panel-header">
-            <h2>VCR Replay</h2>
+            <div className="floating-panel-heading">
+              <p className="panel-kicker">Debug Time Travel</p>
+              <h2>VCR Replay</h2>
+              <p className="floating-panel-copy">Scrub execution history without flooding the main graph view.</p>
+            </div>
             <button onClick={() => setShowVcrPanel(false)} type="button">
               Close
             </button>
@@ -3070,6 +3475,23 @@ export function BlueprintWorkbench() {
 
           {vcrRecording ? (
             <>
+              <div className="panel-stat-grid">
+                <div className="panel-stat-card">
+                  <span className="panel-stat-label">Frames</span>
+                  <strong>{vcrRecording.frames.length}</strong>
+                  <span>Replay snapshots</span>
+                </div>
+                <div className="panel-stat-card">
+                  <span className="panel-stat-label">Cursor</span>
+                  <strong>{vcrFrameIndex + 1}</strong>
+                  <span>Current frame</span>
+                </div>
+                <div className="panel-stat-card">
+                  <span className="panel-stat-label">Playback</span>
+                  <strong>{vcrPlaying ? "Playing" : "Paused"}</strong>
+                  <span>{vcrRecording.frames[vcrFrameIndex]?.status ?? "idle"}</span>
+                </div>
+              </div>
               <div className="callout">
                 <h3>Scrub bar</h3>
                 <p className="status-meta">
@@ -3231,16 +3653,20 @@ export function BlueprintWorkbench() {
       {showDigitalTwinPanel && graph ? (
         <aside className="floating-panel digital-twin-panel">
           <div className="floating-panel-header">
-            <h2>Digital Twin</h2>
+            <div className="floating-panel-heading">
+              <p className="panel-kicker">Live Mirror</p>
+              <h2>Digital Twin</h2>
+              <p className="floating-panel-copy">Observed trace traffic plus clearly labeled simulation traffic in one live view.</p>
+            </div>
             <button onClick={() => setShowDigitalTwinPanel(false)} type="button">
               Close
             </button>
           </div>
 
           <p className="lead">
-            Mirror your running production system. Active nodes light up in real-time as live users
-            interact with the deployed app. Use simulation to inject test traffic and trace the flow
-            through your architecture.
+            Reflect observed trace traffic when it exists, then use simulation to inject synthetic spans
+            without mixing test traffic up with live traffic. This panel stays in preview mode so the
+            provenance of every flow remains explicit.
           </p>
 
           <div className="obs-auto-row">
@@ -3289,11 +3715,40 @@ export function BlueprintWorkbench() {
           {digitalTwinError ? (
             <p className="error">{digitalTwinError}</p>
           ) : null}
+          {digitalTwinPollError ? (
+            <p className="error">Polling stale: {digitalTwinPollError}</p>
+          ) : null}
 
           {digitalTwinSnapshot ? (
             <>
+              <div className="panel-stat-grid">
+                <div className="panel-stat-card">
+                  <span className="panel-stat-label">Active Nodes</span>
+                  <strong>{digitalTwinSnapshot.activeNodeIds.length}</strong>
+                  <span>Inside {digitalTwinWindowSecs}s window</span>
+                </div>
+                <div className="panel-stat-card">
+                  <span className="panel-stat-label">Traffic Sources</span>
+                  <strong>{digitalTwinSnapshot.observedSpanCount} / {digitalTwinSnapshot.simulatedSpanCount}</strong>
+                  <span>Observed vs simulated spans</span>
+                </div>
+                <div className="panel-stat-card">
+                  <span className="panel-stat-label">Mode</span>
+                  <strong>{autoDigitalTwin ? "Live" : "Manual"}</strong>
+                  <span>{autoDigitalTwin ? "Polling every 5s" : "Refresh on demand"}</span>
+                </div>
+              </div>
               <div className="callout">
-                <h3>Live traffic ({digitalTwinSnapshot.activeNodeIds.length} active nodes)</h3>
+                <h3>Twin status</h3>
+                <p className="status-meta">
+                  Maturity: {digitalTwinSnapshot.maturity}. Observed flows: {digitalTwinSnapshot.observedFlowCount}. Simulated flows: {digitalTwinSnapshot.simulatedFlowCount}.
+                </p>
+                <p className="status-meta">
+                  Last updated: {new Date(digitalTwinLastUpdatedAt ?? digitalTwinSnapshot.computedAt).toLocaleString()}
+                </p>
+              </div>
+              <div className="callout">
+                <h3>Active traffic window ({digitalTwinSnapshot.activeNodeIds.length} active nodes)</h3>
                 {digitalTwinSnapshot.activeNodeIds.length > 0 ? (
                   <ul className="dt-active-list">
                     {digitalTwinSnapshot.activeNodeIds.map((nodeId) => {
@@ -3323,7 +3778,9 @@ export function BlueprintWorkbench() {
                             {flow.status.toUpperCase()}
                           </span>
                           <span className="dt-flow-name">{flow.name}</span>
-                          <span className="dt-flow-meta">{flow.spanCount} spans · {flow.totalDurationMs}ms</span>
+                          <span className="dt-flow-meta">
+                            {flow.spanCount} spans · {flow.totalDurationMs}ms · {flow.provenance}
+                          </span>
                         </div>
                         <div className="dt-flow-path">
                           {flow.nodeIds.map((nodeId, idx) => {
@@ -3342,7 +3799,7 @@ export function BlueprintWorkbench() {
                 ) : (
                   <p className="status-meta">
                     No user flows recorded yet. Ingest trace spans via{" "}
-                    <code>/api/observability/ingest</code> or use the simulation tool below.
+                    <code>/api/observability/ingest</code> for observed traffic or use the simulation tool below for synthetic preview traffic.
                   </p>
                 )}
               </div>
@@ -3356,8 +3813,8 @@ export function BlueprintWorkbench() {
           <div className="callout">
             <h3>Simulate user action</h3>
             <p className="status-meta">
-              Generate synthetic traffic through specific nodes to test flows visually.
-              Enter node IDs (one per line or comma-separated).
+              Generate synthetic traffic through specific nodes to test flows visually. Simulated spans stay labeled as
+              simulated so they do not masquerade as observed production activity. Enter node IDs one per line or comma-separated.
             </p>
             <label className="field">
               <span>Node IDs</span>
@@ -3394,14 +3851,17 @@ export function BlueprintWorkbench() {
       {showRefactorPanel && graph ? (
         <aside className="floating-panel refactor-panel">
           <div className="floating-panel-header">
-            <h2>Neural Auto-Refactoring</h2>
+            <h2>Graph Drift Repair</h2>
             <button onClick={() => setShowRefactorPanel(false)} type="button">
               Hide
             </button>
           </div>
           <p className="lead">
-            Detect architectural drift between the visual blueprint and its contracts, then let the
-            agent auto-heal all inconsistencies with a single click.
+            Detect drift inside the blueprint graph and contract metadata, then repair the graph itself.
+            This is deterministic graph healing, not source-code refactoring.
+          </p>
+          <p className="status-meta">
+            Scope: graph only · provenance: deterministic · maturity: preview
           </p>
 
           <div className="button-row">
@@ -3417,7 +3877,7 @@ export function BlueprintWorkbench() {
               onClick={() => void handleHealArchitecture()}
               type="button"
             >
-              {busyLabel === "Healing architecture" ? "Healing..." : "✦ Heal"}
+              {busyLabel === "Healing architecture" ? "Healing..." : "Heal graph"}
             </button>
           </div>
 
@@ -3435,6 +3895,9 @@ export function BlueprintWorkbench() {
                   : `${refactorReport.totalIssues} drift issue${refactorReport.totalIssues !== 1 ? "s" : ""} detected`}
               </h3>
               <p>Scanned at: {new Date(refactorReport.detectedAt).toLocaleString()}</p>
+              <p className="status-meta">
+                Scope: {refactorReport.scope} · provenance: {refactorReport.provenance} · maturity: {refactorReport.maturity}
+              </p>
               {!refactorReport.isHealthy ? (
                 <p>
                   Drifted nodes: {refactorReport.driftedNodeIds.length} — they are highlighted in red on the canvas.
@@ -3464,6 +3927,9 @@ export function BlueprintWorkbench() {
             <div className="callout">
               <h3>Heal complete — {healResult.issuesFixed} fix{healResult.issuesFixed !== 1 ? "es" : ""} applied</h3>
               <p>Healed at: {new Date(healResult.healedAt).toLocaleString()}</p>
+              <p className="status-meta">
+                Scope: {healResult.scope} · provenance: {healResult.provenance} · maturity: {healResult.maturity}
+              </p>
               <div className="refactor-heal-summary">
                 {healResult.summary.map((line, idx) => (
                   <div key={idx} className="refactor-heal-line">
@@ -3486,10 +3952,10 @@ export function BlueprintWorkbench() {
           </div>
 
           <p className="lead">
-            Generate, benchmark, and evolve multiple architecture designs — monolith, microservices,
-            and serverless — then run an evolutionary tournament to surface the best fit for your
-            project constraints.
+            Run a heuristic architecture tournament across monolith, microservices, and serverless
+            variants. Use the scores as decision support, not as benchmarked production truth.
           </p>
+          <p className="status-meta">Provenance: heuristic · maturity: experimental</p>
 
           <div className="callout">
             <h3>Tournament settings</h3>
@@ -3545,6 +4011,9 @@ export function BlueprintWorkbench() {
                     <p className="status-meta">
                       {tournamentResult.generationCount} generation{tournamentResult.generationCount !== 1 ? "s" : ""} · {tournamentResult.populationSize} variants · evolved {new Date(tournamentResult.evolvedAt).toLocaleTimeString()}
                     </p>
+                    <p className="status-meta">
+                      Provenance: {tournamentResult.provenance} · maturity: {tournamentResult.maturity}
+                    </p>
                   </div>
 
                   <div className="callout">
@@ -3566,6 +4035,8 @@ export function BlueprintWorkbench() {
                             <div className="genetic-variant-graph-info">
                               {variant.graph.nodes.length} nodes · {variant.graph.edges.length} edges
                               {" · "}gen {variant.generation}
+                              {" · "}{variant.provenance}
+                              {" · "}{variant.maturity}
                             </div>
                             <div className="genetic-benchmark-scores">
                               <span
@@ -3612,7 +4083,11 @@ export function BlueprintWorkbench() {
       {showInspector && (selectedNode || (drilldownRootNode && selectedDetailItem)) ? (
         <aside className="floating-panel inspector-panel">
           <div className="floating-panel-header">
-            <h2>Inspector</h2>
+            <div className="floating-panel-heading">
+              <p className="panel-kicker">Selection</p>
+              <h2>Inspector</h2>
+              <p className="floating-panel-copy">Edit the selected node without letting the side panel sprawl.</p>
+            </div>
             <button onClick={() => setShowInspector(false)} type="button">
               Close
             </button>
@@ -3647,6 +4122,16 @@ export function BlueprintWorkbench() {
               <p>Exit code: {executionResult.exitCode ?? "N/A"}</p>
               <p>Duration: {executionResult.durationMs}ms</p>
               {executionResult.executedPath ? <p>{executionResult.executedPath}</p> : null}
+              {executionSummary ? (
+                <p>
+                  {executionSummary.passed} passed · {executionSummary.warning} warning · {executionSummary.failed} failed · {executionSummary.blocked} blocked · {executionSummary.skipped} skipped
+                </p>
+              ) : null}
+              {executionResult.runId ? <p>Run ID: {executionResult.runId}</p> : null}
+              {executionResult.entryNodeId ? <p>Entry node: {executionResult.entryNodeId}</p> : null}
+              {executionResult.testResults.length ? <p>{executionResult.testResults.length} generated test results recorded.</p> : null}
+              {failedExecutionStep ? <p>First failure: {failedExecutionStep.message}</p> : null}
+              {!failedExecutionStep && blockedExecutionStep ? <p>First block: {blockedExecutionStep.message}</p> : null}
               {executionResult.stdout ? <pre>{executionResult.stdout}</pre> : null}
               {executionResult.stderr ? <pre>{executionResult.stderr}</pre> : null}
             </div>
@@ -3670,7 +4155,7 @@ export function BlueprintWorkbench() {
 
           {drilldownRootNode && selectedDetailItem ? (
             <>
-            <div className="callout">
+            <div className="callout inspector-hero-card">
               <p className="node-tag">{selectedDetailItem.kind}</p>
               <h3>{selectedDetailItem.label}</h3>
               <p>{selectedDetailItem.summary}</p>
@@ -3690,8 +4175,27 @@ export function BlueprintWorkbench() {
 
               return (
                 <>
-                  <p className="node-tag">{selectedNode.kind}</p>
-                  <h3>{selectedNode.name}</h3>
+                  <div className="inspector-hero-card">
+                    <p className="node-tag">{selectedNode.kind}</p>
+                    <h3>{selectedNode.name}</h3>
+                    <div className="panel-stat-grid inspector-stat-grid">
+                      <div className="panel-stat-card">
+                        <span className="panel-stat-label">Phase</span>
+                        <strong>{graph.phase}</strong>
+                        <span>Status {selectedNode.status}</span>
+                      </div>
+                      <div className="panel-stat-card">
+                        <span className="panel-stat-label">Contract</span>
+                        <strong>{contract.methods.length + contract.attributes.length}</strong>
+                        <span>{contract.inputs.length} inputs · {contract.outputs.length} outputs</span>
+                      </div>
+                      <div className="panel-stat-card">
+                        <span className="panel-stat-label">Runtime</span>
+                        <strong>{selectedNode.traceState?.status ?? "idle"}</strong>
+                        <span>{selectedNode.mcpServers?.length ?? 0} MCP servers</span>
+                      </div>
+                    </div>
+                  </div>
                   <label className="field">
                     <span>Summary</span>
                     <textarea
@@ -3735,6 +4239,7 @@ export function BlueprintWorkbench() {
                   </label>
 
                   <div className="callout">
+                    <h3>Node details</h3>
                     <p>Phase: {graph.phase}</p>
                     <p>Status: {selectedNode.status}</p>
                     <p>Signature: {selectedNode.signature ?? "N/A"}</p>
@@ -3758,6 +4263,7 @@ export function BlueprintWorkbench() {
                   </div>
 
                   {renderBlueprintNodeDocumentation(selectedNode)}
+                  {renderNodeRuntimeEvidence(selectedNode)}
 
                   {activeCodeNode ? (
                     renderCodeEditorPanel()

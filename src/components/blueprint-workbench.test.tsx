@@ -71,6 +71,15 @@ vi.mock("@/components/code-editor", () => ({
 
 const fetchMock = vi.fn();
 
+const openToolbarMenu = (name: string) => {
+  fireEvent.click(screen.getByRole("button", { name }));
+};
+
+const clickToolbarAction = (menuName: string, actionName: string | RegExp) => {
+  openToolbarMenu(menuName);
+  fireEvent.click(screen.getByRole("button", { name: actionName }));
+};
+
 describe("BlueprintWorkbench", () => {
   afterEach(() => {
     cleanup();
@@ -704,7 +713,10 @@ describe("BlueprintWorkbench", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Build blueprint" }));
 
-    expect(await screen.findByText("Current phase: spec")).toBeInTheDocument();
+    clickToolbarAction("View", "Show phase stats");
+    expect(
+      await screen.findByText((_, element) => element?.textContent === "Phase spec")
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "saveTask" }));
     expect(screen.getByRole("button", { name: "Implement node" })).toBeDisabled();
 
@@ -886,7 +898,7 @@ describe("BlueprintWorkbench", () => {
     expect(await screen.findByRole("button", { name: "saveTask" })).toBeInTheDocument();
 
     // Click the Analyze button
-    fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
+    clickToolbarAction("Tools", "Analyze");
 
     // Verify all 4 analysis endpoints were called
     await waitFor(() => {
@@ -909,9 +921,9 @@ describe("BlueprintWorkbench", () => {
     });
 
     // Analysis panel should appear and render each section
-    expect(await screen.findByText("Architecture Analysis")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Analysis" })).toBeInTheDocument();
     expect(await screen.findByText("Graph Metrics")).toBeInTheDocument();
-    expect(await screen.findByText(/Nodes: 1/)).toBeInTheDocument();
+    expect(await screen.findByText("1 nodes")).toBeInTheDocument();
     expect(await screen.findByText("Architecture Health: 85/100")).toBeInTheDocument();
     expect(await screen.findByText(/1 smell detected/)).toBeInTheDocument();
     expect(await screen.findByText(/orphan-node/)).toBeInTheDocument();
@@ -1063,6 +1075,7 @@ describe("BlueprintWorkbench", () => {
     fireEvent.click(screen.getByRole("button", { name: "Build blueprint" }));
     await screen.findByRole("button", { name: "saveTask" });
 
+    openToolbarMenu("Tools");
     const branchesButton = await screen.findByRole("button", { name: /Branches/ });
     expect(branchesButton).toBeInTheDocument();
 
@@ -1174,11 +1187,12 @@ describe("BlueprintWorkbench", () => {
 
     expect(await screen.findByRole("button", { name: "saveTask" })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Suggest nodes" }));
+    clickToolbarAction("Tools", "Suggest nodes");
 
     expect(await screen.findByTestId("ghost-node-ghost:auth-middleware")).toBeInTheDocument();
     expect(screen.getByText("✦ Auth Middleware")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Clear ghosts (1)" })).toBeInTheDocument();
+    openToolbarMenu("Tools");
+    expect(screen.getByRole("button", { name: "Clear ghosts" })).toBeEnabled();
 
     fireEvent.click(screen.getByTestId("ghost-node-ghost:auth-middleware"));
 
