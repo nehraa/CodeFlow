@@ -3,8 +3,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { createBranch } from "@/lib/blueprint/branches";
+import { loadBranches, saveBranch } from "@/lib/blueprint/branch-store";
 import { blueprintGraphSchema } from "@/lib/blueprint/schema";
-import { loadBranches, saveBranch } from "@/lib/blueprint/store";
 
 const createBranchRequestSchema = z.object({
   graph: blueprintGraphSchema,
