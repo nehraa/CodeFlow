@@ -33,6 +33,23 @@ export type BlueprintEdgeKind = z.infer<typeof edgeKindSchema>;
 export const traceStatusSchema = z.enum(["idle", "success", "warning", "error"]);
 export type TraceStatus = z.infer<typeof traceStatusSchema>;
 
+export const outputProvenanceSchema = z.enum([
+  "deterministic",
+  "ai",
+  "heuristic",
+  "simulated",
+  "observed"
+]);
+export type OutputProvenance = z.infer<typeof outputProvenanceSchema>;
+
+export const featureMaturitySchema = z.enum([
+  "production",
+  "preview",
+  "experimental",
+  "scaffold"
+]);
+export type FeatureMaturity = z.infer<typeof featureMaturitySchema>;
+
 export const contractFieldSchema = z.object({
   name: z.string(),
   type: z.string(),
@@ -151,6 +168,7 @@ export const blueprintNodeSchema = z.object({
   mcpServers: z.array(mcpServerConfigSchema).optional()
 });
 export type BlueprintNode = z.input<typeof blueprintNodeSchema>;
+export type MaterializedBlueprintNode = z.infer<typeof blueprintNodeSchema>;
 
 export const blueprintEdgeSchema = z.object({
   from: z.string(),
@@ -179,6 +197,7 @@ export const blueprintGraphSchema = z.object({
   warnings: z.array(z.string())
 });
 export type BlueprintGraph = z.input<typeof blueprintGraphSchema>;
+export type MaterializedBlueprintGraph = z.infer<typeof blueprintGraphSchema>;
 
 export const executionTaskSchema = z.object({
   id: z.string(),
@@ -199,6 +218,104 @@ export type ExecutionBatch = z.infer<typeof executionBatchSchema>;
 
 export const executionTaskStatusSchema = z.enum(["pending", "completed", "skipped", "blocked"]);
 export type ExecutionTaskStatus = z.infer<typeof executionTaskStatusSchema>;
+
+export const executionStepKindSchema = z.enum(["node", "method", "edge", "test"]);
+export type ExecutionStepKind = z.infer<typeof executionStepKindSchema>;
+
+export const executionStepStatusSchema = z.enum([
+  "pending",
+  "running",
+  "passed",
+  "failed",
+  "blocked",
+  "skipped",
+  "warning"
+]);
+export type ExecutionStepStatus = z.infer<typeof executionStepStatusSchema>;
+
+export const contractCheckStageSchema = z.enum([
+  "input",
+  "output",
+  "handoff",
+  "side-effect",
+  "test"
+]);
+export type ContractCheckStage = z.infer<typeof contractCheckStageSchema>;
+
+export const contractCheckSchema = z.object({
+  stage: contractCheckStageSchema,
+  status: z.enum(["passed", "failed", "warning", "skipped"]),
+  expected: z.string().optional(),
+  actualPreview: z.string().optional(),
+  message: z.string()
+});
+export type ContractCheck = z.infer<typeof contractCheckSchema>;
+
+export const executionArtifactSchema = z.object({
+  id: z.string(),
+  sourceNodeId: z.string(),
+  targetNodeId: z.string().optional(),
+  edgeId: z.string().optional(),
+  declaredType: z.string().optional(),
+  actualType: z.string().optional(),
+  preview: z.string(),
+  serializedValue: z.string().optional()
+});
+export type ExecutionArtifact = z.infer<typeof executionArtifactSchema>;
+
+export const executionStepSchema = z.object({
+  id: z.string(),
+  runId: z.string(),
+  taskId: z.string().optional(),
+  kind: executionStepKindSchema,
+  nodeId: z.string(),
+  parentNodeId: z.string().optional(),
+  methodName: z.string().optional(),
+  edgeId: z.string().optional(),
+  status: executionStepStatusSchema,
+  startedAt: z.string(),
+  completedAt: z.string(),
+  durationMs: z.number().nonnegative(),
+  stdout: z.string().default(""),
+  stderr: z.string().default(""),
+  message: z.string(),
+  blockedByStepId: z.string().optional(),
+  inputPreview: z.string().optional(),
+  outputPreview: z.string().optional(),
+  artifactIds: z.array(z.string()).default([]),
+  contractChecks: z.array(contractCheckSchema).default([])
+});
+export type ExecutionStep = z.infer<typeof executionStepSchema>;
+
+export const executionSummarySchema = z.object({
+  passed: z.number().int().nonnegative(),
+  failed: z.number().int().nonnegative(),
+  blocked: z.number().int().nonnegative(),
+  skipped: z.number().int().nonnegative(),
+  warning: z.number().int().nonnegative()
+});
+export type ExecutionSummary = z.infer<typeof executionSummarySchema>;
+
+export const runtimeTestCaseSchema = z.object({
+  id: z.string(),
+  nodeId: z.string(),
+  title: z.string(),
+  kind: z.enum(["happy-path", "edge-case", "invalid-input"]),
+  input: z.string(),
+  expectation: z.enum(["pass", "fail", "warning"]),
+  notes: z.array(z.string()).default([])
+});
+export type RuntimeTestCase = z.infer<typeof runtimeTestCaseSchema>;
+
+export const runtimeTestResultSchema = z.object({
+  caseId: z.string(),
+  title: z.string(),
+  kind: runtimeTestCaseSchema.shape.kind,
+  status: executionStepStatusSchema,
+  message: z.string(),
+  stepIds: z.array(z.string()).default([])
+});
+export type RuntimeTestResult = z.infer<typeof runtimeTestResultSchema>;
 
 export const runPlanSchema = z.object({
   generatedAt: z.string(),
@@ -231,7 +348,10 @@ export const executionReportSchema = z.object({
   startedAt: z.string(),
   completedAt: z.string(),
   results: z.array(taskExecutionResultSchema),
-  ownership: z.array(ownershipRecordSchema)
+  ownership: z.array(ownershipRecordSchema),
+  steps: z.array(executionStepSchema).default([]),
+  artifacts: z.array(executionArtifactSchema).default([]),
+  summary: executionSummarySchema.optional()
 });
 export type ExecutionReport = z.infer<typeof executionReportSchema>;
 
@@ -264,12 +384,38 @@ export const approvalRecordSchema = z.object({
 });
 export type ApprovalRecord = z.infer<typeof approvalRecordSchema>;
 
+export const artifactValidationStateSchema = z.enum(["validated", "draft", "scaffold"]);
+export type ArtifactValidationState = z.infer<typeof artifactValidationStateSchema>;
+
+export const exportArtifactSchema = z.object({
+  nodeId: z.string().optional(),
+  nodeName: z.string().optional(),
+  nodeKind: nodeKindSchema.optional(),
+  relativePath: z.string(),
+  artifactType: z.enum(["documentation", "code", "integration", "ownership", "blueprint", "canvas"]),
+  validationState: artifactValidationStateSchema,
+  provenance: outputProvenanceSchema,
+  maturity: featureMaturitySchema,
+  generatedAt: z.string(),
+  notes: z.array(z.string()).default([])
+});
+export type ExportArtifact = z.infer<typeof exportArtifactSchema>;
+
 export const exportResultSchema = z.object({
   rootDir: z.string(),
   blueprintPath: z.string(),
   canvasPath: z.string(),
   docsDir: z.string(),
   stubsDir: z.string(),
+  artifactManifestPath: z.string().optional(),
+  artifactSummary: z
+    .object({
+      total: z.number().int().nonnegative(),
+      validated: z.number().int().nonnegative(),
+      draft: z.number().int().nonnegative(),
+      scaffold: z.number().int().nonnegative()
+    })
+    .optional(),
   phaseManifestPath: z.string().optional(),
   integrationEntrypointPath: z.string().optional(),
   ownershipPath: z.string().optional(),
@@ -315,9 +461,11 @@ export const traceSpanSchema = z.object({
   status: z.enum(["success", "warning", "error"]),
   durationMs: z.number().nonnegative(),
   runtime: z.string().default("unknown"),
+  provenance: outputProvenanceSchema.default("observed"),
   timestamp: z.string().optional()
 });
-export type TraceSpan = z.infer<typeof traceSpanSchema>;
+export type TraceSpan = z.input<typeof traceSpanSchema>;
+export type MaterializedTraceSpan = z.infer<typeof traceSpanSchema>;
 
 export const observabilityLogSchema = z.object({
   id: z.string(),
@@ -403,7 +551,8 @@ export const runtimeExecutionRequestSchema = z.object({
   graph: blueprintGraphSchema,
   targetNodeId: z.string().optional(), // If running a single node
   input: z.string(), // User prompt/input
-  codeDrafts: z.record(z.string(), z.string()).optional() // For Phase 2, we might pass drafts
+  codeDrafts: z.record(z.string(), z.string()).optional(), // For Phase 2, we might pass drafts
+  includeGeneratedTests: z.boolean().optional()
 });
 export type RuntimeExecutionRequest = z.infer<typeof runtimeExecutionRequestSchema>;
 
@@ -414,9 +563,35 @@ export const runtimeExecutionResultSchema = z.object({
   exitCode: z.number().nullable(),
   durationMs: z.number(),
   executedPath: z.string().optional(),
-  error: z.string().optional()
+  error: z.string().optional(),
+  runId: z.string().optional(),
+  entryNodeId: z.string().optional(),
+  steps: z.array(executionStepSchema).default([]),
+  artifacts: z.array(executionArtifactSchema).default([]),
+  summary: executionSummarySchema.optional(),
+  testCases: z.array(runtimeTestCaseSchema).default([]),
+  testResults: z.array(runtimeTestResultSchema).default([])
 });
 export type RuntimeExecutionResult = z.infer<typeof runtimeExecutionResultSchema>;
+
+export const runtimeTestRequestSchema = z.object({
+  graph: blueprintGraphSchema,
+  nodeId: z.string().min(1),
+  seedInput: z.string().optional(),
+  codeDrafts: z.record(z.string(), z.string()).optional()
+});
+export type RuntimeTestRequest = z.infer<typeof runtimeTestRequestSchema>;
+
+export const runtimeTestResponseSchema = z.object({
+  nodeId: z.string(),
+  testCases: z.array(runtimeTestCaseSchema),
+  results: z.array(runtimeTestResultSchema).default([]),
+  runId: z.string().optional(),
+  steps: z.array(executionStepSchema).default([]),
+  artifacts: z.array(executionArtifactSchema).default([]),
+  summary: executionSummarySchema.optional()
+});
+export type RuntimeTestResponse = z.infer<typeof runtimeTestResponseSchema>;
 
 export const ghostNodeSchema = z.object({
   id: z.string(),
@@ -424,6 +599,8 @@ export const ghostNodeSchema = z.object({
   name: z.string(),
   summary: z.string(),
   reason: z.string(),
+  provenance: outputProvenanceSchema.default("heuristic"),
+  maturity: featureMaturitySchema.default("preview"),
   suggestedEdge: z
     .object({
       from: z.string(),
@@ -432,7 +609,8 @@ export const ghostNodeSchema = z.object({
     })
     .optional()
 });
-export type GhostNode = z.infer<typeof ghostNodeSchema>;
+export type GhostNode = z.input<typeof ghostNodeSchema>;
+export type MaterializedGhostNode = z.infer<typeof ghostNodeSchema>;
 
 export const ghostSuggestionsResponseSchema = z.object({
   suggestions: z.array(ghostNodeSchema)
@@ -575,6 +753,8 @@ export const userFlowSchema = z.object({
   endedAt: z.string().optional(),
   /** Aggregate status of the flow (worst-case across all spans). */
   status: traceSpanSchema.shape.status,
+  /** The dominant provenance across all spans in the flow. */
+  provenance: outputProvenanceSchema,
   /** Total wall-clock duration across all spans in the flow, in milliseconds. */
   totalDurationMs: z.number().nonnegative(),
   /** Number of spans in this flow. */
@@ -590,6 +770,8 @@ export const digitalTwinSnapshotSchema = z.object({
   projectName: z.string(),
   /** ISO-8601 timestamp when this snapshot was computed. */
   computedAt: z.string(),
+  /** Digital Twin is a preview surface even when it includes observed traffic. */
+  maturity: featureMaturitySchema,
   /**
    * Node IDs that had at least one span within the active time window.
    * The graph itself carries the full trace state; this is the "lit-up" set
@@ -598,6 +780,10 @@ export const digitalTwinSnapshotSchema = z.object({
   activeNodeIds: z.array(z.string()),
   /** All user flows inferred from the current observability snapshot. */
   flows: z.array(userFlowSchema),
+  observedSpanCount: z.number().int().nonnegative(),
+  simulatedSpanCount: z.number().int().nonnegative(),
+  observedFlowCount: z.number().int().nonnegative(),
+  simulatedFlowCount: z.number().int().nonnegative(),
   /** The number of seconds used for the "active" time window. */
   activeWindowSecs: z.number().int().positive()
 });
@@ -662,6 +848,8 @@ export const architectureVariantSchema = z.object({
   graph: blueprintGraphSchema,
   /** Computed benchmark scores. */
   benchmark: variantBenchmarkSchema,
+  provenance: outputProvenanceSchema,
+  maturity: featureMaturitySchema,
   /** 1-based rank within the final ranked population (1 = best). */
   rank: z.number().int().positive()
 });
@@ -672,6 +860,8 @@ export const tournamentResultSchema = z.object({
   projectName: z.string(),
   /** ISO-8601 timestamp when the tournament completed. */
   evolvedAt: z.string(),
+  provenance: outputProvenanceSchema,
+  maturity: featureMaturitySchema,
   /** Total number of generations that were run. */
   generationCount: z.number().int().positive(),
   /** Number of variants that competed in the tournament. */
