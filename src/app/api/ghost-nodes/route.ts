@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { blueprintGraphSchema, nodeKindSchema, edgeKindSchema, ghostNodeSchema, ghostSuggestionsResponseSchema } from "@/lib/blueprint/schema";
+import { blueprintGraphSchema, ghostNodeSchema } from "@/lib/blueprint/schema";
 import { getNvidiaKeySource, requestNvidiaChatCompletion, resolveNvidiaApiKey } from "@/lib/blueprint/nvidia";
+import { withCodeflowGovernance } from "@/lib/blueprint/prompt-governance";
 import type { BlueprintGraph, GhostNode } from "@/lib/blueprint/schema";
 
 const requestSchema = z.object({
@@ -10,9 +11,14 @@ const requestSchema = z.object({
   nvidiaApiKey: z.string().optional()
 });
 
-const aiGhostNodeSchema = ghostNodeSchema;
+const aiGhostNodeSchema = ghostNodeSchema.omit({
+  provenance: true,
+  maturity: true
+});
 
-const aiGhostResponseSchema = ghostSuggestionsResponseSchema;
+const aiGhostResponseSchema = z.object({
+  suggestions: z.array(aiGhostNodeSchema)
+});
 
 const GHOST_SYSTEM_PROMPT = `You are a software architecture assistant. Given an existing architecture blueprint, suggest 2-4 probable next architectural components that would complement the existing design.
 
@@ -60,6 +66,8 @@ const buildHeuristicSuggestions = (graph: BlueprintGraph): GhostNode[] => {
       name: "API Gateway",
       summary: "Central API gateway routing requests from the UI to backend services.",
       reason: "UI screens typically communicate through an API layer.",
+      provenance: "heuristic",
+      maturity: "preview",
       suggestedEdge: uiNode
         ? { from: uiNode.id, to: "ghost:api-gateway", kind: "calls" }
         : undefined
@@ -73,16 +81,18 @@ const buildHeuristicSuggestions = (graph: BlueprintGraph): GhostNode[] => {
       (n) => n.name.toLowerCase().includes("auth") || n.name.toLowerCase().includes("middleware")
     );
     if (!hasAuth) {
-      suggestions.push({
-        id: "ghost:auth-middleware",
-        kind: "module",
-        name: "Auth Middleware",
-        summary: "Authentication and authorization middleware protecting API endpoints.",
-        reason: "API endpoints usually require authentication before processing requests.",
-        suggestedEdge: apiNode
-          ? { from: apiNode.id, to: "ghost:auth-middleware", kind: "calls" }
-          : undefined
-      });
+        suggestions.push({
+          id: "ghost:auth-middleware",
+          kind: "module",
+          name: "Auth Middleware",
+          summary: "Authentication and authorization middleware protecting API endpoints.",
+          reason: "API endpoints usually require authentication before processing requests.",
+          provenance: "heuristic",
+          maturity: "preview",
+          suggestedEdge: apiNode
+            ? { from: apiNode.id, to: "ghost:auth-middleware", kind: "calls" }
+            : undefined
+        });
     }
   }
 
@@ -95,6 +105,8 @@ const buildHeuristicSuggestions = (graph: BlueprintGraph): GhostNode[] => {
       name: "Error Handler",
       summary: "Centralised error handling and logging module.",
       reason: "Business logic components benefit from a dedicated error-handling strategy.",
+      provenance: "heuristic",
+      maturity: "preview",
       suggestedEdge: targetNode
         ? { from: targetNode.id, to: "ghost:error-handler", kind: "calls" }
         : undefined
@@ -117,6 +129,8 @@ const buildHeuristicSuggestions = (graph: BlueprintGraph): GhostNode[] => {
       name: "Observability Module",
       summary: "Structured logging, metrics, and distributed tracing for the system.",
       reason: "Production systems require observability for debugging and performance monitoring.",
+      provenance: "heuristic",
+      maturity: "preview",
       suggestedEdge: anchorNode
         ? { from: anchorNode.id, to: "ghost:observability", kind: "emits" }
         : undefined
@@ -161,11 +175,15 @@ Edges:
 ${edgeList || "(none)"}
 
 Based on common architectural patterns, suggest 2-4 ghost nodes (probable next components) that would complement this architecture. Return the JSON suggestions now.`;
+    const governedSystemPrompt = await withCodeflowGovernance(
+      GHOST_SYSTEM_PROMPT,
+      "ghost"
+    );
 
     const content = await requestNvidiaChatCompletion({
       apiKey,
       messages: [
-        { role: "system", content: GHOST_SYSTEM_PROMPT },
+        { role: "system", content: governedSystemPrompt },
         { role: "user", content: userPrompt }
       ],
       temperature: 0.4,
@@ -204,6 +222,8 @@ Based on common architectural patterns, suggest 2-4 ghost nodes (probable next c
       const suggestion: GhostNode = {
         ...s,
         id: prefixedId,
+        provenance: "ai",
+        maturity: "preview",
         suggestedEdge:
           s.suggestedEdge && existingIds.has(s.suggestedEdge.from)
             ? { ...s.suggestedEdge, to: prefixedId }
