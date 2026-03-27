@@ -38,10 +38,28 @@ const createFingerprint = (graph: BlueprintGraph, runPlan: RunPlan, outputDir: s
     )
     .digest("hex");
 
+const resolveWorkspaceRoot = (): string => {
+  const configuredRoot = process.env.CODEFLOW_WORKSPACE_ROOT?.trim();
+  if (configuredRoot) {
+    return path.resolve(configuredRoot);
+  }
+
+  return path.join(process.cwd(), "artifacts");
+};
+
+const resolveDefaultOutputDir = (graph: BlueprintGraph): string => {
+  const workspaceRoot = resolveWorkspaceRoot();
+  if (process.env.CODEFLOW_WORKSPACE_ROOT?.trim()) {
+    return path.resolve(workspaceRoot, "artifacts", slugify(graph.projectName));
+  }
+
+  return path.resolve(workspaceRoot, slugify(graph.projectName));
+};
+
 const resolveOutputDir = (graph: BlueprintGraph, outputDir?: string): string =>
   outputDir && outputDir.trim()
     ? path.resolve(outputDir)
-    : path.resolve(process.env.CODEFLOW_WORKSPACE_ROOT ?? process.cwd(), "artifacts", slugify(graph.projectName));
+    : resolveDefaultOutputDir(graph);
 
 export const assessExportRisk = async (
   graph: BlueprintGraph,
@@ -59,7 +77,8 @@ export const assessExportRisk = async (
     .catch(() => false);
   const existingEntries = exists ? (await fs.readdir(resolvedOutputDir)).filter(Boolean) : [];
   const hasExistingOutput = existingEntries.length > 0;
-  const workspaceRoot = path.resolve(process.env.CODEFLOW_WORKSPACE_ROOT ?? process.cwd());
+  const workspaceRoot = resolveWorkspaceRoot();
+  const defaultOutputDir = resolveDefaultOutputDir(graph);
 
   if (hasExistingOutput) {
     factors.push({
@@ -69,7 +88,7 @@ export const assessExportRisk = async (
     });
   }
 
-  if (outputDir && path.resolve(outputDir) !== path.resolve(workspaceRoot, "artifacts", slugify(graph.projectName))) {
+  if (outputDir && path.resolve(outputDir) !== defaultOutputDir) {
     factors.push({
       code: "custom-output-dir",
       message: `Artifacts will be written to a custom directory: ${resolvedOutputDir}.`,

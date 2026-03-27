@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 
-import { loadLatestSession, loadObservabilitySnapshot } from "@/lib/blueprint/store";
 import { summarizeObservability } from "@/lib/blueprint/observability";
+import { loadObservabilitySnapshot } from "@/lib/blueprint/observability-store";
+import { loadLatestSession } from "@/lib/blueprint/session-store";
 
 export async function GET(request: Request) {
   try {

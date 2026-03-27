@@ -23,31 +23,45 @@ const sendJsonRpc = async <T>(
   method: string,
   params: Record<string, unknown>,
   id: number,
-  headers?: Record<string, string>
+  headers?: Record<string, string>,
+  timeoutMs: number = 10_000
 ): Promise<T> => {
   const request: JsonRpcRequest = { jsonrpc: "2.0", id, method, params };
 
-  const response = await fetch(serverUrl, {
-    method: "POST",
-    headers: { "content-type": "application/json", ...headers },
-    body: JSON.stringify(request)
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  if (!response.ok) {
-    throw new Error(`MCP server responded with ${response.status} ${response.statusText}`);
+  try {
+    const response = await fetch(serverUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...headers },
+      body: JSON.stringify(request),
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      throw new Error(`MCP server responded with ${response.status} ${response.statusText}`);
+    }
+
+    const json = (await response.json()) as JsonRpcResponse<T>;
+
+    if (json.error) {
+      throw new Error(`MCP error ${json.error.code}: ${json.error.message}`);
+    }
+
+    if (json.result === undefined) {
+      throw new Error("MCP server returned an empty result");
+    }
+
+    return json.result;
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(`MCP request timed out after ${timeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  const json = (await response.json()) as JsonRpcResponse<T>;
-
-  if (json.error) {
-    throw new Error(`MCP error ${json.error.code}: ${json.error.message}`);
-  }
-
-  if (json.result === undefined) {
-    throw new Error("MCP server returned an empty result");
-  }
-
-  return json.result;
 };
 
 /**

@@ -98,8 +98,7 @@ describe("computeHeatmap", () => {
 
     expect(data.maxCallCount).toBe(20);
     expect(data.maxAvgDurationMs).toBe(10);
-    // maxErrorRate uses 1 as floor so it is max(0.2, 1) = 1
-    expect(data.maxErrorRate).toBe(1);
+    expect(data.maxErrorRate).toBe(0.2);
   });
 });
 

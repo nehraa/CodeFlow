@@ -60,6 +60,8 @@ export const createExecutionReport = (graph: BlueprintGraph, runPlan: RunPlan): 
     startedAt,
     completedAt: new Date().toISOString(),
     results,
-    ownership
+    ownership,
+    steps: [],
+    artifacts: []
   };
 };

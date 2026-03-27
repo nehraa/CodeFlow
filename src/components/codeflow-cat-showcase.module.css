@@ -1,0 +1,440 @@
+.mascot {
+  position: absolute;
+  top: 14.6rem;
+  right: 1rem;
+  z-index: 14;
+  width: min(22rem, calc(100vw - 2rem));
+  padding: 1rem;
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, rgba(7, 11, 19, 0.97) 0%, rgba(10, 14, 24, 0.95) 100%),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--scene-accent, #67e8f9) 18%, transparent), transparent 28%);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  box-shadow: 0 26px 60px rgba(2, 6, 23, 0.42);
+  backdrop-filter: blur(20px);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.9rem;
+}
+
+.headerCopy h2 {
+  margin: 0.16rem 0 0.28rem;
+  font-size: 1.22rem;
+  letter-spacing: -0.03em;
+  color: rgba(248, 250, 252, 0.98);
+}
+
+.headerCopy p {
+  margin: 0;
+  color: rgba(203, 213, 225, 0.86);
+  font-size: 0.94rem;
+  line-height: 1.5;
+}
+
+.kicker {
+  margin: 0;
+  color: rgba(103, 232, 249, 0.84);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  height: fit-content;
+  padding: 0.48rem 0.72rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(15, 23, 42, 0.78);
+  color: rgba(226, 232, 240, 0.92);
+  font-size: 0.79rem;
+  white-space: nowrap;
+}
+
+.statusDot {
+  width: 0.58rem;
+  height: 0.58rem;
+  border-radius: 999px;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--scene-accent, #67e8f9) 70%, transparent);
+}
+
+.stage {
+  position: relative;
+  overflow: hidden;
+  min-height: 21rem;
+  border-radius: 26px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background:
+    radial-gradient(circle at 20% 18%, color-mix(in srgb, var(--scene-accent) 20%, transparent), transparent 26%),
+    radial-gradient(circle at 84% 12%, rgba(244, 114, 182, 0.14), transparent 24%),
+    linear-gradient(180deg, rgba(18, 24, 39, 0.98) 0%, rgba(14, 18, 31, 0.96) 100%);
+}
+
+.stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+  background-size: 28px 28px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.72), transparent 100%);
+}
+
+.badge {
+  position: absolute;
+  top: 0.9rem;
+  left: 0.9rem;
+  z-index: 3;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(15, 23, 42, 0.74);
+  color: rgba(241, 245, 249, 0.96);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.sceneFrame {
+  position: relative;
+  min-height: 21rem;
+}
+
+.stageGlow {
+  position: absolute;
+  top: -2rem;
+  right: -1rem;
+  width: 12rem;
+  height: 12rem;
+  border-radius: 999px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--scene-accent) 46%, transparent) 0%, transparent 72%);
+  filter: blur(18px);
+}
+
+.backdrop,
+.cat {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.telemetryDeck {
+  position: absolute;
+  top: 4.3rem;
+  left: 0.95rem;
+  z-index: 3;
+  display: grid;
+  gap: 0.65rem;
+  width: 8.8rem;
+}
+
+.telemetryCard {
+  padding: 0.78rem 0.8rem;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(12, 18, 30, 0.78);
+  box-shadow: 0 18px 40px rgba(2, 6, 23, 0.18);
+}
+
+.telemetryCard span {
+  display: block;
+  color: rgba(148, 163, 184, 0.96);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.telemetryCard strong {
+  display: block;
+  margin-top: 0.22rem;
+  color: rgba(248, 250, 252, 0.98);
+  font-size: 0.92rem;
+  line-height: 1.3;
+}
+
+.telemetryBar {
+  height: 0.28rem;
+  margin-top: 0.6rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--scene-accent) 86%, white 16%), rgba(255, 255, 255, 0.18));
+}
+
+.footer {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+  margin-top: 0.95rem;
+}
+
+.progress {
+  display: flex;
+  gap: 0.32rem;
+  flex-wrap: wrap;
+}
+
+.progressButton {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.14rem;
+  background: transparent;
+  box-shadow: none;
+}
+
+.progressButton:hover {
+  transform: none;
+  box-shadow: none;
+  opacity: 1;
+}
+
+.progressDot {
+  display: block;
+  width: 0.52rem;
+  height: 0.52rem;
+  border-radius: 999px;
+  background: rgba(71, 85, 105, 0.78);
+  transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+}
+
+.progressButtonActive .progressDot {
+  transform: scale(1.35);
+  background: var(--dot-accent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--dot-accent) 60%, transparent);
+}
+
+.caption {
+  margin: 0;
+  max-width: 10rem;
+  color: rgba(148, 163, 184, 0.92);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.backdropShell,
+.backdropPanel,
+.previewFrame,
+.vcrDeck,
+.serverFrame,
+.cloneFrame {
+  fill: rgba(255, 255, 255, 0.08);
+  stroke: rgba(191, 219, 254, 0.22);
+  stroke-width: 3;
+}
+
+.backdropLine,
+.scrubTrack,
+.glassesBridge,
+.fanLine {
+  fill: none;
+  stroke: color-mix(in srgb, var(--scene-accent) 76%, white 16%);
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.backdropNode,
+.backdropAccent,
+.backdropAccentSoft,
+.serverBar,
+.cloneBar,
+.previewLine,
+.scrubHead {
+  fill: color-mix(in srgb, var(--scene-accent) 68%, white 16%);
+}
+
+.backdropAccentSoft {
+  fill: color-mix(in srgb, var(--scene-accent) 42%, white 18%);
+}
+
+.backdropGhost {
+  fill: rgba(167, 139, 250, 0.12);
+  stroke: rgba(196, 181, 253, 0.68);
+  stroke-width: 3;
+  stroke-dasharray: 10 8;
+}
+
+.backdropRing,
+.focusRing {
+  fill: none;
+  stroke: rgba(196, 181, 253, 0.46);
+  stroke-width: 2.5;
+}
+
+.keyboardDeck {
+  fill: rgba(30, 41, 59, 0.92);
+  stroke: rgba(148, 163, 184, 0.18);
+  stroke-width: 3;
+}
+
+.spark,
+.errorZap,
+.polishStar {
+  fill: color-mix(in srgb, var(--scene-accent) 78%, white 18%);
+}
+
+.lens,
+.glasses {
+  fill: rgba(59, 130, 246, 0.12);
+  stroke: rgba(191, 219, 254, 0.76);
+  stroke-width: 8;
+}
+
+.reel {
+  fill: rgba(226, 232, 240, 0.16);
+  stroke: rgba(148, 163, 184, 0.3);
+  stroke-width: 8;
+}
+
+.previewLine {
+  fill: rgba(191, 219, 254, 0.6);
+}
+
+.serverBar {
+  fill: rgba(248, 113, 113, 0.82);
+}
+
+.heatWave {
+  fill: none;
+  stroke: rgba(248, 113, 113, 0.84);
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+
+.cloneBar {
+  fill: color-mix(in srgb, var(--scene-accent) 72%, white 22%);
+}
+
+.errorNode {
+  fill: rgba(239, 68, 68, 0.14);
+  stroke: rgba(248, 113, 113, 0.84);
+  stroke-width: 4;
+}
+
+.errorZap,
+.alertBolt {
+  fill: rgba(248, 113, 113, 0.94);
+}
+
+.shadow {
+  fill: rgba(15, 23, 42, 0.38);
+}
+
+.tail,
+.body,
+.head,
+.ear,
+.leg,
+.frontPaw {
+  fill: url(#catBodyGradient);
+  stroke: #16253b;
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.belly,
+.muzzle,
+.paw {
+  fill: url(#catCreamGradient);
+  stroke: #16253b;
+  stroke-width: 5;
+}
+
+.earInner,
+.cheek,
+.nose,
+.tongue {
+  fill: #fca5a5;
+}
+
+.eye {
+  fill: #1f2937;
+}
+
+.pupil {
+  fill: #facc15;
+  stroke: #161e2f;
+  stroke-width: 1.5;
+}
+
+.eyeGlint {
+  fill: rgba(255, 255, 255, 0.94);
+}
+
+.mouth,
+.whisker {
+  fill: none;
+  stroke: #16253b;
+  stroke-width: 4.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.visor {
+  fill: rgba(103, 232, 249, 0.84);
+  stroke: #16253b;
+  stroke-width: 4.5;
+}
+
+.fanSheet {
+  fill: rgba(255, 255, 255, 0.92);
+  stroke: #20314a;
+  stroke-width: 4;
+}
+
+.fanLine {
+  stroke: #20314a;
+  stroke-width: 3.5;
+}
+
+.tongue {
+  stroke: #16253b;
+  stroke-width: 3.6;
+  stroke-linejoin: round;
+}
+
+.alertBolt,
+.polishStar {
+  stroke: rgba(255, 255, 255, 0.12);
+  stroke-width: 1;
+}
+
+@media (max-width: 720px) {
+  .mascot {
+    position: relative;
+    top: auto;
+    right: auto;
+    width: 100%;
+    margin-top: 0.9rem;
+  }
+
+  .header,
+  .footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .stage,
+  .sceneFrame {
+    min-height: 18.8rem;
+  }
+
+  .telemetryDeck {
+    top: 4rem;
+    width: 7.5rem;
+  }
+
+  .telemetryCard {
+    padding: 0.68rem 0.7rem;
+  }
+}

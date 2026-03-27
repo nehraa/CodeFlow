@@ -3,44 +3,6 @@ import { z } from "zod";
 
 import { invokeMcpTool } from "@/lib/blueprint/mcp";
 
-function isPrivateOrLocalHostname(hostname: string): boolean {
-  const lower = hostname.toLowerCase();
-
-  if (
-    lower === "localhost" ||
-    lower === "127.0.0.1" ||
-    lower === "::1" ||
-    lower === "0.0.0.0"
-  ) {
-    return true;
-  }
-
-  // Basic checks for common private IPv4 ranges when provided as literals.
-  const ipv4Match = /^(\d{1,3}\.){3}\d{1,3}$/.test(lower);
-  if (ipv4Match) {
-    const [a, b] = lower.split(".").map((part) => parseInt(part, 10));
-    if (a === 10) return true;
-    if (a === 127) return true;
-    if (a === 192 && b === 168) return true;
-    if (a === 172 && b >= 16 && b <= 31) return true;
-  }
-
-  // Basic checks for common private/loopback IPv6 when provided as literals.
-  if (lower === "::1") {
-    return true;
-  }
-  if (lower.startsWith("fc") || lower.startsWith("fd")) {
-    // Unique local addresses (fc00::/7)
-    return true;
-  }
-  if (lower.startsWith("fe80")) {
-    // Link-local unicast (fe80::/10)
-    return true;
-  }
-
-  return false;
-}
-
 const serverUrlSchema = z.string().min(1).transform((value, ctx) => {
   let url: URL;
   try {
@@ -61,12 +23,46 @@ const serverUrlSchema = z.string().min(1).transform((value, ctx) => {
     return z.NEVER;
   }
 
-  if (isPrivateOrLocalHostname(url.hostname)) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "Invalid serverUrl: connections to localhost or private networks are not allowed."
-    });
-    return z.NEVER;
+  // Block SSRF by validating hostname
+  const hostname = url.hostname.toLowerCase();
+
+  // Allow localhost and loopback addresses
+  if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1") {
+    return url.toString();
+  }
+
+  // Block private IP ranges (RFC1918)
+  const ipv4Patterns = [
+    /^10\./,           // 10.0.0.0/8
+    /^172\.(1[6-9]|2[0-9]|3[0-1])\./,  // 172.16.0.0/12
+    /^192\.168\./      // 192.168.0.0/16
+  ];
+
+  // Block link-local addresses
+  const linkLocalPatterns = [
+    /^169\.254\./,     // IPv4 link-local (169.254.0.0/16)
+    /^fe80:/i,         // IPv6 link-local
+    /^fc00:/i,         // IPv6 Unique Local Addresses
+    /^fd00:/i          // IPv6 Unique Local Addresses
+  ];
+
+  // Block cloud metadata endpoints
+  const metadataPatterns = [
+    /^169\.254\.169\.254$/,  // AWS/Azure/GCP metadata
+    /^metadata\.google\.internal$/i,
+    /^metadata$/i
+  ];
+
+  const allPatterns = [...ipv4Patterns, ...linkLocalPatterns, ...metadataPatterns];
+
+  for (const pattern of allPatterns) {
+    if (pattern.test(hostname)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Invalid serverUrl: cannot connect to private, link-local, or metadata endpoints."
+      });
+      return z.NEVER;
+    }
   }
 
   // Return a normalized URL string.

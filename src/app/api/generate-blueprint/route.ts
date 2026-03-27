@@ -10,9 +10,11 @@ import {
 } from "@/lib/blueprint/schema";
 import { getNvidiaKeySource, requestNvidiaChatCompletion, resolveNvidiaApiKey } from "@/lib/blueprint/nvidia";
 import { withSpecDrafts } from "@/lib/blueprint/phases";
+import { withCodeflowGovernance } from "@/lib/blueprint/prompt-governance";
 import type { BlueprintGraph } from "@/lib/blueprint/schema";
 import { createRunPlan } from "@/lib/blueprint/plan";
-import { upsertSession, saveRunRecord, createRunId } from "@/lib/blueprint/store";
+import { createRunId, saveRunRecord } from "@/lib/blueprint/run-store";
+import { upsertSession } from "@/lib/blueprint/session-store";
 import { createNode, createNodeId } from "@/lib/blueprint/utils";
 
 const requestSchema = z.object({
@@ -391,10 +393,15 @@ Return the JSON blueprint now.`;
       projectName: body.projectName,
       model: "meta/llama-3.1-405b-instruct"
     });
+    const governedSystemPrompt = await withCodeflowGovernance(
+      SYSTEM_PROMPT,
+      "architecture"
+    );
+
     const content = await requestNvidiaChatCompletion({
       apiKey,
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: governedSystemPrompt },
         { role: "user", content: userPrompt }
       ],
       temperature: 0.3,
