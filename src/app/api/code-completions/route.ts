@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getNodeAssistanceContext } from "@/lib/blueprint/code-assist";
+import { withCodeflowGovernance } from "@/lib/blueprint/prompt-governance";
 import { blueprintGraphSchema } from "@/lib/blueprint/schema";
 import { getNvidiaKeySource, requestNvidiaChatCompletion, resolveNvidiaApiKey } from "@/lib/blueprint/nvidia";
 
@@ -154,11 +155,15 @@ ${afterCursor}
 \`\`\`
 
 Return JSON completions now.`;
+    const governedSystemPrompt = await withCodeflowGovernance(
+      SYSTEM_PROMPT,
+      "completion"
+    );
 
     const content = await requestNvidiaChatCompletion({
       apiKey,
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: governedSystemPrompt },
         { role: "user", content: userPrompt }
       ],
       temperature: 0.15,

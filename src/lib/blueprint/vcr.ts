@@ -95,11 +95,12 @@ export const buildVcrRecording = (
       running.set(nodeId, mergeSpanIntoState(running.get(nodeId) ?? idleTraceState(), span));
     }
 
-    // Snapshot only the current non-idle node states.
-    // Missing entries are treated as idle by `replayAtFrame`.
+    // Store only non-idle node states to reduce memory footprint (sparse storage)
     const nodeStates: Record<string, TraceState> = {};
-    for (const [id, state] of running) {
-      nodeStates[id] = state;
+    for (const [id, state] of running.entries()) {
+      if (state.count > 0) {
+        nodeStates[id] = state;
+      }
     }
 
     return {

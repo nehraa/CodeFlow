@@ -95,15 +95,19 @@ describe("exportBlueprintArtifacts", () => {
     const stubFile = await fs.readFile(path.join(result.stubsDir, functionStub ?? ""), "utf8");
     const ownershipFile = await fs.readFile(result.ownershipPath ?? "", "utf8");
     const obsidianIndex = await fs.readFile(result.obsidianIndexPath ?? "", "utf8");
+    const artifactManifest = await fs.readFile(result.artifactManifestPath ?? "", "utf8");
 
     expect(blueprintFile).toContain("\"projectName\": \"Exporter\"");
     expect(docFile).toContain("# Workspace");
     expect(docFile).toContain("Attributes / State:");
     expect(indexDoc).toContain("Execution phases:");
     expect(stubFile).toContain("export function saveTask");
+    expect(stubFile).toContain("@codeflowMaturity scaffold");
     expect(ownershipFile).toContain("\"nodeId\": \"function:save-task\"");
     expect(obsidianIndex).toContain("[[docs/ui-screen-workspace]]");
     expect(obsidianIndex).toContain("[[system.canvas]]");
+    expect(artifactManifest).toContain("\"artifactType\": \"code\"");
+    expect(result.artifactSummary?.scaffold).toBeGreaterThan(0);
   });
 
   it("prefers edited code drafts over regenerated stub content when provided", async () => {
@@ -126,5 +130,7 @@ describe("exportBlueprintArtifacts", () => {
 
     const stubFile = await fs.readFile(path.join(result.stubsDir, functionStub ?? ""), "utf8");
     expect(stubFile).toContain("return \"edited draft\"");
+    expect(result.artifactSummary?.draft).toBeGreaterThan(0);
+    expect(result.artifactSummary?.scaffold).toBeGreaterThan(0);
   });
 });

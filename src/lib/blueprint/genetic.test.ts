@@ -160,6 +160,8 @@ describe("evolveArchitectures", () => {
     expect(result.winnerId).toBeTruthy();
     expect(result.summary).toBeTruthy();
     expect(typeof result.evolvedAt).toBe("string");
+    expect(result.provenance).toBe("heuristic");
+    expect(result.maturity).toBe("experimental");
   });
 
   it("winner has rank 1", () => {
@@ -167,6 +169,8 @@ describe("evolveArchitectures", () => {
     const result = evolveArchitectures(graph, { generations: 1, populationSize: 3 });
     const winner = result.variants.find((v) => v.id === result.winnerId);
     expect(winner?.rank).toBe(1);
+    expect(winner?.provenance).toBe("heuristic");
+    expect(winner?.maturity).toBe("experimental");
   });
 
   it("variants are sorted by rank ascending", () => {

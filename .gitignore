@@ -3,6 +3,7 @@ node_modules
 coverage
 artifacts
 .codeflow-store
+.codeflow-store-test
 .codeflow-sandboxes
 *.log
 *.tsbuildinfo

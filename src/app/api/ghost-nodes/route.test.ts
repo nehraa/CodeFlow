@@ -68,7 +68,9 @@ describe("POST /api/ghost-nodes", () => {
     });
 
     const response = await POST(request);
-    const body = (await response.json()) as { suggestions: Array<{ id: string; kind: string; name: string; reason: string }> };
+    const body = (await response.json()) as {
+      suggestions: Array<{ id: string; kind: string; name: string; reason: string; provenance: string; maturity: string }>;
+    };
 
     expect(response.status).toBe(200);
     expect(Array.isArray(body.suggestions)).toBe(true);
@@ -77,6 +79,8 @@ describe("POST /api/ghost-nodes", () => {
     for (const suggestion of body.suggestions) {
       expect(suggestion.id).toMatch(/^ghost:/);
       expect(suggestion.reason).toBeTruthy();
+      expect(suggestion.provenance).toBe("heuristic");
+      expect(suggestion.maturity).toBe("preview");
     }
   });
 
@@ -116,11 +120,13 @@ describe("POST /api/ghost-nodes", () => {
     });
 
     const response = await POST(request);
-    const body = (await response.json()) as { suggestions: Array<{ id: string; kind: string }> };
+    const body = (await response.json()) as { suggestions: Array<{ id: string; kind: string; provenance: string; maturity: string }> };
 
     expect(response.status).toBe(200);
     expect(Array.isArray(body.suggestions)).toBe(true);
     expect(body.suggestions[0]?.id).toMatch(/^ghost:/);
+    expect(body.suggestions[0]?.provenance).toBe("ai");
+    expect(body.suggestions[0]?.maturity).toBe("preview");
   });
 
   it("falls back to heuristic suggestions when AI response cannot be parsed", async () => {

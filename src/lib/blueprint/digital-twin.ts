@@ -1,6 +1,7 @@
 import type {
   BlueprintGraph,
   DigitalTwinSnapshot,
+  OutputProvenance,
   TraceSpan,
   UserFlow
 } from "@/lib/blueprint/schema";
@@ -34,6 +35,28 @@ const worstStatus = (
     error: 3
   };
   return priority[a] >= priority[b] ? a : b;
+};
+
+const resolveFlowProvenance = (traceSpans: TraceSpan[]): OutputProvenance => {
+  const counts = new Map<OutputProvenance, number>();
+
+  for (const span of traceSpans) {
+    const provenance = span.provenance ?? "observed";
+    counts.set(provenance, (counts.get(provenance) ?? 0) + 1);
+  }
+
+  let dominant: OutputProvenance = "observed";
+  let dominantCount = -1;
+
+  for (const provenance of ["observed", "simulated", "deterministic", "heuristic", "ai"] as const) {
+    const count = counts.get(provenance) ?? 0;
+    if (count > dominantCount) {
+      dominant = provenance;
+      dominantCount = count;
+    }
+  }
+
+  return dominant;
 };
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -88,6 +111,7 @@ export const buildUserFlows = (
       startedAt: ordered[0]?.timestamp,
       endedAt: ordered[ordered.length - 1]?.timestamp,
       status,
+      provenance: resolveFlowProvenance(ordered),
       totalDurationMs,
       spanCount: ordered.length
     });
@@ -118,6 +142,10 @@ export const computeDigitalTwinSnapshot = (
   activeWindowSecs = 60
 ): DigitalTwinSnapshot => {
   const flows = buildUserFlows(graph, spans);
+  const observedSpanCount = spans.filter((span) => (span.provenance ?? "observed") === "observed").length;
+  const simulatedSpanCount = spans.filter((span) => (span.provenance ?? "observed") === "simulated").length;
+  const observedFlowCount = flows.filter((flow) => flow.provenance === "observed").length;
+  const simulatedFlowCount = flows.filter((flow) => flow.provenance === "simulated").length;
 
   const now = Date.now();
   const windowMs = activeWindowSecs * 1000;
@@ -140,8 +168,13 @@ export const computeDigitalTwinSnapshot = (
   return {
     projectName: graph.projectName,
     computedAt: new Date().toISOString(),
+    maturity: "preview",
     activeNodeIds,
     flows,
+    observedSpanCount,
+    simulatedSpanCount,
+    observedFlowCount,
+    simulatedFlowCount,
     activeWindowSecs
   };
 };
@@ -179,6 +212,7 @@ export const buildSimulationSpans = (
         status: "success" as const,
         durationMs: 1,
         runtime,
+        provenance: "simulated" as const,
         timestamp
       }
     ];

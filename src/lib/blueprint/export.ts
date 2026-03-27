@@ -2,10 +2,12 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import type {
+  ArtifactValidationState,
   BlueprintGraph,
   BlueprintNode,
   ContractField,
   ExecutionReport,
+  ExportArtifact,
   ExportResult
 } from "@/lib/blueprint/schema";
 import { generateNodeCode, getNodeStubPath, isCodeBearingNode } from "@/lib/blueprint/codegen";
@@ -205,6 +207,58 @@ const buildIntegrationEntrypoint = (graph: BlueprintGraph): string | null => {
   ].join("\n");
 };
 
+const classifyNodeArtifact = (
+  node: BlueprintNode,
+  graph: BlueprintGraph,
+  draftOverride?: string
+): {
+  content: string | null;
+  validationState: ArtifactValidationState;
+  maturity: "production" | "preview" | "scaffold";
+  provenance: "deterministic";
+  notes: string[];
+} => {
+  if (draftOverride) {
+    const isValidated = node.lastVerification?.status === "success";
+    return {
+      content: draftOverride,
+      validationState: isValidated ? "validated" : "draft",
+      maturity: isValidated ? "production" : "preview",
+      provenance: "deterministic",
+      notes: ["Using the current editor draft captured at export time."]
+    };
+  }
+
+  if (node.implementationDraft) {
+    const isValidated = node.lastVerification?.status === "success";
+    return {
+      content: node.implementationDraft,
+      validationState: isValidated ? "validated" : "draft",
+      maturity: isValidated ? "production" : "preview",
+      provenance: "deterministic",
+      notes: ["Using the node implementation draft stored in the blueprint."]
+    };
+  }
+
+  if (node.specDraft) {
+    return {
+      content: node.specDraft,
+      validationState: "draft",
+      maturity: "preview",
+      provenance: "deterministic",
+      notes: ["Using the node specification draft because no implementation draft exists."]
+    };
+  }
+
+  return {
+    content: generateNodeCode(node, graph),
+    validationState: "scaffold",
+    maturity: "scaffold",
+    provenance: "deterministic",
+    notes: ["Generated deterministic scaffold content from the blueprint contract."]
+  };
+};
+
 export const exportBlueprintArtifacts = async (
   graph: BlueprintGraph,
   outputDir?: string,
@@ -224,6 +278,9 @@ export const exportBlueprintArtifacts = async (
   const obsidianIndexPath = path.join(baseDir, "obsidian-index.md");
   const phaseManifestPath = path.join(baseDir, "phase-manifest.json");
   const integrationEntrypointPath = path.join(baseDir, "integration-entrypoint.ts");
+  const artifactManifestPath = path.join(baseDir, "artifact-manifest.json");
+  const exportedAt = new Date().toISOString();
+  const artifacts: ExportArtifact[] = [];
 
   await ensureDir(docsDir);
   await ensureDir(stubsDir);
@@ -231,6 +288,24 @@ export const exportBlueprintArtifacts = async (
   await fs.writeFile(blueprintPath, `${JSON.stringify(graph, null, 2)}\n`, "utf8");
   await fs.writeFile(canvasPath, `${JSON.stringify(buildCanvas(graph), null, 2)}\n`, "utf8");
   await fs.writeFile(phaseManifestPath, `${JSON.stringify(buildPhaseManifest(graph), null, 2)}\n`, "utf8");
+  artifacts.push({
+    relativePath: path.relative(baseDir, blueprintPath),
+    artifactType: "blueprint",
+    validationState: "validated",
+    provenance: "deterministic",
+    maturity: "production",
+    generatedAt: exportedAt,
+    notes: ["Serialized blueprint graph."]
+  });
+  artifacts.push({
+    relativePath: path.relative(baseDir, canvasPath),
+    artifactType: "canvas",
+    validationState: "validated",
+    provenance: "deterministic",
+    maturity: "production",
+    generatedAt: exportedAt,
+    notes: ["Canvas projection of the blueprint graph."]
+  });
 
   const summaryDoc = `# ${graph.projectName}
 
@@ -261,6 +336,15 @@ ${
 }
 `;
   await fs.writeFile(path.join(docsDir, "index.md"), summaryDoc, "utf8");
+  artifacts.push({
+    relativePath: path.relative(baseDir, path.join(docsDir, "index.md")),
+    artifactType: "documentation",
+    validationState: "validated",
+    provenance: "deterministic",
+    maturity: "production",
+    generatedAt: exportedAt,
+    notes: ["Top-level export summary."]
+  });
   await fs.writeFile(
     obsidianIndexPath,
     `# ${graph.projectName} Vault Index
@@ -274,16 +358,38 @@ ${graph.nodes.map((node) => `- [[docs/${slugify(node.kind)}-${slugify(node.name)
 `,
     "utf8"
   );
+  artifacts.push({
+    relativePath: path.relative(baseDir, obsidianIndexPath),
+    artifactType: "documentation",
+    validationState: "validated",
+    provenance: "deterministic",
+    maturity: "production",
+    generatedAt: exportedAt,
+    notes: ["Obsidian index for exported documentation."]
+  });
 
   for (const node of graph.nodes) {
     const docPath = path.join(docsDir, `${slugify(node.kind)}-${slugify(node.name)}.md`);
     await fs.writeFile(docPath, buildNodeDoc(node), "utf8");
+    artifacts.push({
+      nodeId: node.id,
+      nodeName: node.name,
+      nodeKind: node.kind,
+      relativePath: path.relative(baseDir, docPath),
+      artifactType: "documentation",
+      validationState: "validated",
+      provenance: "deterministic",
+      maturity: "production",
+      generatedAt: exportedAt,
+      notes: ["Per-node architecture documentation."]
+    });
 
     if (!isCodeBearingNode(node)) {
       continue;
     }
 
-    const stubContent = codeDrafts?.[node.id] ?? node.implementationDraft ?? node.specDraft ?? generateNodeCode(node, graph);
+    const artifact = classifyNodeArtifact(node, graph, codeDrafts?.[node.id]);
+    const stubContent = artifact.content;
     if (!stubContent) {
       continue;
     }
@@ -291,16 +397,63 @@ ${graph.nodes.map((node) => `- [[docs/${slugify(node.kind)}-${slugify(node.name)
     const extension = node.kind === "ui-screen" ? "tsx" : "ts";
     const stubPath = path.join(stubsDir, `${slugify(node.kind)}-${slugify(node.name)}.${extension}`);
     await fs.writeFile(stubPath, stubContent, "utf8");
+    artifacts.push({
+      nodeId: node.id,
+      nodeName: node.name,
+      nodeKind: node.kind,
+      relativePath: path.relative(baseDir, stubPath),
+      artifactType: "code",
+      validationState: artifact.validationState,
+      provenance: artifact.provenance,
+      maturity: artifact.maturity,
+      generatedAt: exportedAt,
+      notes: artifact.notes
+    });
   }
 
   if (executionReport) {
     await fs.writeFile(ownershipPath, `${JSON.stringify(executionReport.ownership, null, 2)}\n`, "utf8");
+    artifacts.push({
+      relativePath: path.relative(baseDir, ownershipPath),
+      artifactType: "ownership",
+      validationState: "validated",
+      provenance: "deterministic",
+      maturity: "production",
+      generatedAt: exportedAt,
+      notes: ["Ownership records for managed regions."]
+    });
   }
 
   const integrationEntrypoint = buildIntegrationEntrypoint(graph);
   if (integrationEntrypoint) {
     await fs.writeFile(integrationEntrypointPath, integrationEntrypoint, "utf8");
+    artifacts.push({
+      relativePath: path.relative(baseDir, integrationEntrypointPath),
+      artifactType: "integration",
+      validationState: "draft",
+      provenance: "deterministic",
+      maturity: "preview",
+      generatedAt: exportedAt,
+      notes: ["Generated integration runner entrypoint."]
+    });
   }
+
+  await fs.writeFile(artifactManifestPath, `${JSON.stringify({ exportedAt, artifacts }, null, 2)}\n`, "utf8");
+
+  const artifactSummary = artifacts.reduce(
+    (summary, artifact) => {
+      summary.total += 1;
+      if (artifact.validationState === "validated") {
+        summary.validated += 1;
+      } else if (artifact.validationState === "draft") {
+        summary.draft += 1;
+      } else {
+        summary.scaffold += 1;
+      }
+      return summary;
+    },
+    { total: 0, validated: 0, draft: 0, scaffold: 0 }
+  );
 
   return {
     rootDir: baseDir,
@@ -308,6 +461,8 @@ ${graph.nodes.map((node) => `- [[docs/${slugify(node.kind)}-${slugify(node.name)
     canvasPath,
     docsDir,
     stubsDir,
+    artifactManifestPath,
+    artifactSummary,
     phaseManifestPath,
     integrationEntrypointPath: integrationEntrypoint ? integrationEntrypointPath : undefined,
     ownershipPath: executionReport ? ownershipPath : undefined,
