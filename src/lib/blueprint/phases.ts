@@ -4,6 +4,7 @@ import type {
   BlueprintPhase,
   NodeStatus,
   NodeVerification,
+  ExecutionStep,
   RuntimeExecutionResult
 } from "@/lib/blueprint/schema";
 import { generateNodeCode, isCodeBearingNode } from "@/lib/blueprint/codegen";
@@ -85,6 +86,17 @@ export const createNodeVerification = (
   exitCode: result.exitCode ?? undefined
 });
 
+export const createNodeVerificationFromStep = (
+  step: Pick<ExecutionStep, "status" | "stdout" | "stderr" | "completedAt">,
+  exitCode?: number | null
+): NodeVerification => ({
+  verifiedAt: step.completedAt,
+  status: step.status === "passed" || step.status === "warning" ? "success" : "failure",
+  stdout: step.stdout,
+  stderr: step.stderr,
+  exitCode: exitCode ?? undefined
+});
+
 export const markNodeVerified = (
   graph: BlueprintGraph,
   nodeId: string,
@@ -143,3 +155,43 @@ export const markGraphConnected = (graph: BlueprintGraph): BlueprintGraph => ({
       : node
   )
 });
+
+export const applyExecutionResultToGraph = (
+  graph: BlueprintGraph,
+  result: RuntimeExecutionResult,
+  options: { integrationRun: boolean }
+): BlueprintGraph => {
+  const latestNodeSteps = new Map(
+    result.steps
+      .filter((step) => step.kind === "node")
+      .map((step) => [step.nodeId, step] as const)
+  );
+
+  const nextGraph: BlueprintGraph = {
+    ...graph,
+    phase: options.integrationRun ? "integration" : graph.phase,
+    nodes: graph.nodes.map((node) => {
+      const step = latestNodeSteps.get(node.id);
+      if (!step) {
+        return node;
+      }
+
+      const passed = step.status === "passed" || step.status === "warning";
+      const failed = step.status === "failed";
+      const verification = createNodeVerificationFromStep(
+        step,
+        node.id === result.entryNodeId ? result.exitCode : undefined
+      );
+
+      return {
+        ...node,
+        status: passed
+          ? ((options.integrationRun ? "connected" : "verified") as NodeStatus)
+          : node.status,
+        lastVerification: failed || passed ? verification : node.lastVerification
+      };
+    })
+  };
+
+  return options.integrationRun && result.success ? markGraphConnected(nextGraph) : nextGraph;
+};

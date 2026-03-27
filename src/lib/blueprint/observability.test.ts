@@ -35,7 +35,8 @@ describe("summarizeObservability", () => {
           name: "saveTask",
           status: "error",
           durationMs: 8,
-          runtime: "node"
+          runtime: "node",
+          provenance: "observed"
         }
       ],
       logs: [

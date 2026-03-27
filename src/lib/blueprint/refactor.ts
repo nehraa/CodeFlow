@@ -1,4 +1,11 @@
-import type { BlueprintEdge, BlueprintEdgeKind, BlueprintGraph, BlueprintNode } from "@/lib/blueprint/schema";
+import type {
+  BlueprintEdge,
+  BlueprintEdgeKind,
+  BlueprintGraph,
+  BlueprintNode,
+  FeatureMaturity,
+  OutputProvenance
+} from "@/lib/blueprint/schema";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -42,6 +49,9 @@ export interface DriftIssue {
 export interface RefactorReport {
   projectName: string;
   detectedAt: string;
+  provenance: OutputProvenance;
+  maturity: FeatureMaturity;
+  scope: "graph";
   issues: DriftIssue[];
   /** IDs of nodes that have at least one drift issue. */
   driftedNodeIds: string[];
@@ -54,6 +64,9 @@ export interface RefactorReport {
 export interface HealResult {
   projectName: string;
   healedAt: string;
+  provenance: OutputProvenance;
+  maturity: FeatureMaturity;
+  scope: "graph";
   issuesFixed: number;
   graph: BlueprintGraph;
   summary: string[];
@@ -172,6 +185,9 @@ export const detectDrift = (graph: BlueprintGraph): RefactorReport => {
   return {
     projectName: graph.projectName,
     detectedAt: new Date().toISOString(),
+    provenance: "deterministic",
+    maturity: "preview",
+    scope: "graph",
     issues,
     driftedNodeIds,
     totalIssues: issues.length,
@@ -269,6 +285,9 @@ export const healGraph = (
   return {
     projectName: graph.projectName,
     healedAt: new Date().toISOString(),
+    provenance: "deterministic",
+    maturity: "preview",
+    scope: "graph",
     issuesFixed,
     graph: {
       ...graph,

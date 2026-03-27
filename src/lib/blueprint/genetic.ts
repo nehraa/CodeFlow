@@ -4,6 +4,8 @@ import type {
   BlueprintEdge,
   BlueprintGraph,
   BlueprintNode,
+  MaterializedBlueprintGraph,
+  MaterializedBlueprintNode,
   TournamentResult,
   VariantBenchmark
 } from "@/lib/blueprint/schema";
@@ -24,18 +26,25 @@ const BENCHMARK_WEIGHTS = {
   maintainability: 0.25
 } as const;
 
+const TOURNAMENT_PROVENANCE = "heuristic" as const;
+const TOURNAMENT_MATURITY = "experimental" as const;
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 /** Clamp a number to [0, 100]. */
 const clamp100 = (v: number): number => Math.max(0, Math.min(100, Math.round(v)));
 
 /** Create a slim node copy with a new id. */
-const cloneNode = (node: BlueprintNode, overrides: Partial<BlueprintNode> = {}): BlueprintNode => ({
+const cloneNode = (
+  node: BlueprintNode,
+  overrides: Partial<BlueprintNode> = {}
+): MaterializedBlueprintNode => ({
   ...node,
   contract: { ...node.contract },
   sourceRefs: [...node.sourceRefs],
   generatedRefs: [...(node.generatedRefs ?? [])],
   traceRefs: [...(node.traceRefs ?? [])],
+  status: node.status ?? "spec_only",
   ...overrides
 });
 
@@ -60,7 +69,10 @@ const pruneEdges = (nodes: BlueprintNode[], edges: BlueprintEdge[]): BlueprintEd
  * modules.  Intra-group edges become implicit (removed); cross-group edges are
  * kept.  The result is a denser, simpler graph with fewer, larger components.
  */
-const generateMonolithVariant = (base: BlueprintGraph, generation: number): BlueprintGraph => {
+const generateMonolithVariant = (
+  base: BlueprintGraph,
+  generation: number
+): MaterializedBlueprintGraph => {
   // Group nodes by kind.
   const groups = new Map<string, BlueprintNode[]>();
   for (const node of base.nodes) {
@@ -72,7 +84,7 @@ const generateMonolithVariant = (base: BlueprintGraph, generation: number): Blue
   // Build one aggregate node per kind group. Each aggregate gets a synthetic
   // "monolith:<kind>" id, and existing edges are remapped via memberToAggregate
   // so that relationships still resolve correctly.
-  const aggregateNodes: BlueprintNode[] = [];
+  const aggregateNodes: MaterializedBlueprintNode[] = [];
   const memberToAggregate = new Map<string, string>();
 
   for (const [kind, members] of groups) {
@@ -127,14 +139,19 @@ const generateMonolithVariant = (base: BlueprintGraph, generation: number): Blue
  * Each existing module/class node becomes its own service with a dedicated API
  * gateway node.  Services communicate exclusively through API calls.
  */
-const generateMicroservicesVariant = (base: BlueprintGraph, generation: number): BlueprintGraph => {
-  const serviceNodes: BlueprintNode[] = [];
-  const apiNodes: BlueprintNode[] = [];
+const generateMicroservicesVariant = (
+  base: BlueprintGraph,
+  generation: number
+): MaterializedBlueprintGraph => {
+  const serviceNodes: MaterializedBlueprintNode[] = [];
+  const apiNodes: MaterializedBlueprintNode[] = [];
   const serviceEdges: BlueprintEdge[] = [];
 
   // Turn each non-API, non-UI node into a micro-service + API gateway pair.
   const coreNodes = base.nodes.filter((n) => n.kind !== "ui-screen");
-  const uiNodes = base.nodes.filter((n) => n.kind === "ui-screen");
+  const uiNodes: MaterializedBlueprintNode[] = base.nodes
+    .filter((n) => n.kind === "ui-screen")
+    .map((node) => cloneNode(node));
 
   const nodeToApi = new Map<string, string>();
 
@@ -228,9 +245,12 @@ const generateMicroservicesVariant = (base: BlueprintGraph, generation: number):
  * Functions and API handlers become independent serverless lambdas.  Calls are
  * converted to async event-driven edges (emits → consumes) where possible.
  */
-const generateServerlessVariant = (base: BlueprintGraph, generation: number): BlueprintGraph => {
+const generateServerlessVariant = (
+  base: BlueprintGraph,
+  generation: number
+): MaterializedBlueprintGraph => {
   // Convert each node to a serverless function.
-  const lambdaNodes: BlueprintNode[] = base.nodes.map((node) =>
+  const lambdaNodes: MaterializedBlueprintNode[] = base.nodes.map((node) =>
     cloneNode(node, {
       id: `fn:${node.id}`,
       name: `${node.name} λ`,
@@ -365,7 +385,7 @@ const crossover = (
   // Decide style: inherit whichever parent has higher fitness.
   const style: ArchitectureStyle = a.benchmark.fitness >= b.benchmark.fitness ? a.style : b.style;
 
-  const childGraph: BlueprintGraph = {
+  const childGraph: MaterializedBlueprintGraph = {
     ...a.graph,
     phase: a.graph.phase ?? "spec",
     projectName: `${a.graph.projectName.split(" (")[0]} (${style} gen${generation}c${idx})`,
@@ -383,6 +403,8 @@ const crossover = (
     generation,
     graph: childGraph,
     benchmark,
+    provenance: TOURNAMENT_PROVENANCE,
+    maturity: TOURNAMENT_MATURITY,
     rank: 0
   };
 };
@@ -416,7 +438,7 @@ const mutate = (
     if (leafId) {
       const prunedNodes = nodes.filter((n) => n.id !== leafId);
       const prunedEdges = pruneEdges(prunedNodes, edges);
-      const mutatedGraph: BlueprintGraph = {
+      const mutatedGraph: MaterializedBlueprintGraph = {
         ...variant.graph,
         phase: variant.graph.phase ?? "spec",
         projectName: `${variant.graph.projectName.split(" (")[0]} (${variant.style} gen${generation}m${idx})`,
@@ -429,14 +451,16 @@ const mutate = (
         id: `variant-gen${generation}-mut-${idx}`,
         generation,
         graph: mutatedGraph,
-        benchmark: benchmarkVariant(mutatedGraph, variant.style)
+        benchmark: benchmarkVariant(mutatedGraph, variant.style),
+        provenance: TOURNAMENT_PROVENANCE,
+        maturity: TOURNAMENT_MATURITY
       };
     }
   } else if (edges.length > 0 && idx % 3 === 1) {
     // Remove the edge with the lowest confidence.
     const sortedEdges = [...edges].sort((a, b) => a.confidence - b.confidence);
     const prunedEdges = sortedEdges.slice(1);
-    const mutatedGraph: BlueprintGraph = {
+    const mutatedGraph: MaterializedBlueprintGraph = {
       ...variant.graph,
       phase: variant.graph.phase ?? "spec",
       projectName: `${variant.graph.projectName.split(" (")[0]} (${variant.style} gen${generation}m${idx})`,
@@ -449,12 +473,14 @@ const mutate = (
       id: `variant-gen${generation}-mut-${idx}`,
       generation,
       graph: mutatedGraph,
-      benchmark: benchmarkVariant(mutatedGraph, variant.style)
+      benchmark: benchmarkVariant(mutatedGraph, variant.style),
+      provenance: TOURNAMENT_PROVENANCE,
+      maturity: TOURNAMENT_MATURITY
     };
   }
 
   // Default: no structural change, just re-benchmark with updated generation tag.
-  const mutatedGraph: BlueprintGraph = {
+  const mutatedGraph: MaterializedBlueprintGraph = {
     ...variant.graph,
     phase: variant.graph.phase ?? "spec",
     projectName: `${variant.graph.projectName.split(" (")[0]} (${variant.style} gen${generation}m${idx})`,
@@ -467,7 +493,9 @@ const mutate = (
     id: `variant-gen${generation}-mut-${idx}`,
     generation,
     graph: mutatedGraph,
-    benchmark: benchmarkVariant(mutatedGraph, variant.style)
+    benchmark: benchmarkVariant(mutatedGraph, variant.style),
+    provenance: TOURNAMENT_PROVENANCE,
+    maturity: TOURNAMENT_MATURITY
   };
 };
 
@@ -511,6 +539,8 @@ export const generateInitialPopulation = (
       generation: 0,
       graph,
       benchmark,
+      provenance: TOURNAMENT_PROVENANCE,
+      maturity: TOURNAMENT_MATURITY,
       rank: 0
     };
   });
@@ -574,6 +604,8 @@ export const evolveArchitectures = (
   return {
     projectName: base.projectName,
     evolvedAt: new Date().toISOString(),
+    provenance: TOURNAMENT_PROVENANCE,
+    maturity: TOURNAMENT_MATURITY,
     generationCount: generations,
     populationSize: finalPopulation.length,
     variants: finalPopulation,
