@@ -17,8 +17,14 @@ import {
 
 import type { HeatmapData } from "@/lib/blueprint/heatmap";
 import type { BlueprintGraph, GhostNode } from "@/lib/blueprint/schema";
-import { buildFlowEdges, buildFlowNodes, buildGhostFlowNodes } from "@/lib/blueprint/flow-view";
-import type { FlowNodeData } from "@/lib/blueprint/flow-view";
+import { buildExecutionProjection, buildFlowEdges, buildFlowNodes, buildGhostFlowNodes } from "@/lib/blueprint/flow-view";
+import type {
+  FlowExecutionProjection,
+  FlowExecutionState,
+  FlowExecutionStatus,
+  FlowNodeData
+} from "@/lib/blueprint/flow-view";
+import type { RuntimeExecutionResult } from "@/lib/blueprint/schema";
 
 type GraphCanvasProps = {
   graph: BlueprintGraph | null;
@@ -34,6 +40,7 @@ type GraphCanvasProps = {
   activeNodeIds?: string[];
   /** Node IDs that have detected architectural drift (rendered with shake + highlight). */
   driftedNodeIds?: string[];
+  executionResult?: RuntimeExecutionResult | null;
   detailMode?: boolean;
   theme?: "light" | "dark";
 };
@@ -45,6 +52,27 @@ const TRACE_STATUS_LABEL: Record<FlowNodeData["traceStatus"], string> = {
   error: "Invalid"
 };
 
+const EXECUTION_STATUS_LABEL: Record<FlowExecutionStatus, string> = {
+  idle: "Idle",
+  running: "Running",
+  pending: "Pending",
+  passed: "Passed",
+  failed: "Failed",
+  blocked: "Blocked",
+  skipped: "Skipped",
+  warning: "Warning"
+};
+
+const EXECUTION_STATUS_TONE: Record<Exclude<FlowExecutionStatus, "idle">, string> = {
+  running: "#2563eb",
+  pending: "#64748b",
+  passed: "#15803d",
+  failed: "#dc2626",
+  blocked: "#d97706",
+  skipped: "#64748b",
+  warning: "#c2410c"
+};
+
 const HEALTH_STATUS_LABEL: Record<FlowNodeData["healthState"], string> = {
   neutral: "Stable",
   aligned: "Aligned",
@@ -53,7 +81,62 @@ const HEALTH_STATUS_LABEL: Record<FlowNodeData["healthState"], string> = {
   ghost: "Ghost"
 };
 
+const mergeClassNames = (...classNames: Array<string | undefined>) =>
+  classNames.filter(Boolean).join(" ").trim();
+
+const getExecutionTone = (status?: FlowExecutionStatus): string | undefined => {
+  if (!status || status === "idle") {
+    return undefined;
+  }
+
+  return EXECUTION_STATUS_TONE[status];
+};
+
+const resolveExecutionFromNode = (
+  node: Node<FlowNodeData>,
+  projection: FlowExecutionProjection | null,
+  graph?: BlueprintGraph | null
+): FlowExecutionState | undefined => {
+  if (node.data.execution && node.data.execution.status !== "idle") {
+    return node.data.execution;
+  }
+
+  if (!projection) {
+    return undefined;
+  }
+
+  if (node.data.drilldownNodeId && projection.nodeStates[node.data.drilldownNodeId]?.status) {
+    return projection.nodeStates[node.data.drilldownNodeId];
+  }
+
+  if (projection.nodeStates[node.id]?.status) {
+    return projection.nodeStates[node.id];
+  }
+
+  if (node.id.startsWith("detail:root:")) {
+    const rootNodeId = node.id.slice("detail:root:".length);
+    return projection.nodeStates[rootNodeId];
+  }
+
+  if (node.id.startsWith("detail:blueprint:")) {
+    const blueprintNodeId = node.id.slice("detail:blueprint:".length);
+    return projection.nodeStates[blueprintNodeId];
+  }
+
+  if (node.id.startsWith("detail:method:") && graph) {
+    const suffix = node.id.slice("detail:method:".length);
+    const lastSeparator = suffix.lastIndexOf(":");
+    const rootNodeId = lastSeparator >= 0 ? suffix.slice(0, lastSeparator) : suffix;
+    return projection.nodeStates[rootNodeId];
+  }
+
+  return undefined;
+};
+
 const PolicyNode = memo(function PolicyNode({ data, selected }: NodeProps<Node<FlowNodeData>>) {
+  const executionStatus = data.execution?.status ?? "idle";
+  const executionTone = getExecutionTone(executionStatus);
+
   return (
     <>
       <Handle className="policy-node-handle" position={Position.Left} type="target" />
@@ -62,6 +145,7 @@ const PolicyNode = memo(function PolicyNode({ data, selected }: NodeProps<Node<F
           "policy-node-card",
           `policy-node-${data.traceStatus}`,
           `policy-node-health-${data.healthState}`,
+          executionStatus !== "idle" ? `policy-node-execution-${executionStatus}` : "",
           data.isActiveBatch ? "is-batch-focus" : "",
           data.isGhost ? "is-ghost" : "",
           selected ? "is-selected" : ""
@@ -74,11 +158,20 @@ const PolicyNode = memo(function PolicyNode({ data, selected }: NodeProps<Node<F
           <div className="policy-node-pills">
             {data.isActiveBatch ? <span className="policy-node-badge policy-node-badge-batch">Batch focus</span> : null}
             <span className="policy-node-badge policy-node-badge-health">{HEALTH_STATUS_LABEL[data.healthState]}</span>
+            {executionStatus !== "idle" ? (
+              <span
+                className={`policy-node-badge policy-node-badge-execution policy-node-badge-execution-${executionStatus}`}
+                style={executionTone ? { borderColor: executionTone, color: executionTone } : undefined}
+              >
+                {EXECUTION_STATUS_LABEL[executionStatus]}
+              </span>
+            ) : null}
             <span className="policy-node-status">{TRACE_STATUS_LABEL[data.traceStatus]}</span>
           </div>
         </div>
         <h3>{data.label}</h3>
         <p>{data.summary || "Select this node to inspect its policy contract, runtime, and generated implementation."}</p>
+        {data.execution?.message ? <p className="policy-node-execution-message">{data.execution.message}</p> : null}
         <div className="policy-node-footer">
           <span>{data.drilldownNodeId ? "Double-click for internals" : "Click to inspect"}</span>
           {data.selected ? <span>Focused</span> : null}
@@ -130,19 +223,81 @@ export function GraphCanvas({
   heatmapData,
   activeNodeIds,
   driftedNodeIds,
+  executionResult,
   detailMode = false,
   theme = "light"
 }: GraphCanvasProps) {
+  const executionProjection = graph ? buildExecutionProjection(graph, executionResult) : null;
   const baseFlowNodes =
-    nodes ?? (graph ? buildFlowNodes(graph, selectedNodeId ?? undefined, heatmapData, activeNodeIds, driftedNodeIds) : []);
-  const typedBaseFlowNodes = baseFlowNodes.map((node) => ({
-    ...node,
-    type: node.type ?? "policyNode"
-  }));
+    nodes ??
+    (graph
+      ? buildFlowNodes(graph, selectedNodeId ?? undefined, heatmapData, activeNodeIds, driftedNodeIds, executionResult)
+      : []);
+  const typedBaseFlowNodes = baseFlowNodes.map((node) => {
+    const execution = executionProjection ? resolveExecutionFromNode(node, executionProjection, graph) : undefined;
+
+    return {
+      ...node,
+      type: node.type ?? "policyNode",
+      data: execution
+        ? {
+            ...node.data,
+            execution: node.data.execution ?? execution
+          }
+        : node.data
+    };
+  });
   const ghostFlowNodes =
     ghostNodes && ghostNodes.length > 0 ? buildGhostFlowNodes(ghostNodes, typedBaseFlowNodes) : [];
   const flowNodes = [...typedBaseFlowNodes, ...ghostFlowNodes];
-  const flowEdges = edges ?? (graph ? buildFlowEdges(graph, activeNodeIds) : []);
+  const flowEdges = edges ?? (graph ? buildFlowEdges(graph, activeNodeIds, executionResult) : []);
+  const decoratedFlowEdges = flowEdges.map((edge) => {
+    const execution = executionProjection?.edgeStates[edge.id];
+    const sourceNode = flowNodes.find((node) => node.id === edge.source);
+    const targetNode = flowNodes.find((node) => node.id === edge.target);
+    const inferredStatus =
+      execution?.status && execution.status !== "idle"
+        ? execution.status
+        : sourceNode?.data.execution?.status === "failed" || targetNode?.data.execution?.status === "failed"
+          ? "failed"
+          : sourceNode?.data.execution?.status === "blocked" || targetNode?.data.execution?.status === "blocked"
+            ? "blocked"
+            : sourceNode?.data.execution?.status === "running" || targetNode?.data.execution?.status === "running"
+              ? "running"
+              : sourceNode?.data.execution?.status === "warning" || targetNode?.data.execution?.status === "warning"
+                ? "warning"
+                : sourceNode?.data.execution?.status === "passed" && targetNode?.data.execution?.status === "passed"
+                  ? "passed"
+                  : sourceNode?.data.execution?.status === "skipped" || targetNode?.data.execution?.status === "skipped"
+                    ? "skipped"
+                    : undefined;
+
+    if (!inferredStatus) {
+      return edge;
+    }
+
+    const executionTone = getExecutionTone(inferredStatus);
+
+    return {
+      ...edge,
+      className: mergeClassNames(edge.className, `edge-flow-${inferredStatus}`),
+      animated: edge.animated || inferredStatus === "running",
+      style: {
+        ...edge.style,
+        stroke: executionTone ?? edge.style?.stroke,
+        strokeDasharray:
+          inferredStatus === "blocked"
+            ? "6 5"
+            : inferredStatus === "running"
+              ? "4 4"
+              : inferredStatus === "warning"
+                ? "8 4"
+                : inferredStatus === "skipped"
+                  ? "10 6"
+                  : edge.style?.strokeDasharray
+      }
+    };
+  });
 
   if (!graph && flowNodes.length === 0) {
     return (
@@ -173,10 +328,9 @@ export function GraphCanvas({
           minZoom={0.35}
           maxZoom={1.8}
           nodes={flowNodes}
-          edges={flowEdges}
+          edges={decoratedFlowEdges}
           nodeTypes={nodeTypes}
           className="graph-flow"
-          onNodeClick={handleNodeClick}
           defaultEdgeOptions={{
             markerEnd: {
               type: MarkerType.ArrowClosed,
@@ -186,7 +340,7 @@ export function GraphCanvas({
           onNodeClick={handleNodeClick}
           onNodeDoubleClick={(_, node) => onNodeDoubleClick?.(node.id)}
         >
-          <GraphViewportSync edgeCount={flowEdges.length} nodeCount={flowNodes.length} />
+          <GraphViewportSync edgeCount={decoratedFlowEdges.length} nodeCount={flowNodes.length} />
           <MiniMap
             pannable
             zoomable
@@ -194,6 +348,11 @@ export function GraphCanvas({
             maskColor={theme === "dark" ? "rgba(5, 10, 20, 0.76)" : "rgba(255, 255, 255, 0.75)"}
             nodeColor={(node) => {
               const data = (node as Node<FlowNodeData>).data;
+              const executionColor = getExecutionTone(data?.execution?.status);
+
+              if (executionColor) {
+                return executionColor;
+              }
 
               if (data?.isActiveBatch) {
                 return theme === "dark" ? "#67e2db" : "#15786f";
@@ -214,6 +373,12 @@ export function GraphCanvas({
             }}
             nodeStrokeColor={(node) => {
               const data = (node as Node<FlowNodeData>).data;
+              const executionColor = getExecutionTone(data?.execution?.status);
+
+              if (executionColor) {
+                return executionColor;
+              }
+
               return data?.isActiveBatch
                 ? theme === "dark"
                   ? "#a7fff8"

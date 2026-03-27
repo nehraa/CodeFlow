@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 import dynamic from "next/dynamic";
 import type * as Monaco from "monaco-editor";
@@ -112,27 +112,6 @@ export function CodeEditor({
     resolve: null
   });
 
-  useEffect(() => {
-    completionContextRef.current = completionContext;
-  }, [completionContext]);
-
-  useEffect(() => {
-    if (monacoRef.current) {
-      registerCompletionProvider(monacoRef.current);
-    }
-  }, [language, readOnly]);
-
-  useEffect(() => {
-    return () => {
-      providerRef.current?.dispose();
-
-      if (debounceRef.current.timer) {
-        window.clearTimeout(debounceRef.current.timer);
-      }
-      debounceRef.current.resolve?.(false);
-    };
-  }, []);
-
   const waitForDebounce = () =>
     new Promise<boolean>((resolve) => {
       if (debounceRef.current.timer) {
@@ -148,124 +127,150 @@ export function CodeEditor({
       }, COMPLETION_DEBOUNCE_MS);
     });
 
-  const registerCompletionProvider = (monaco: typeof Monaco) => {
-    providerRef.current?.dispose();
+  const registerCompletionProvider = useCallback(
+    (monaco: typeof Monaco) => {
+      providerRef.current?.dispose();
 
-    if (readOnly || (language !== "typescript" && language !== "javascript")) {
-      return;
-    }
+      if (readOnly || (language !== "typescript" && language !== "javascript")) {
+        return;
+      }
 
-    providerRef.current = monaco.languages.registerCompletionItemProvider(language, {
-      triggerCharacters: [".", "("],
-      provideCompletionItems: async (model, position, context) => {
-        const activeContext = completionContextRef.current;
-        if (!activeContext?.enabled) {
-          return { suggestions: [] };
-        }
+      providerRef.current = monaco.languages.registerCompletionItemProvider(language, {
+        triggerCharacters: [".", "("],
+        provideCompletionItems: async (model, position, context) => {
+          const activeContext = completionContextRef.current;
+          if (!activeContext?.enabled) {
+            return { suggestions: [] };
+          }
 
-        if (
-          context.triggerKind === monaco.languages.CompletionTriggerKind.TriggerCharacter &&
-          ![".", "("].includes(context.triggerCharacter ?? "")
-        ) {
-          return { suggestions: [] };
-        }
+          if (
+            context.triggerKind === monaco.languages.CompletionTriggerKind.TriggerCharacter &&
+            ![".", "("].includes(context.triggerCharacter ?? "")
+          ) {
+            return { suggestions: [] };
+          }
 
-        const word = model.getWordUntilPosition(position);
-        const lineContent = model.getLineContent(position.lineNumber);
-        const linePrefix = lineContent.slice(0, position.column - 1);
-        const lineSuffix = lineContent.slice(position.column - 1);
-        const currentCode = model.getValue();
-        const cursorOffset = model.getOffsetAt(position);
-        const recentPrefix = currentCode.slice(Math.max(0, cursorOffset - 180), cursorOffset);
+          const word = model.getWordUntilPosition(position);
+          const lineContent = model.getLineContent(position.lineNumber);
+          const linePrefix = lineContent.slice(0, position.column - 1);
+          const lineSuffix = lineContent.slice(position.column - 1);
+          const currentCode = model.getValue();
+          const cursorOffset = model.getOffsetAt(position);
+          const recentPrefix = currentCode.slice(Math.max(0, cursorOffset - 180), cursorOffset);
 
-        if (
-          context.triggerKind !== monaco.languages.CompletionTriggerKind.TriggerCharacter &&
-          recentPrefix.trim().length < 3
-        ) {
-          return { suggestions: [] };
-        }
+          if (
+            context.triggerKind !== monaco.languages.CompletionTriggerKind.TriggerCharacter &&
+            recentPrefix.trim().length < 3
+          ) {
+            return { suggestions: [] };
+          }
 
-        const cacheKey = JSON.stringify([
-          activeContext.nodeId,
-          context.triggerCharacter ?? "manual",
-          recentPrefix
-        ]);
-        const cached = cacheRef.current.get(cacheKey);
+          const cacheKey = JSON.stringify([
+            activeContext.nodeId,
+            context.triggerCharacter ?? "manual",
+            recentPrefix
+          ]);
+          const cached = cacheRef.current.get(cacheKey);
 
-        if (cached && Date.now() - cached.createdAt < COMPLETION_TTL_MS) {
-          return { suggestions: cached.suggestions };
-        }
+          if (cached && Date.now() - cached.createdAt < COMPLETION_TTL_MS) {
+            return { suggestions: cached.suggestions };
+          }
 
-        const inflight = inflightRef.current.get(cacheKey);
-        if (inflight) {
-          return { suggestions: await inflight };
-        }
+          const inflight = inflightRef.current.get(cacheKey);
+          if (inflight) {
+            return { suggestions: await inflight };
+          }
 
-        const shouldContinue = await waitForDebounce();
-        if (!shouldContinue) {
-          return { suggestions: [] };
-        }
+          const shouldContinue = await waitForDebounce();
+          if (!shouldContinue) {
+            return { suggestions: [] };
+          }
 
-        const completionPromise = (async () => {
-          try {
-            const response = await fetch("/api/code-completions", {
-              method: "POST",
-              headers: {
-                "content-type": "application/json"
-              },
-              body: JSON.stringify({
-                graph: activeContext.graph,
-                nodeId: activeContext.nodeId,
-                currentCode,
-                cursorOffset,
-                linePrefix,
-                lineSuffix,
-                triggerCharacter: context.triggerCharacter ?? undefined,
-                nvidiaApiKey: activeContext.nvidiaApiKey
-              })
-            });
+          const completionPromise = (async () => {
+            try {
+              const response = await fetch("/api/code-completions", {
+                method: "POST",
+                headers: {
+                  "content-type": "application/json"
+                },
+                body: JSON.stringify({
+                  graph: activeContext.graph,
+                  nodeId: activeContext.nodeId,
+                  currentCode,
+                  cursorOffset,
+                  linePrefix,
+                  lineSuffix,
+                  triggerCharacter: context.triggerCharacter ?? undefined,
+                  nvidiaApiKey: activeContext.nvidiaApiKey
+                })
+              });
 
-            if (!response.ok) {
+              if (!response.ok) {
+                return [];
+              }
+
+              const body = (await response.json()) as CompletionResponse;
+              const range = new monaco.Range(
+                position.lineNumber,
+                position.column - word.word.length,
+                position.lineNumber,
+                position.column
+              );
+
+              return body.suggestions.map((suggestion) => ({
+                detail: suggestion.detail,
+                documentation: suggestion.documentation,
+                insertText: suggestion.insertText,
+                insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                kind: toCompletionKind(monaco, suggestion.kind),
+                label: suggestion.label,
+                range
+              }));
+            } catch {
               return [];
             }
+          })();
 
-            const body = (await response.json()) as CompletionResponse;
-            const range = new monaco.Range(
-              position.lineNumber,
-              position.column - word.word.length,
-              position.lineNumber,
-              position.column
-            );
+          inflightRef.current.set(cacheKey, completionPromise);
 
-            return body.suggestions.map((suggestion) => ({
-              detail: suggestion.detail,
-              documentation: suggestion.documentation,
-              insertText: suggestion.insertText,
-              insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-              kind: toCompletionKind(monaco, suggestion.kind),
-              label: suggestion.label,
-              range
-            }));
-          } catch {
-            return [];
+          try {
+            const suggestions = await completionPromise;
+            cacheRef.current.set(cacheKey, {
+              createdAt: Date.now(),
+              suggestions
+            });
+            return { suggestions };
+          } finally {
+            inflightRef.current.delete(cacheKey);
           }
-        })();
-
-        inflightRef.current.set(cacheKey, completionPromise);
-
-        try {
-          const suggestions = await completionPromise;
-          cacheRef.current.set(cacheKey, {
-            createdAt: Date.now(),
-            suggestions
-          });
-          return { suggestions };
-        } finally {
-          inflightRef.current.delete(cacheKey);
         }
+      });
+    },
+    [language, readOnly]
+  );
+
+  useEffect(() => {
+    completionContextRef.current = completionContext;
+  }, [completionContext]);
+
+  useEffect(() => {
+    if (monacoRef.current) {
+      registerCompletionProvider(monacoRef.current);
+    }
+  }, [language, readOnly, registerCompletionProvider]);
+
+  useEffect(() => {
+    const debounceState = debounceRef.current;
+
+    return () => {
+      providerRef.current?.dispose();
+
+      if (debounceState.timer) {
+        window.clearTimeout(debounceState.timer);
       }
-    });
-  };
+      debounceState.resolve?.(false);
+    };
+  }, []);
 
   return (
     <div className="code-editor-shell">
