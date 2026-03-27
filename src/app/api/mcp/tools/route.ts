@@ -19,6 +19,44 @@ function validateServerUrl(serverUrl: string): void {
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     throw new Error("Invalid serverUrl: only http and https protocols are allowed.");
   }
+
+  // Block SSRF by validating hostname
+  const hostname = url.hostname.toLowerCase();
+
+  // Allow localhost and loopback addresses
+  if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1") {
+    return;
+  }
+
+  // Block private IP ranges (RFC1918)
+  const ipv4Patterns = [
+    /^10\./,           // 10.0.0.0/8
+    /^172\.(1[6-9]|2[0-9]|3[0-1])\./,  // 172.16.0.0/12
+    /^192\.168\./      // 192.168.0.0/16
+  ];
+
+  // Block link-local addresses
+  const linkLocalPatterns = [
+    /^169\.254\./,     // IPv4 link-local (169.254.0.0/16)
+    /^fe80:/i,         // IPv6 link-local
+    /^fc00:/i,         // IPv6 Unique Local Addresses
+    /^fd00:/i          // IPv6 Unique Local Addresses
+  ];
+
+  // Block cloud metadata endpoints
+  const metadataPatterns = [
+    /^169\.254\.169\.254$/,  // AWS/Azure/GCP metadata
+    /^metadata\.google\.internal$/i,
+    /^metadata$/i
+  ];
+
+  const allPatterns = [...ipv4Patterns, ...linkLocalPatterns, ...metadataPatterns];
+
+  for (const pattern of allPatterns) {
+    if (pattern.test(hostname)) {
+      throw new Error("Invalid serverUrl: cannot connect to private, link-local, or metadata endpoints.");
+    }
+  }
 }
 
 const ALLOWED_FORWARD_HEADERS = new Set<string>([

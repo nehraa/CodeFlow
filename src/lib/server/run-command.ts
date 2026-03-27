@@ -86,6 +86,11 @@ export const runCommand = (
 
     child.on("error", (error) => {
       clearTimeout(timeoutId);
+      if (settled) {
+        return;
+      }
+      settled = true;
+      child.kill("SIGKILL");
       reject(error);
     });
 

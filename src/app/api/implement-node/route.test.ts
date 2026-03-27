@@ -8,14 +8,27 @@ import { POST } from "@/app/api/implement-node/route";
 import type { BlueprintGraph } from "@/lib/blueprint/schema";
 import { emptyContract } from "@/lib/blueprint/schema";
 
-afterEach(() => {
+const createdStoreRoots: string[] = [];
+
+afterEach(async () => {
   delete process.env.NVIDIA_API_KEY;
   delete process.env.CODEFLOW_STORE_ROOT;
   vi.unstubAllGlobals();
+
+  await Promise.all(
+    createdStoreRoots.map((dir) =>
+      fs.rm(dir, { recursive: true, force: true }).catch(() => {
+        // Ignore errors during cleanup
+      }),
+    ),
+  );
+  createdStoreRoots.length = 0;
 });
 
 const assignStoreRoot = async (): Promise<void> => {
-  process.env.CODEFLOW_STORE_ROOT = await fs.mkdtemp(path.join(os.tmpdir(), "codeflow-implement-route-"));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "codeflow-implement-route-"));
+  process.env.CODEFLOW_STORE_ROOT = dir;
+  createdStoreRoots.push(dir);
 };
 
 const graph: BlueprintGraph = {
