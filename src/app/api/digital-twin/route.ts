@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 
-import { loadLatestSession, loadObservabilitySnapshot } from "@/lib/blueprint/store";
 import { computeDigitalTwinSnapshot, overlayActiveNodes } from "@/lib/blueprint/digital-twin";
+import { loadObservabilitySnapshot } from "@/lib/blueprint/observability-store";
+import { loadLatestSession } from "@/lib/blueprint/session-store";
 
 /**
  * GET /api/digital-twin?projectName=<name>&activeWindowSecs=<n>

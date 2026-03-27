@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { buildVcrRecording } from "@/lib/blueprint/vcr";
-import { loadLatestSession, loadObservabilitySnapshot } from "@/lib/blueprint/store";
+import { loadObservabilitySnapshot } from "@/lib/blueprint/observability-store";
+import { loadLatestSession } from "@/lib/blueprint/session-store";
 
 export const GET = async (request: NextRequest): Promise<NextResponse> => {
   const projectName = request.nextUrl.searchParams.get("projectName");

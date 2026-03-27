@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { simulateActionRequestSchema } from "@/lib/blueprint/schema";
-import { loadLatestSession, mergeObservabilitySnapshot, upsertSession } from "@/lib/blueprint/store";
+import { simulateActionRequestSchema, traceSpanSchema } from "@/lib/blueprint/schema";
 import { buildSimulationSpans } from "@/lib/blueprint/digital-twin";
 import { summarizeObservability } from "@/lib/blueprint/observability";
+import { mergeObservabilitySnapshot } from "@/lib/blueprint/observability-store";
+import { loadLatestSession, upsertSession } from "@/lib/blueprint/session-store";
 
 /**
  * POST /api/digital-twin/simulate
@@ -32,7 +33,7 @@ export async function POST(request: Request) {
       payload.nodeIds,
       payload.label,
       payload.runtime
-    );
+    ).map((span) => traceSpanSchema.parse(span));
 
     const snapshot = await mergeObservabilitySnapshot({
       projectName: payload.projectName,

@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 
 import { observabilityIngestRequestSchema } from "@/lib/blueprint/schema";
-import { loadLatestSession, mergeObservabilitySnapshot, upsertSession } from "@/lib/blueprint/store";
 import { summarizeObservability } from "@/lib/blueprint/observability";
+import { mergeObservabilitySnapshot } from "@/lib/blueprint/observability-store";
+import { loadLatestSession, upsertSession } from "@/lib/blueprint/session-store";
 
 export async function POST(request: Request) {
   try {

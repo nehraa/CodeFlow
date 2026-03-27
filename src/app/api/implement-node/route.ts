@@ -2,13 +2,15 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getNodeAssistanceContext } from "@/lib/blueprint/code-assist";
+import { validateNodeImplementation } from "@/lib/blueprint/compile-validation";
 import { generateNodeCode, getNodeStubPath, isCodeBearingNode } from "@/lib/blueprint/codegen";
 import { markNodeImplemented } from "@/lib/blueprint/phases";
+import { withCodeflowGovernance } from "@/lib/blueprint/prompt-governance";
 import type { BlueprintGraph } from "@/lib/blueprint/schema";
 import { blueprintGraphSchema } from "@/lib/blueprint/schema";
 import { getNvidiaKeySource, requestNvidiaChatCompletion, resolveNvidiaApiKey } from "@/lib/blueprint/nvidia";
 import { createRunPlan } from "@/lib/blueprint/plan";
-import { upsertSession } from "@/lib/blueprint/store";
+import { upsertSession } from "@/lib/blueprint/session-store";
 
 const requestSchema = z.object({
   graph: blueprintGraphSchema,
@@ -40,6 +42,16 @@ Rules:
 - Implement just the selected node, not the whole project
 - If other nodes are referenced, import them using the provided file map
 - Do not wrap the JSON in markdown fences`;
+
+const IMPLEMENTATION_ATTEMPT_LIMIT = 2;
+
+const extractJsonPayload = (content: string): string => {
+  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  return jsonMatch ? jsonMatch[0] : content;
+};
+
+const formatValidationFeedback = (value: string): string =>
+  value.trim().slice(0, 4_000) || "No compiler diagnostics were produced.";
 
 export async function POST(request: Request) {
   const startedAt = Date.now();
@@ -85,14 +97,16 @@ export async function POST(request: Request) {
       kind: node.kind,
       keySource
     });
+    const governedSystemPrompt = await withCodeflowGovernance(
+      SYSTEM_PROMPT,
+      "implementation"
+    );
 
-    const content = await requestNvidiaChatCompletion({
-      apiKey,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        {
-          role: "user",
-          content: `Implement this blueprint node.
+    const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
+      { role: "system", content: governedSystemPrompt },
+      {
+        role: "user",
+        content: `Implement this blueprint node.
 
 Project: ${graph.projectName}
 Current phase: ${graph.phase}
@@ -133,15 +147,86 @@ ${currentCode}
 \`\`\`
 
 Implement only this node. Preserve compatibility with the blueprint contract and return the JSON payload now.`
-        }
-      ],
-      temperature: 0.2,
-      topP: 0.7,
-      maxTokens: 4096
-    });
+      }
+    ];
 
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    const parsed = responseSchema.parse(JSON.parse(jsonMatch ? jsonMatch[0] : content));
+    let parsed: z.infer<typeof responseSchema> | null = null;
+    let lastFailure = "Implementation validation did not complete.";
+
+    for (let attempt = 1; attempt <= IMPLEMENTATION_ATTEMPT_LIMIT; attempt++) {
+      const content = await requestNvidiaChatCompletion({
+        apiKey,
+        messages,
+        temperature: 0.2,
+        topP: 0.7,
+        maxTokens: 4096
+      });
+
+      try {
+        parsed = responseSchema.parse(JSON.parse(extractJsonPayload(content)));
+      } catch (error) {
+        lastFailure =
+          error instanceof Error
+            ? `The model response was not valid JSON for the required schema: ${error.message}`
+            : "The model response was not valid JSON for the required schema.";
+
+        if (attempt < IMPLEMENTATION_ATTEMPT_LIMIT) {
+          messages.push(
+            { role: "assistant", content },
+            {
+              role: "user",
+              content: `Your previous response could not be parsed as valid JSON for the required schema.
+
+Return ONLY valid JSON with "summary", "code", and "notes". Do not include markdown fences or explanation.`
+            }
+          );
+          continue;
+        }
+
+        throw new Error(lastFailure);
+      }
+
+      const validation = await validateNodeImplementation({
+        graph,
+        nodeId: rawBody.nodeId,
+        code: parsed.code
+      });
+
+      if (validation.success) {
+        parsed = {
+          ...parsed,
+          notes: [...parsed.notes, "Local TypeScript validation passed before acceptance."]
+        };
+        break;
+      }
+
+      lastFailure = `TypeScript validation failed for ${getNodeStubPath(node) ?? node.id}.\n${formatValidationFeedback(
+        [validation.stderr, validation.stdout].filter(Boolean).join("\n")
+      )}`;
+
+      if (attempt < IMPLEMENTATION_ATTEMPT_LIMIT) {
+        messages.push(
+          { role: "assistant", content },
+          {
+            role: "user",
+            content: `Your previous implementation did not pass local TypeScript validation for ${getNodeStubPath(node) ?? node.id}.
+
+Compiler diagnostics:
+${formatValidationFeedback([validation.stderr, validation.stdout].filter(Boolean).join("\n"))}
+
+Return a corrected JSON payload now. Preserve the same exported symbol and file boundary.`
+          }
+        );
+        continue;
+      }
+
+      throw new Error(lastFailure);
+    }
+
+    if (!parsed) {
+      throw new Error(lastFailure);
+    }
+
     const updatedGraph = markNodeImplemented(graph, rawBody.nodeId, parsed.code);
     const runPlan = createRunPlan(updatedGraph);
     const session = await upsertSession({

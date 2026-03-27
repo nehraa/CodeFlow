@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getNodeAssistanceContext } from "@/lib/blueprint/code-assist";
+import { withCodeflowGovernance } from "@/lib/blueprint/prompt-governance";
 import { blueprintGraphSchema } from "@/lib/blueprint/schema";
 import { getNvidiaKeySource, requestNvidiaChatCompletion, resolveNvidiaApiKey } from "@/lib/blueprint/nvidia";
 
@@ -105,11 +106,15 @@ Extra instruction:
 ${body.instruction?.trim() || "Improve the implementation using the blueprint as the source of truth."}
 
 Return the JSON suggestion now.`;
+    const governedSystemPrompt = await withCodeflowGovernance(
+      SYSTEM_PROMPT,
+      "implementation"
+    );
 
     const content = await requestNvidiaChatCompletion({
       apiKey,
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: governedSystemPrompt },
         { role: "user", content: userPrompt }
       ],
       temperature: 0.2,

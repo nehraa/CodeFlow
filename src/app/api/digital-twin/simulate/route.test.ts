@@ -79,8 +79,7 @@ describe("POST /api/digital-twin/simulate", () => {
         body: JSON.stringify({
           projectName: "SimApp2",
           prdText: "# Functions\n- Function: processPayment()",
-          mode: "essential",
-          repoPath: process.cwd()
+          mode: "essential"
         })
       })
     );

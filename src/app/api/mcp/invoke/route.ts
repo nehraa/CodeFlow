@@ -3,44 +3,6 @@ import { z } from "zod";
 
 import { invokeMcpTool } from "@/lib/blueprint/mcp";
 
-function isPrivateOrLocalHostname(hostname: string): boolean {
-  const lower = hostname.toLowerCase();
-
-  if (
-    lower === "localhost" ||
-    lower === "127.0.0.1" ||
-    lower === "::1" ||
-    lower === "0.0.0.0"
-  ) {
-    return true;
-  }
-
-  // Basic checks for common private IPv4 ranges when provided as literals.
-  const ipv4Match = /^(\d{1,3}\.){3}\d{1,3}$/.test(lower);
-  if (ipv4Match) {
-    const [a, b] = lower.split(".").map((part) => parseInt(part, 10));
-    if (a === 10) return true;
-    if (a === 127) return true;
-    if (a === 192 && b === 168) return true;
-    if (a === 172 && b >= 16 && b <= 31) return true;
-  }
-
-  // Basic checks for common private/loopback IPv6 when provided as literals.
-  if (lower === "::1") {
-    return true;
-  }
-  if (lower.startsWith("fc") || lower.startsWith("fd")) {
-    // Unique local addresses (fc00::/7)
-    return true;
-  }
-  if (lower.startsWith("fe80")) {
-    // Link-local unicast (fe80::/10)
-    return true;
-  }
-
-  return false;
-}
-
 const serverUrlSchema = z.string().min(1).transform((value, ctx) => {
   let url: URL;
   try {
@@ -57,14 +19,6 @@ const serverUrlSchema = z.string().min(1).transform((value, ctx) => {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: "Invalid serverUrl: only http and https schemes are allowed."
-    });
-    return z.NEVER;
-  }
-
-  if (isPrivateOrLocalHostname(url.hostname)) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "Invalid serverUrl: connections to localhost or private networks are not allowed."
     });
     return z.NEVER;
   }
