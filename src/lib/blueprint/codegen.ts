@@ -153,12 +153,11 @@ const buildFunctionCode = (node: BlueprintNode): string => {
     .join(", ");
   const returnType = contract.outputs[0]?.type || "void";
   const checklist = buildChecklistComment(node);
-  const returnExpression = buildReturnExpression(returnType);
   const scaffoldNotice = buildScaffoldNotice(node);
 
   return `${buildDocComment(node)}export function ${functionName}(${inputList}): ${returnType} {
 ${scaffoldNotice.join("\n")}
-${checklist.length ? `  ${checklist.join("\n  ")}\n` : ""}${returnExpression ? `  return ${returnExpression};` : "  return;"}
+${checklist.length ? `  ${checklist.join("\n  ")}\n` : ""}  throw new Error("CodeFlow scaffold: implementation required for ${node.id}");
 }
 `;
 };
@@ -235,7 +234,6 @@ const buildClassCode = (node: BlueprintNode, graph: BlueprintGraph): string => {
         .map((field) => `${sanitizeIdentifier(field.name)}: ${field.type || "unknown"}`)
         .join(", ");
       const returnType = methodContract.outputs[0]?.type || "void";
-      const returnExpression = buildReturnExpression(returnType);
 
       return `  ${buildDocComment(methodNode)
         .trimEnd()
@@ -243,8 +241,7 @@ const buildClassCode = (node: BlueprintNode, graph: BlueprintGraph): string => {
         .map((line) => (line.startsWith(" *") || line.startsWith("/**") || line.startsWith(" */") ? `  ${line}` : line))
         .join("\n")}
   ${methodName}(${inputList}): ${returnType} {
-    console.warn("CodeFlow scaffold for ${methodNode.id}");
-    ${returnExpression ? `return ${returnExpression};` : "return;"}
+    throw new Error("CodeFlow scaffold: implementation required for ${methodNode.id}");
   }`;
     })
     .join("\n\n");

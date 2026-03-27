@@ -251,10 +251,14 @@ export function GraphCanvas({
     ghostNodes && ghostNodes.length > 0 ? buildGhostFlowNodes(ghostNodes, typedBaseFlowNodes) : [];
   const flowNodes = [...typedBaseFlowNodes, ...ghostFlowNodes];
   const flowEdges = edges ?? (graph ? buildFlowEdges(graph, activeNodeIds, executionResult) : []);
+
+  // Build a Map for O(1) node lookups to avoid O(E×N) complexity
+  const nodeMap = new Map(flowNodes.map((node) => [node.id, node]));
+
   const decoratedFlowEdges = flowEdges.map((edge) => {
     const execution = executionProjection?.edgeStates[edge.id];
-    const sourceNode = flowNodes.find((node) => node.id === edge.source);
-    const targetNode = flowNodes.find((node) => node.id === edge.target);
+    const sourceNode = nodeMap.get(edge.source);
+    const targetNode = nodeMap.get(edge.target);
     const inferredStatus =
       execution?.status && execution.status !== "idle"
         ? execution.status

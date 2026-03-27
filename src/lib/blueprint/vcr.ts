@@ -95,9 +95,12 @@ export const buildVcrRecording = (
       running.set(nodeId, mergeSpanIntoState(running.get(nodeId) ?? idleTraceState(), span));
     }
 
+    // Store only non-idle node states to reduce memory footprint (sparse storage)
     const nodeStates: Record<string, TraceState> = {};
-    for (const graphNode of graph.nodes) {
-      nodeStates[graphNode.id] = running.get(graphNode.id) ?? idleTraceState();
+    for (const [id, state] of running.entries()) {
+      if (state.count > 0) {
+        nodeStates[id] = state;
+      }
     }
 
     return {
