@@ -1,37 +1,35 @@
 import { NextResponse } from "next/server";
 
+import { createExecutionReport } from "@/lib/blueprint/execute";
 import { createRunPlan } from "@/lib/blueprint/plan";
-import { markGraphConnected, markNodeVerified } from "@/lib/blueprint/phases";
+import { applyExecutionResultToGraph } from "@/lib/blueprint/phases";
 import { runBlueprint } from "@/lib/blueprint/runner";
 import { runtimeExecutionRequestSchema } from "@/lib/blueprint/schema";
-import { upsertSession } from "@/lib/blueprint/store";
+import { upsertSession } from "@/lib/blueprint/session-store";
 
 export async function POST(request: Request) {
   try {
     const payload = runtimeExecutionRequestSchema.parse(await request.json());
     const result = await runBlueprint(payload);
-    const executedNodeId = result.executedNodeId;
-    const verifiedGraph = executedNodeId
-      ? markNodeVerified(payload.graph, executedNodeId, result)
-      : payload.graph;
-    const updatedGraph = !payload.targetNodeId && result.success ? markGraphConnected(verifiedGraph) : verifiedGraph;
+    const updatedGraph = applyExecutionResultToGraph(payload.graph, result, {
+      integrationRun: !payload.targetNodeId
+    });
     const runPlan = createRunPlan(updatedGraph);
+    const executionReport = {
+      ...createExecutionReport(updatedGraph, runPlan),
+      steps: result.steps,
+      artifacts: result.artifacts,
+      summary: result.summary
+    };
     const session = await upsertSession({
       graph: updatedGraph,
-      runPlan
+      runPlan,
+      lastExecutionReport: executionReport
     });
 
     return NextResponse.json({
-      result: {
-        success: result.success,
-        stdout: result.stdout,
-        stderr: result.stderr,
-        exitCode: result.exitCode,
-        durationMs: result.durationMs,
-        executedPath: result.executedPath,
-        error: result.error
-      },
-      executedNodeId,
+      result,
+      executedNodeId: result.executedNodeId,
       graph: updatedGraph,
       runPlan,
       session

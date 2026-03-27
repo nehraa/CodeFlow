@@ -8,12 +8,11 @@ import { assessExportRisk } from "@/lib/blueprint/risk";
 import { createSandboxDir, syncSandboxToTarget, writeDiffManifest } from "@/lib/blueprint/sandbox";
 import {
   createApprovalRecord,
-  createCheckpointIfNeeded,
-  createRunId,
-  getApprovalRecord,
-  saveRunRecord,
-  upsertSession
-} from "@/lib/blueprint/store";
+  getApprovalRecord
+} from "@/lib/blueprint/approval-store";
+import { createCheckpointIfNeeded } from "@/lib/blueprint/checkpoint-store";
+import { createRunId, saveRunRecord } from "@/lib/blueprint/run-store";
+import { upsertSession } from "@/lib/blueprint/session-store";
 
 export async function POST(request: Request) {
   try {

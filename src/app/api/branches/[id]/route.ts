@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { deleteBranch, loadBranch } from "@/lib/blueprint/store";
+import { deleteBranch, loadBranch } from "@/lib/blueprint/branch-store";
 
 function isValidBranchId(id: string): boolean {
   // Allow only simple, safe identifiers (no path separators or traversal characters)
@@ -9,12 +9,12 @@ function isValidBranchId(id: string): boolean {
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { searchParams } = new URL(request.url);
     const projectName = searchParams.get("projectName");
-    const { id } = params;
+    const { id } = await params;
 
     if (!projectName) {
       return NextResponse.json({ error: "projectName query param is required." }, { status: 400 });
@@ -40,12 +40,12 @@ export async function GET(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { searchParams } = new URL(request.url);
     const projectName = searchParams.get("projectName");
-    const { id } = params;
+    const { id } = await params;
 
     if (!projectName) {
       return NextResponse.json({ error: "projectName query param is required." }, { status: 400 });
