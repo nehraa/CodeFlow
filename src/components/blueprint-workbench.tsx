@@ -3523,6 +3523,7 @@ export function BlueprintWorkbench() {
 
                 <div className="button-row vcr-controls">
                   <button
+                    aria-label="Jump to start"
                     disabled={vcrFrameIndex === 0}
                     onClick={() => {
                       setVcrPlaying(false);
@@ -3534,6 +3535,7 @@ export function BlueprintWorkbench() {
                     ⏮
                   </button>
                   <button
+                    aria-label="Step back"
                     disabled={vcrFrameIndex === 0}
                     onClick={() => {
                       setVcrPlaying(false);
@@ -3545,6 +3547,7 @@ export function BlueprintWorkbench() {
                     ◀
                   </button>
                   <button
+                    aria-label={vcrPlaying ? "Pause" : "Play"}
                     onClick={() => setVcrPlaying((prev) => !prev)}
                     title={vcrPlaying ? "Pause" : "Play"}
                     type="button"
@@ -3552,6 +3555,7 @@ export function BlueprintWorkbench() {
                     {vcrPlaying ? "⏸" : "▶"}
                   </button>
                   <button
+                    aria-label="Step forward"
                     disabled={vcrFrameIndex >= vcrRecording.frames.length - 1}
                     onClick={() => {
                       setVcrPlaying(false);
@@ -3565,6 +3569,7 @@ export function BlueprintWorkbench() {
                     ▶|
                   </button>
                   <button
+                    aria-label="Jump to end"
                     disabled={vcrFrameIndex >= vcrRecording.frames.length - 1}
                     onClick={() => {
                       setVcrPlaying(false);
