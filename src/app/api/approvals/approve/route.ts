@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { approveRecord } from "@/lib/blueprint/approval-store";
 import { approvalActionRequestSchema } from "@/lib/blueprint/schema";
-import { approveRecord } from "@/lib/blueprint/store";
 
 export async function POST(request: Request) {
   try {
