@@ -59,6 +59,8 @@ const buildDocComment = (node: BlueprintNode): string => {
   const lines = [
     "/**",
     ` * ${node.summary}`,
+    " * @codeflowMaturity scaffold",
+    " * @codeflowValidation scaffold",
     ...formatCommentSection("Responsibilities", contract.responsibilities),
     ...formatCommentSection("Inputs", contract.inputs.map(formatField)),
     ...formatCommentSection("Outputs", contract.outputs.map(formatField)),
@@ -74,6 +76,63 @@ const buildDocComment = (node: BlueprintNode): string => {
   ];
 
   return `${lines.join("\n")}\n`;
+};
+
+const unwrapPromiseType = (value: string): string | null => {
+  const match = value.trim().match(/^Promise<(.+)>$/);
+  return match ? match[1].trim() : null;
+};
+
+const buildReturnExpression = (returnType: string): string | null => {
+  const normalizedType = returnType.trim();
+  if (!normalizedType || normalizedType === "void") {
+    return null;
+  }
+
+  const promisedType = unwrapPromiseType(normalizedType);
+  if (promisedType) {
+    const innerExpression = buildReturnExpression(promisedType) ?? "undefined";
+    return `Promise.resolve(${innerExpression})`;
+  }
+
+  if (normalizedType === "string") {
+    return '""';
+  }
+
+  if (normalizedType === "number" || normalizedType === "bigint") {
+    return "0";
+  }
+
+  if (normalizedType === "boolean") {
+    return "false";
+  }
+
+  if (normalizedType === "null") {
+    return "null";
+  }
+
+  if (normalizedType === "unknown" || normalizedType === "any") {
+    return "undefined";
+  }
+
+  if (
+    normalizedType.startsWith("Array<") ||
+    normalizedType.startsWith("ReadonlyArray<") ||
+    normalizedType.endsWith("[]")
+  ) {
+    return `[] as ${normalizedType}`;
+  }
+
+  return `undefined as unknown as ${normalizedType}`;
+};
+
+const buildScaffoldNotice = (node: BlueprintNode): string[] => {
+  const notes = [
+    `const scaffoldStatus = "CodeFlow scaffold for ${node.id}"`,
+    "console.warn(scaffoldStatus)"
+  ];
+
+  return notes.map((line) => `  ${line};`);
 };
 
 const buildChecklistComment = (node: BlueprintNode): string[] => {
@@ -94,9 +153,12 @@ const buildFunctionCode = (node: BlueprintNode): string => {
     .join(", ");
   const returnType = contract.outputs[0]?.type || "void";
   const checklist = buildChecklistComment(node);
+  const returnExpression = buildReturnExpression(returnType);
+  const scaffoldNotice = buildScaffoldNotice(node);
 
   return `${buildDocComment(node)}export function ${functionName}(${inputList}): ${returnType} {
-${checklist.length ? `  ${checklist.join("\n  ")}\n` : ""}  throw new Error("Implement ${functionName} according to blueprint ${node.id}");
+${scaffoldNotice.join("\n")}
+${checklist.length ? `  ${checklist.join("\n  ")}\n` : ""}${returnExpression ? `  return ${returnExpression};` : "  return;"}
 }
 `;
 };
@@ -107,11 +169,17 @@ const buildApiCode = (node: BlueprintNode): string => {
 
   return `${buildDocComment(node)}export async function ${functionName}(request: Request): Promise<Response> {
   const body = await request.json().catch(() => null);
-${checklist.length ? `  ${checklist.join("\n  ")}\n` : ""}  return Response.json({
-    blueprintId: "${node.id}",
-    route: "${node.name}",
-    received: body
-  });
+${buildScaffoldNotice(node).join("\n")}
+${checklist.length ? `  ${checklist.join("\n  ")}\n` : ""}  return Response.json(
+    {
+      ok: false,
+      blueprintId: "${node.id}",
+      route: "${node.name}",
+      maturity: "scaffold",
+      received: body
+    },
+    { status: 501 }
+  );
 }
 `;
 };
@@ -122,12 +190,22 @@ const buildUiScreenCode = (node: BlueprintNode): string => {
   const attributeNotes = contract.attributes.length
     ? contract.attributes.map((attribute) => `      <li>${attribute.name}: ${attribute.type}</li>`).join("\n")
     : '      <li>No state model defined yet.</li>';
+  const responsibilityNotes = contract.responsibilities.length
+    ? contract.responsibilities.map((item) => `        <li>${item}</li>`).join("\n")
+    : "        <li>Implementation responsibilities will appear here once the screen is wired.</li>";
 
   return `${buildDocComment(node)}export default function ${componentName}(): JSX.Element {
   return (
-    <main>
+    <main data-codeflow-maturity="scaffold">
       <h1>${node.name}</h1>
       <p>${node.summary}</p>
+      <p>This screen is a scaffold artifact. Replace the placeholder structure with real UI before shipping.</p>
+      <section>
+        <h2>Responsibilities</h2>
+        <ul>
+${responsibilityNotes}
+        </ul>
+      </section>
       <section>
         <h2>State / attributes</h2>
         <ul>
@@ -157,6 +235,7 @@ const buildClassCode = (node: BlueprintNode, graph: BlueprintGraph): string => {
         .map((field) => `${sanitizeIdentifier(field.name)}: ${field.type || "unknown"}`)
         .join(", ");
       const returnType = methodContract.outputs[0]?.type || "void";
+      const returnExpression = buildReturnExpression(returnType);
 
       return `  ${buildDocComment(methodNode)
         .trimEnd()
@@ -164,7 +243,8 @@ const buildClassCode = (node: BlueprintNode, graph: BlueprintGraph): string => {
         .map((line) => (line.startsWith(" *") || line.startsWith("/**") || line.startsWith(" */") ? `  ${line}` : line))
         .join("\n")}
   ${methodName}(${inputList}): ${returnType} {
-    throw new Error("Implement ${methodName} according to blueprint ${methodNode.id}");
+    console.warn("CodeFlow scaffold for ${methodNode.id}");
+    ${returnExpression ? `return ${returnExpression};` : "return;"}
   }`;
     })
     .join("\n\n");

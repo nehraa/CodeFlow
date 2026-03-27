@@ -56,6 +56,7 @@ const makeSpan = (overrides: Partial<TraceSpan> & Pick<TraceSpan, "spanId" | "tr
   status: "success",
   durationMs: 5,
   runtime: "node",
+  provenance: "observed",
   ...overrides
 });
 
@@ -79,6 +80,7 @@ describe("buildUserFlows", () => {
     expect(flows[0].traceId).toBe("t2");
     expect(flows[0].nodeIds).toEqual(["function:checkout"]);
     expect(flows[0].status).toBe("success");
+    expect(flows[0].provenance).toBe("observed");
 
     expect(flows[1].traceId).toBe("t1");
     expect(flows[1].nodeIds).toEqual(["function:auth", "api:products"]);
@@ -132,6 +134,9 @@ describe("computeDigitalTwinSnapshot", () => {
     expect(snapshot.activeNodeIds).not.toContain("api:products");
     expect(snapshot.flows).toHaveLength(1);
     expect(snapshot.activeWindowSecs).toBe(60);
+    expect(snapshot.maturity).toBe("preview");
+    expect(snapshot.observedSpanCount).toBe(1);
+    expect(snapshot.simulatedSpanCount).toBe(0);
   });
 
   it("excludes nodes whose spans are outside the active window", () => {
@@ -183,6 +188,7 @@ describe("buildSimulationSpans", () => {
     const graph = makeGraph();
     const spans = buildSimulationSpans(graph, ["function:auth"], "My test", "test-runner");
     expect(spans[0].runtime).toBe("test-runner");
+    expect(spans[0].provenance).toBe("simulated");
   });
 
   it("skips unknown node IDs", () => {

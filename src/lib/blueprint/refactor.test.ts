@@ -65,6 +65,9 @@ describe("detectDrift", () => {
     expect(report.issues).toHaveLength(0);
     expect(report.totalIssues).toBe(0);
     expect(report.driftedNodeIds).toHaveLength(0);
+    expect(report.provenance).toBe("deterministic");
+    expect(report.maturity).toBe("preview");
+    expect(report.scope).toBe("graph");
   });
 
   it("detects a broken edge whose source node does not exist", () => {
@@ -363,6 +366,9 @@ describe("healGraph", () => {
 
     expect(result.projectName).toBe("TestApp");
     expect(result.healedAt).toBeTruthy();
+    expect(result.provenance).toBe("deterministic");
+    expect(result.maturity).toBe("preview");
+    expect(result.scope).toBe("graph");
   });
 
   it("synthesises one edge per distinct (from, to, kind) when a node has multiple calls to the same target with different kinds", () => {
