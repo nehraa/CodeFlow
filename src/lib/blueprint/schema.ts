@@ -430,6 +430,7 @@ export const persistedSessionSchema = z.object({
   sessionId: z.string(),
   projectName: z.string(),
   updatedAt: z.string(),
+  repoPath: z.string().trim().min(1).optional(),
   graph: blueprintGraphSchema,
   runPlan: runPlanSchema,
   lastRiskReport: riskReportSchema.optional(),

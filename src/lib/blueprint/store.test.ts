@@ -45,6 +45,7 @@ describe("store", () => {
 
     const session = await upsertSession({
       graph,
+      repoPath: "/tmp/stored-product",
       runPlan: {
         generatedAt: "2026-03-14T00:00:00.000Z",
         tasks: [],
@@ -56,6 +57,7 @@ describe("store", () => {
 
     expect(loaded?.sessionId).toBe(session.sessionId);
     expect(loaded?.projectName).toBe(graph.projectName);
+    expect(loaded?.repoPath).toBe("/tmp/stored-product");
   });
 
   it("creates approvals and checkpoints", async () => {

@@ -36,6 +36,8 @@ export const getNodeStubPath = (node: BlueprintNode): string | null => {
     .toLowerCase()}.${extension}`;
 };
 
+export const getNodeDocPath = (node: BlueprintNode): string => `docs/${node.id}.md`;
+
 export const getNodeRuntimeExport = (node: BlueprintNode): string | null => {
   if (node.kind === "function" || node.kind === "api") {
     return sanitizeIdentifier(node.name.split(".").pop() ?? node.name);

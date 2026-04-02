@@ -88,7 +88,7 @@ describe("exportBlueprintArtifacts", () => {
 
     const blueprintFile = await fs.readFile(result.blueprintPath, "utf8");
     const indexDoc = await fs.readFile(path.join(result.docsDir, "index.md"), "utf8");
-    const docFile = await fs.readFile(path.join(result.docsDir, "ui-screen-workspace.md"), "utf8");
+    const docFile = await fs.readFile(path.join(result.docsDir, "ui-screen:workspace.md"), "utf8");
     const stubEntries = await fs.readdir(result.stubsDir);
     const functionStub = stubEntries.find((entry) => entry.startsWith("function-"));
     expect(functionStub).toBeDefined();
@@ -104,7 +104,7 @@ describe("exportBlueprintArtifacts", () => {
     expect(stubFile).toContain("export function saveTask");
     expect(stubFile).toContain("@codeflowMaturity scaffold");
     expect(ownershipFile).toContain("\"nodeId\": \"function:save-task\"");
-    expect(obsidianIndex).toContain("[[docs/ui-screen-workspace]]");
+    expect(obsidianIndex).toContain("[[docs/ui-screen:workspace]]");
     expect(obsidianIndex).toContain("[[system.canvas]]");
     expect(artifactManifest).toContain("\"artifactType\": \"code\"");
     expect(result.artifactSummary?.scaffold).toBeGreaterThan(0);
