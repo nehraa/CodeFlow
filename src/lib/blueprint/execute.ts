@@ -1,5 +1,3 @@
-import path from "node:path";
-
 import type {
   BlueprintGraph,
   ExecutionReport,
@@ -7,19 +5,7 @@ import type {
   RunPlan,
   TaskExecutionResult
 } from "@/lib/blueprint/schema";
-import { slugify } from "@/lib/blueprint/utils";
-
-const docPathForNode = (nodeKind: string, nodeName: string): string =>
-  path.posix.join("docs", `${slugify(nodeKind)}-${slugify(nodeName)}.md`);
-
-const stubPathForNode = (nodeKind: string, nodeName: string): string | null => {
-  if (nodeKind === "module") {
-    return null;
-  }
-
-  const extension = nodeKind === "ui-screen" ? "tsx" : "ts";
-  return path.posix.join("stubs", `${slugify(nodeKind)}-${slugify(nodeName)}.${extension}`);
-};
+import { getNodeDocPath, getNodeStubPath } from "@/lib/blueprint/codegen";
 
 export const createExecutionReport = (graph: BlueprintGraph, runPlan: RunPlan): ExecutionReport => {
   const startedAt = new Date().toISOString();
@@ -28,9 +14,7 @@ export const createExecutionReport = (graph: BlueprintGraph, runPlan: RunPlan): 
   const results: TaskExecutionResult[] = runPlan.tasks.map((task) => {
     const node = nodeMap.get(task.nodeId);
     const outputPaths = node
-      ? [docPathForNode(node.kind, node.name), stubPathForNode(node.kind, node.name)].filter(
-          (value): value is string => Boolean(value)
-        )
+      ? [getNodeDocPath(node), getNodeStubPath(node)].filter((value): value is string => Boolean(value))
       : [];
     const managedRegionIds = outputPaths.map((outputPath, index) => `${task.id}:region:${index + 1}`);
 

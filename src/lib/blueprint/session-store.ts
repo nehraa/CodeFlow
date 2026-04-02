@@ -10,7 +10,7 @@ import type {
   RiskReport,
   RunPlan
 } from "@/lib/blueprint/schema";
-import { blueprintGraphSchema } from "@/lib/blueprint/schema";
+import { persistedSessionSchema } from "@/lib/blueprint/schema";
 import { latestSessionPath, sessionDirForProject, sessionHistoryPath } from "@/lib/blueprint/store-paths";
 
 const ensureDir = async (dirPath: string): Promise<void> => {
@@ -33,12 +33,7 @@ export const saveSession = async (session: PersistedSession): Promise<void> => {
 export const loadLatestSession = async (projectName: string): Promise<PersistedSession | null> => {
   try {
     const content = await fs.readFile(latestSessionPath(projectName), "utf8");
-    const session = JSON.parse(content) as PersistedSession;
-
-    return {
-      ...session,
-      graph: blueprintGraphSchema.parse(session.graph)
-    };
+    return persistedSessionSchema.parse(JSON.parse(content));
   } catch {
     return null;
   }
@@ -47,6 +42,7 @@ export const loadLatestSession = async (projectName: string): Promise<PersistedS
 export const upsertSession = async ({
   graph,
   runPlan,
+  repoPath,
   lastRiskReport,
   lastExportResult,
   lastExecutionReport,
@@ -55,6 +51,7 @@ export const upsertSession = async ({
 }: {
   graph: BlueprintGraph;
   runPlan: RunPlan;
+  repoPath?: string;
   lastRiskReport?: RiskReport;
   lastExportResult?: ExportResult;
   lastExecutionReport?: ExecutionReport;
@@ -62,11 +59,12 @@ export const upsertSession = async ({
   sessionId?: string;
 }): Promise<PersistedSession> => {
   const existing = await loadLatestSession(graph.projectName);
-  const normalizedGraph = blueprintGraphSchema.parse(graph);
-  const nextSession: PersistedSession = {
+  const normalizedGraph = persistedSessionSchema.shape.graph.parse(graph);
+  const nextSession = persistedSessionSchema.parse({
     sessionId: sessionId ?? existing?.sessionId ?? createSessionId(),
     projectName: normalizedGraph.projectName,
     updatedAt: new Date().toISOString(),
+    repoPath: repoPath?.trim() ? path.resolve(repoPath) : existing?.repoPath,
     graph: normalizedGraph,
     runPlan,
     lastRiskReport: lastRiskReport ?? existing?.lastRiskReport,
@@ -75,7 +73,7 @@ export const upsertSession = async ({
     approvalIds: approvalId
       ? [...new Set([...(existing?.approvalIds ?? []), approvalId])]
       : (existing?.approvalIds ?? [])
-  };
+  });
 
   await saveSession(nextSession);
   return nextSession;

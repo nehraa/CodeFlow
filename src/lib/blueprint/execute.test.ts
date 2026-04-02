@@ -31,6 +31,7 @@ describe("createExecutionReport", () => {
     const executionReport = createExecutionReport(graph, createRunPlan(graph));
 
     expect(executionReport.results[0].status).toBe("completed");
+    expect(executionReport.results[0].outputPaths).toContain("docs/function:save.md");
     expect(executionReport.results[0].outputPaths.some((outputPath) => outputPath.endsWith(".ts"))).toBe(true);
     expect(executionReport.ownership[0].nodeId).toBe("function:save");
   });

@@ -10,7 +10,7 @@ import type {
   ExportArtifact,
   ExportResult
 } from "@/lib/blueprint/schema";
-import { generateNodeCode, getNodeStubPath, isCodeBearingNode } from "@/lib/blueprint/codegen";
+import { generateNodeCode, getNodeDocPath, getNodeStubPath, isCodeBearingNode } from "@/lib/blueprint/codegen";
 import { createRunPlan } from "@/lib/blueprint/plan";
 import { getCodeBearingNodes, getDefaultExecutionTarget } from "@/lib/blueprint/phases";
 import { slugify } from "@/lib/blueprint/utils";
@@ -85,8 +85,7 @@ const buildNodeDoc = (node: BlueprintNode): string => {
         .join("\n")
     : "- None";
   const notes = formatList(node.contract.notes);
-  const stubLink =
-    node.kind === "module" ? "N/A" : `stubs/${slugify(node.kind)}-${slugify(node.name)}.${node.kind === "ui-screen" ? "tsx" : "ts"}`;
+  const stubLink = getNodeStubPath(node) ?? "N/A";
 
   return `# ${node.name}
 
@@ -354,7 +353,7 @@ ${
 - [[system.canvas]]
 
 ## Nodes
-${graph.nodes.map((node) => `- [[docs/${slugify(node.kind)}-${slugify(node.name)}]]`).join("\n")}
+${graph.nodes.map((node) => `- [[${getNodeDocPath(node).replace(/\.md$/, "")}]]`).join("\n")}
 `,
     "utf8"
   );
@@ -369,7 +368,7 @@ ${graph.nodes.map((node) => `- [[docs/${slugify(node.kind)}-${slugify(node.name)
   });
 
   for (const node of graph.nodes) {
-    const docPath = path.join(docsDir, `${slugify(node.kind)}-${slugify(node.name)}.md`);
+    const docPath = path.join(baseDir, getNodeDocPath(node));
     await fs.writeFile(docPath, buildNodeDoc(node), "utf8");
     artifacts.push({
       nodeId: node.id,

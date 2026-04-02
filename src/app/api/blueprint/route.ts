@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import { NextResponse } from "next/server";
 
 import { buildBlueprintGraph } from "@/lib/blueprint/build";
@@ -11,13 +13,18 @@ import { upsertSession } from "@/lib/blueprint/session-store";
 export async function POST(request: Request) {
   try {
     const payload = buildBlueprintRequestSchema.parse(await request.json());
-    const baseGraph = await buildBlueprintGraph(payload);
+    const normalizedRepoPath = payload.repoPath?.trim() ? path.resolve(payload.repoPath) : undefined;
+    const baseGraph = await buildBlueprintGraph({
+      ...payload,
+      repoPath: normalizedRepoPath
+    });
     const snapshot = await loadObservabilitySnapshot(baseGraph.projectName);
     const graph = snapshot ? summarizeObservability(baseGraph, snapshot).graph : baseGraph;
     const runPlan = createRunPlan(graph);
     const session = await upsertSession({
       graph,
-      runPlan
+      runPlan,
+      repoPath: normalizedRepoPath
     });
 
     await saveRunRecord({
