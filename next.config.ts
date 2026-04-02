@@ -9,7 +9,8 @@ const nextConfig: NextConfig = {
   typedRoutes: true,
   turbopack: {
     root: repoRoot
-  }
+  },
+  serverExternalPackages: ["@lancedb/lancedb"]
 };
 
 export default nextConfig;

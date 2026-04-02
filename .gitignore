@@ -9,3 +9,5 @@ artifacts
 *.tsbuildinfo
 .env.local
 .env*.local
+# CodeRag index files
+.coderag-*

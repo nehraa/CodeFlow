@@ -10,6 +10,7 @@ import { parsePrd } from "@/lib/blueprint/prd";
 import { withSpecDrafts } from "@/lib/blueprint/phases";
 import { analyzeTypeScriptRepo } from "@/lib/blueprint/repo";
 import { createNode, dedupeEdges, mergeContracts, mergeSourceRefs } from "@/lib/blueprint/utils";
+import { initCodeRag } from "@/lib/coderag";
 
 type PartialGraph = Omit<BlueprintGraph, "projectName" | "mode" | "generatedAt">;
 
@@ -78,13 +79,14 @@ export const buildBlueprintGraph = async (
   request: BuildBlueprintRequest
 ): Promise<BlueprintGraph> => {
   const graphParts: PartialGraph[] = [];
+  const resolvedRepoPath = request.repoPath?.trim() ? path.resolve(request.repoPath) : undefined;
 
   if (request.prdText?.trim()) {
     graphParts.push(parsePrd(request.prdText));
   }
 
-  if (request.repoPath?.trim()) {
-    graphParts.push(await analyzeTypeScriptRepo(path.resolve(request.repoPath)));
+  if (resolvedRepoPath) {
+    graphParts.push(await analyzeTypeScriptRepo(resolvedRepoPath));
   }
 
   const combined = graphParts.reduce<PartialGraph>(
@@ -123,6 +125,14 @@ export const buildBlueprintGraph = async (
 
   if (graph.nodes.length === 0) {
     graph.warnings.push("No blueprint nodes were produced. Provide PRD content and/or a TypeScript repo.");
+  }
+
+  if (resolvedRepoPath) {
+    try {
+      await initCodeRag(request.projectName, resolvedRepoPath);
+    } catch (error) {
+      console.warn("CodeRag initialization failed:", error instanceof Error ? error.message : error);
+    }
   }
 
   return withSpecDrafts(graph);
