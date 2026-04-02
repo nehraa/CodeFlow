@@ -1,0 +1,26 @@
+{
+  "task_id": "",
+  "pipeline": [
+    {
+      "stage": "pre-task",
+      "status": "in_progress",
+      "hooks": ["context-init", "quality-gates", "pipeline-setup"]
+    },
+    {
+      "stage": "execution",
+      "status": "pending",
+      "hooks": ["task-execution", "code-generation", "implementation"]
+    },
+    {
+      "stage": "verification",
+      "status": "pending",
+      "hooks": ["7-pass-verify", "test-sync", "type-check", "security-scan"]
+    },
+    {
+      "stage": "post-task",
+      "status": "pending",
+      "hooks": ["documentation", "git-commit", "result-compilation"]
+    }
+  ],
+  "current_stage": "pre-task"
+}

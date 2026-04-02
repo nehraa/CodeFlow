@@ -337,7 +337,7 @@
 .frontPaw {
   fill: url(#catBodyGradient);
   stroke: #16253b;
-  stroke-width: 5;
+  stroke-width: 4;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -347,7 +347,7 @@
 .paw {
   fill: url(#catCreamGradient);
   stroke: #16253b;
-  stroke-width: 5;
+  stroke-width: 3;
 }
 
 .earInner,
