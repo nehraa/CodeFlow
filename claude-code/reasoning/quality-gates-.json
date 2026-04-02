@@ -1,0 +1,9 @@
+[
+{"name":"tests_passing","status":"pending"},
+{"name":"no_hardcoded_values","status":"pending"},
+{"name":"proper_error_handling","status":"pending"},
+{"name":"type_safety_enforced","status":"pending"},
+{"name":"code_follows_style_guide","status":"pending"},
+{"name":"documentation_updated","status":"pending"},
+{"name":"isolated_from_other_tasks","status":"pending"},
+{"name":"committed_to_git","status":"pending"}]

@@ -1,0 +1,391 @@
+TESTS: FAIL
+
+> codeflow@0.1.0 test
+> vitest run
+
+
+[1m[46m RUN [49m[22m [36mv4.1.0 [39m[90m/Users/abhinavnehra/git/CodeFlow[39m
+
+ [31m❯[39m src/store/blueprint-store.test.ts [2m([22m[2m0 test[22m[2m)[22m
+ [31m❯[39m src/lib/blueprint/vcr.test.ts [2m([22m[2m26 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 95[2mms[22m[39m
+     [32m✓[39m returns an empty recording when there are no spans[32m 6[2mms[22m[39m
+     [32m✓[39m creates one frame per span[32m 1[2mms[22m[39m
+     [32m✓[39m assigns sequential frameIndex values[32m 0[2mms[22m[39m
+     [32m✓[39m resolves nodeId and nodeName for each frame[32m 0[2mms[22m[39m
+[31m     [31m×[31m records idle state for unvisited nodes in each frame[39m[32m 8[2mms[22m[39m
+     [32m✓[39m accumulates call counts across frames for the same node[32m 1[2mms[22m[39m
+     [32m✓[39m accumulates error counts correctly[32m 1[2mms[22m[39m
+     [32m✓[39m accumulates totalDurationMs correctly[32m 0[2mms[22m[39m
+     [32m✓[39m escalates TraceState status to the highest seen[32m 0[2mms[22m[39m
+     [32m✓[39m sorts spans with timestamps before those without[32m 0[2mms[22m[39m
+     [32m✓[39m sorts multiple timestamped spans chronologically[32m 55[2mms[22m[39m
+     [32m✓[39m records the frame status from the triggering span[32m 0[2mms[22m[39m
+[31m     [31m×[31m handles spans that cannot be resolved to a node[39m[32m 2[2mms[22m[39m
+     [32m✓[39m returns the original graph unchanged when the recording has no frames[32m 0[2mms[22m[39m
+     [32m✓[39m replays node states at a specific frame[32m 0[2mms[22m[39m
+     [32m✓[39m clamps frame index to valid range[32m 0[2mms[22m[39m
+     [32m✓[39m does not mutate the original graph[32m 0[2mms[22m[39m
+     [32m✓[39m maps 0% to frame 0[32m 0[2mms[22m[39m
+     [32m✓[39m maps 100% to the last frame[32m 0[2mms[22m[39m
+     [32m✓[39m maps 50% to the middle frame[32m 0[2mms[22m[39m
+     [32m✓[39m returns 0 for an empty recording[32m 0[2mms[22m[39m
+     [32m✓[39m clamps positions outside [0, 100][32m 0[2mms[22m[39m
+     [32m✓[39m maps frame 0 to position 0[32m 0[2mms[22m[39m
+     [32m✓[39m maps last frame to position 100[32m 0[2mms[22m[39m
+     [32m✓[39m returns 0 for a single-frame or empty recording[32m 0[2mms[22m[39m
+     [32m✓[39m round-trips through positionToFrameIndex[32m 1[2mms[22m[39m
+[90mstdout[2m | src/app/api/implement-node/route.test.ts[2m > [22m[2mPOST /api/implement-node[2m > [22m[2mupdates only the selected node draft and leaves other nodes untouched
+[22m[39m[CodeFlow] Implement node request received {
+  nodeId: [32m'function:save-task'[39m,
+  kind: [32m'function'[39m,
+  keySource: [32m'environment'[39m
+}
+
+[90mstdout[2m | src/components/blueprint-workbench.test.tsx[2m > [22m[2mBlueprintWorkbench[2m > [22m[2mbuilds a blueprint and allows node inspection
+[22m[39m[CodeFlow] Blueprint build completed { source: [32m'legacy'[39m, durationMs: [33m77[39m }
+
+[90mstdout[2m | src/components/blueprint-workbench.test.tsx[2m > [22m[2mBlueprintWorkbench[2m > [22m[2mshows API key status and build progress in AI mode
+[22m[39m[CodeFlow] Blueprint build completed { source: [32m'ai'[39m, durationMs: [33m348[39m }
+
+ [32m✓[39m src/lib/blueprint/repo.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 15770[2mms[22m[39m
+     [33m[2m✓[22m[39m extracts modules, classes, functions, screens, apis, and structural edges [33m 15760[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/conflicts.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 16474[2mms[22m[39m
+     [33m[2m✓[22m[39m finds signature mismatches and missing blueprint nodes [33m 16470[2mms[22m[39m
+ [32m✓[39m src/app/api/conflicts/route.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 16551[2mms[22m[39m
+     [33m[2m✓[22m[39m returns drift conflicts against the repo [33m 16538[2mms[22m[39m
+[90mstdout[2m | src/app/api/implement-node/route.test.ts[2m > [22m[2mPOST /api/implement-node[2m > [22m[2mretries once when the first implementation fails local TypeScript validation
+[22m[39m[CodeFlow] Implement node request received {
+  nodeId: [32m'function:save-task'[39m,
+  kind: [32m'function'[39m,
+  keySource: [32m'environment'[39m
+}
+
+[90mstdout[2m | src/components/blueprint-workbench.test.tsx[2m > [22m[2mBlueprintWorkbench[2m > [22m[2mdrills into a module graph and shows detailed function documentation
+[22m[39m[CodeFlow] Blueprint build completed { source: [32m'legacy'[39m, durationMs: [33m884[39m }
+
+ [32m✓[39m src/app/api/blueprint/route.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 15142[2mms[22m[39m
+     [33m[2m✓[22m[39m returns a built blueprint graph from request input [33m 15140[2mms[22m[39m
+[90mstdout[2m | src/app/api/generate-blueprint/route.test.ts[2m > [22m[2mPOST /api/generate-blueprint[2m > [22m[2mnormalizes sparse AI responses into a valid blueprint graph
+[22m[39m[CodeFlow] AI blueprint request received {
+  projectName: [32m'AI Route Test'[39m,
+  mode: [32m'essential'[39m,
+  promptLength: [33m31[39m,
+  keySource: [32m'environment'[39m
+}
+[CodeFlow] Dispatching prompt to NVIDIA { projectName: [32m'AI Route Test'[39m, model: [32m'meta/llama-3.1-405b-instruct'[39m }
+
+[90mstdout[2m | src/app/api/generate-blueprint/route.test.ts[2m > [22m[2mPOST /api/generate-blueprint[2m > [22m[2mnormalizes sparse AI responses into a valid blueprint graph
+[22m[39m[CodeFlow] NVIDIA blueprint normalized successfully {
+  projectName: [32m'AI Route Test'[39m,
+  durationMs: [33m156[39m,
+  nodes: [33m2[39m,
+  edges: [33m1[39m,
+  workflows: [33m0[39m
+}
+
+[90mstdout[2m | src/app/api/generate-blueprint/route.test.ts[2m > [22m[2mPOST /api/generate-blueprint[2m > [22m[2mextracts the first valid JSON object when the AI wraps it in markdown and trailing prose
+[22m[39m[CodeFlow] AI blueprint request received {
+  projectName: [32m'AI Route Test'[39m,
+  mode: [32m'essential'[39m,
+  promptLength: [33m22[39m,
+  keySource: [32m'environment'[39m
+}
+[CodeFlow] Dispatching prompt to NVIDIA { projectName: [32m'AI Route Test'[39m, model: [32m'meta/llama-3.1-405b-instruct'[39m }
+
+[90mstdout[2m | src/app/api/generate-blueprint/route.test.ts[2m > [22m[2mPOST /api/generate-blueprint[2m > [22m[2mextracts the first valid JSON object when the AI wraps it in markdown and trailing prose
+[22m[39m[CodeFlow] NVIDIA blueprint normalized successfully {
+  projectName: [32m'AI Route Test'[39m,
+  durationMs: [33m4[39m,
+  nodes: [33m1[39m,
+  edges: [33m0[39m,
+  workflows: [33m0[39m
+}
+
+[90mstdout[2m | src/app/api/generate-blueprint/route.test.ts[2m > [22m[2mPOST /api/generate-blueprint[2m > [22m[2msanitizes control characters before JSON parsing
+[22m[39m[CodeFlow] AI blueprint request received {
+  projectName: [32m'AI Route Test'[39m,
+  mode: [32m'essential'[39m,
+  promptLength: [33m22[39m,
+  keySource: [32m'environment'[39m
+}
+[CodeFlow] Dispatching prompt to NVIDIA { projectName: [32m'AI Route Test'[39m, model: [32m'meta/llama-3.1-405b-instruct'[39m }
+
+[90mstdout[2m | src/app/api/generate-blueprint/route.test.ts[2m > [22m[2mPOST /api/generate-blueprint[2m > [22m[2msanitizes control characters before JSON parsing
+[22m[39m[CodeFlow] NVIDIA blueprint normalized successfully {
+  projectName: [32m'AI Route Test'[39m,
+  durationMs: [33m3[39m,
+  nodes: [33m1[39m,
+  edges: [33m0[39m,
+  workflows: [33m0[39m
+}
+
+ [32m✓[39m src/app/api/generate-blueprint/route.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 242[2mms[22m[39m
+ [32m✓[39m src/app/api/export/route.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 310[2mms[22m[39m
+ [32m✓[39m src/app/api/digital-twin/simulate/route.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 172[2mms[22m[39m
+[90mstdout[2m | src/components/blueprint-workbench.test.tsx[2m > [22m[2mBlueprintWorkbench[2m > [22m[2mhard-gates phases and enables implementation only after entering phase 2
+[22m[39m[CodeFlow] Blueprint build completed { source: [32m'legacy'[39m, durationMs: [33m1049[39m }
+
+ [32m✓[39m src/lib/blueprint/compile-validation.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 18140[2mms[22m[39m
+     [33m[2m✓[22m[39m passes syntactically valid TypeScript using contract type shims [33m 13686[2mms[22m[39m
+     [33m[2m✓[22m[39m fails invalid TypeScript [33m 4438[2mms[22m[39m
+[90mstdout[2m | src/app/api/implement-node/route.test.ts[2m > [22m[2mPOST /api/implement-node[2m > [22m[2mreturns 400 when the implementation still fails validation after retry
+[22m[39m[CodeFlow] Implement node request received {
+  nodeId: [32m'function:save-task'[39m,
+  kind: [32m'function'[39m,
+  keySource: [32m'environment'[39m
+}
+
+ [32m✓[39m src/app/api/branches/route.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 252[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/export.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 197[2mms[22m[39m
+ [32m✓[39m src/app/api/refactor/detect/route.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 55[2mms[22m[39m
+ [32m✓[39m src/app/api/digital-twin/route.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 125[2mms[22m[39m
+[90mstdout[2m | src/components/blueprint-workbench.test.tsx[2m > [22m[2mBlueprintWorkbench[2m > [22m[2mruns architecture analysis and shows the analysis panel with metrics, smells, cycles, and mermaid output
+[22m[39m[CodeFlow] Blueprint build completed { source: [32m'legacy'[39m, durationMs: [33m411[39m }
+
+ [32m✓[39m src/lib/blueprint/plan.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 60[2mms[22m[39m
+ [32m✓[39m src/app/api/analysis/cycles/route.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 60[2mms[22m[39m
+ [32m✓[39m src/app/api/executions/run/route.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 137[2mms[22m[39m
+ [32m✓[39m src/app/api/branches/diff/route.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 69[2mms[22m[39m
+[90mstdout[2m | src/components/blueprint-workbench.test.tsx[2m > [22m[2mBlueprintWorkbench[2m > [22m[2mshows the Branches panel and can create a branch after building
+[22m[39m[CodeFlow] Blueprint build completed { source: [32m'legacy'[39m, durationMs: [33m453[39m }
+
+ [32m✓[39m src/app/api/observability/ingest/route.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 72[2mms[22m[39m
+[90mstdout[2m | src/app/api/mcp/tools/route.test.ts[2m > [22m[2mPOST /api/mcp/tools[2m > [22m[2mreturns the tools list from a successful MCP server response
+[22m[39m[CodeFlow] MCP list tools request { serverUrl: [32m'http://mcp.example.com/mcp'[39m }
+
+[90mstdout[2m | src/app/api/mcp/tools/route.test.ts[2m > [22m[2mPOST /api/mcp/tools[2m > [22m[2mreturns 400 when the MCP server is unreachable
+[22m[39m[CodeFlow] MCP list tools request { serverUrl: [32m'http://localhost:9999/mcp'[39m }
+
+[90mstderr[2m | src/app/api/mcp/tools/route.test.ts[2m > [22m[2mPOST /api/mcp/tools[2m > [22m[2mreturns 400 when the MCP server is unreachable
+[22m[39m[CodeFlow] Failed to list MCP tools { durationMs: [33m2[39m, error: [32m'ECONNREFUSED'[39m }
+
+[90mstderr[2m | src/app/api/mcp/tools/route.test.ts[2m > [22m[2mPOST /api/mcp/tools[2m > [22m[2mreturns 400 when serverUrl is missing
+[22m[39m[CodeFlow] Failed to list MCP tools {
+  durationMs: [33m1[39m,
+  error: [32m'[\n'[39m +
+    [32m'  {\n'[39m +
+    [32m'    "expected": "string",\n'[39m +
+    [32m'    "code": "invalid_type",\n'[39m +
+    [32m'    "path": [\n'[39m +
+    [32m'      "serverUrl"\n'[39m +
+    [32m'    ],\n'[39m +
+    [32m'    "message": "Invalid input: expected string, received undefined"\n'[39m +
+    [32m'  }\n'[39m +
+    [32m']'[39m
+}
+
+[90mstdout[2m | src/app/api/mcp/tools/route.test.ts[2m > [22m[2mPOST /api/mcp/tools[2m > [22m[2mpasses custom headers to the MCP server
+[22m[39m[CodeFlow] MCP list tools request { serverUrl: [32m'http://mcp.example.com/mcp'[39m }
+
+ [32m✓[39m src/app/api/mcp/tools/route.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 47[2mms[22m[39m
+[90mstderr[2m | src/app/api/implement-node/route.test.ts[2m > [22m[2mPOST /api/implement-node[2m > [22m[2mreturns 400 when the implementation still fails validation after retry
+[22m[39m[CodeFlow] Failed to implement node {
+  durationMs: [33m6629[39m,
+  error: [32m'TypeScript validation failed for stubs/function-savetask.ts.\n'[39m +
+    [32m'\x1B[96mstubs/function-savetask.ts\x1B[0m:\x1B[93m1\x1B[0m:\x1B[93m56\x1B[0m - \x1B[91merror\x1B[0m\x1B[90m TS1003: \x1B[0mIdentifier expected.\n'[39m +
+    [32m'\n'[39m +
+    [32m'\x1B[7m1\x1B[0m export function saveTask(input: string) { return input.; }\n'[39m +
+    [32m'\x1B[7m \x1B[0m \x1B[91m                                                       ~\x1B[0m'[39m
+}
+
+ [32m✓[39m src/app/api/implement-node/route.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 31340[2mms[22m[39m
+     [33m[2m✓[22m[39m updates only the selected node draft and leaves other nodes untouched [33m 15167[2mms[22m[39m
+     [33m[2m✓[22m[39m retries once when the first implementation fails local TypeScript validation [33m 9519[2mms[22m[39m
+     [33m[2m✓[22m[39m returns 400 when the implementation still fails validation after retry [33m 6648[2mms[22m[39m
+[90mstdout[2m | src/app/api/mcp/invoke/route.test.ts[2m > [22m[2mPOST /api/mcp/invoke[2m > [22m[2mreturns the tool result from a successful MCP server response
+[22m[39m[CodeFlow] MCP invoke tool request { serverUrl: [32m'http://mcp.example.com/mcp'[39m, toolName: [32m'search_github'[39m }
+
+[90mstdout[2m | src/app/api/mcp/invoke/route.test.ts[2m > [22m[2mPOST /api/mcp/invoke[2m > [22m[2mreturns 400 when the MCP server returns an error
+[22m[39m[CodeFlow] MCP invoke tool request { serverUrl: [32m'http://mcp.example.com/mcp'[39m, toolName: [32m'search_github'[39m }
+
+[90mstderr[2m | src/app/api/mcp/invoke/route.test.ts[2m > [22m[2mPOST /api/mcp/invoke[2m > [22m[2mreturns 400 when the MCP server returns an error
+[22m[39m[CodeFlow] Failed to invoke MCP tool { durationMs: [33m1[39m, error: [32m'MCP error -32602: Invalid params'[39m }
+
+[90mstderr[2m | src/app/api/mcp/invoke/route.test.ts[2m > [22m[2mPOST /api/mcp/invoke[2m > [22m[2mreturns 400 when toolName is missing
+[22m[39m[CodeFlow] Failed to invoke MCP tool {
+  durationMs: [33m0[39m,
+  error: [32m'[\n'[39m +
+    [32m'  {\n'[39m +
+    [32m'    "expected": "string",\n'[39m +
+    [32m'    "code": "invalid_type",\n'[39m +
+    [32m'    "path": [\n'[39m +
+    [32m'      "toolName"\n'[39m +
+    [32m'    ],\n'[39m +
+    [32m'    "message": "Invalid input: expected string, received undefined"\n'[39m +
+    [32m'  }\n'[39m +
+    [32m']'[39m
+}
+
+ [32m✓[39m src/app/api/export/mermaid/route.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 89[2mms[22m[39m
+[90mstdout[2m | src/app/api/mcp/invoke/route.test.ts[2m > [22m[2mPOST /api/mcp/invoke[2m > [22m[2muses an empty args object by default when args is not supplied
+[22m[39m[CodeFlow] MCP invoke tool request { serverUrl: [32m'http://mcp.example.com/mcp'[39m, toolName: [32m'ping'[39m }
+
+[90mstdout[2m | src/app/api/mcp/invoke/route.test.ts[2m > [22m[2mPOST /api/mcp/invoke[2m > [22m[2mpasses custom headers to the MCP server
+[22m[39m[CodeFlow] MCP invoke tool request { serverUrl: [32m'http://mcp.example.com/mcp'[39m, toolName: [32m'restricted'[39m }
+
+ [32m✓[39m src/app/api/mcp/invoke/route.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 109[2mms[22m[39m
+[90mstdout[2m | src/app/api/ghost-nodes/route.test.ts[2m > [22m[2mPOST /api/ghost-nodes[2m > [22m[2mreturns heuristic suggestions when no NVIDIA key is available
+[22m[39m[CodeFlow] Ghost node suggestion request received { projectName: [32m'Ghost Test'[39m, nodeCount: [33m3[39m, keySource: [32m'missing'[39m }
+
+[90mstdout[2m | src/app/api/ghost-nodes/route.test.ts[2m > [22m[2mPOST /api/ghost-nodes[2m > [22m[2mreturns AI suggestions when NVIDIA key is provided
+[22m[39m[CodeFlow] Ghost node suggestion request received { projectName: [32m'Ghost Test'[39m, nodeCount: [33m3[39m, keySource: [32m'environment'[39m }
+
+[90mstdout[2m | src/app/api/ghost-nodes/route.test.ts[2m > [22m[2mPOST /api/ghost-nodes[2m > [22m[2mreturns AI suggestions when NVIDIA key is provided
+[22m[39m[CodeFlow] Ghost node suggestions generated { projectName: [32m'Ghost Test'[39m, count: [33m1[39m }
+
+[90mstdout[2m | src/app/api/ghost-nodes/route.test.ts[2m > [22m[2mPOST /api/ghost-nodes[2m > [22m[2mfalls back to heuristic suggestions when AI response cannot be parsed
+[22m[39m[CodeFlow] Ghost node suggestion request received { projectName: [32m'Ghost Test'[39m, nodeCount: [33m3[39m, keySource: [32m'environment'[39m }
+
+[90mstderr[2m | src/app/api/ghost-nodes/route.test.ts[2m > [22m[2mPOST /api/ghost-nodes[2m > [22m[2mreturns 400 for invalid request body
+[22m[39m[CodeFlow] Failed to generate ghost node suggestions {
+  error: [32m'[\n'[39m +
+    [32m'  {\n'[39m +
+    [32m'    "expected": "object",\n'[39m +
+    [32m'    "code": "invalid_type",\n'[39m +
+    [32m'    "path": [\n'[39m +
+    [32m'      "graph"\n'[39m +
+    [32m'    ],\n'[39m +
+    [32m'    "message": "Invalid input: expected object, received null"\n'[39m +
+    [32m'  }\n'[39m +
+    [32m']'[39m
+}
+
+[90mstdout[2m | src/app/api/ghost-nodes/route.test.ts[2m > [22m[2mPOST /api/ghost-nodes[2m > [22m[2mheuristic suggests auth middleware for graphs with APIs but no auth node
+[22m[39m[CodeFlow] Ghost node suggestion request received { projectName: [32m'Ghost Test'[39m, nodeCount: [33m3[39m, keySource: [32m'missing'[39m }
+
+ [32m✓[39m src/app/api/ghost-nodes/route.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 81[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/mcp.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 29[2mms[22m[39m
+ [32m✓[39m src/app/api/branches/[id]/route.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 71[2mms[22m[39m
+[90mstdout[2m | src/components/blueprint-workbench.test.tsx[2m > [22m[2mBlueprintWorkbench[2m > [22m[2msuggests ghost nodes and solidifies them on click
+[22m[39m[CodeFlow] Blueprint build completed { source: [32m'legacy'[39m, durationMs: [33m366[39m }
+
+ [32m✓[39m src/lib/blueprint/runner.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 41[2mms[22m[39m
+[90mstdout[2m | src/app/api/code-suggestions/route.test.ts[2m > [22m[2mPOST /api/code-suggestions[2m > [22m[2mreturns a parsed AI code suggestion for a blueprint node
+[22m[39m[CodeFlow] Code suggestion request received {
+  nodeId: [32m'function:save-task'[39m,
+  kind: [32m'function'[39m,
+  promptLength: [33m34[39m,
+  keySource: [32m'environment'[39m
+}
+
+[90mstdout[2m | src/app/api/code-suggestions/route.test.ts[2m > [22m[2mPOST /api/code-suggestions[2m > [22m[2mreturns a parsed AI code suggestion for a blueprint node
+[22m[39m[CodeFlow] Code suggestion generated { nodeId: [32m'function:save-task'[39m, durationMs: [33m53[39m }
+
+ [32m✓[39m src/app/api/code-suggestions/route.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 125[2mms[22m[39m
+[90mstdout[2m | src/app/api/code-completions/route.test.ts[2m > [22m[2mPOST /api/code-completions[2m > [22m[2mreturns inline completion items for the active blueprint node
+[22m[39m[CodeFlow] Code completion request received {
+  nodeId: [32m'function:save-task'[39m,
+  kind: [32m'function'[39m,
+  cursorOffset: [33m58[39m,
+  triggerCharacter: [32m'('[39m,
+  keySource: [32m'environment'[39m
+}
+
+[90mstdout[2m | src/app/api/code-completions/route.test.ts[2m > [22m[2mPOST /api/code-completions[2m > [22m[2mreturns inline completion items for the active blueprint node
+[22m[39m[CodeFlow] Code completions generated { nodeId: [32m'function:save-task'[39m, suggestions: [33m2[39m, durationMs: [33m53[39m }
+
+ [32m✓[39m src/app/api/code-completions/route.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 75[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/digital-twin.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 77[2mms[22m[39m
+ [32m✓[39m src/app/api/genetic/evolve/route.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 69[2mms[22m[39m
+ [32m✓[39m src/components/blueprint-workbench.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 36167[2mms[22m[39m
+     [33m[2m✓[22m[39m builds a blueprint and allows node inspection [33m 7377[2mms[22m[39m
+     [33m[2m✓[22m[39m shows API key status and build progress in AI mode [33m 5034[2mms[22m[39m
+     [33m[2m✓[22m[39m drills into a module graph and shows detailed function documentation [33m 8054[2mms[22m[39m
+     [33m[2m✓[22m[39m hard-gates phases and enables implementation only after entering phase 2 [33m 5290[2mms[22m[39m
+     [33m[2m✓[22m[39m runs architecture analysis and shows the analysis panel with metrics, smells, cycles, and mermaid output [33m 3251[2mms[22m[39m
+     [33m[2m✓[22m[39m shows the Branches panel and can create a branch after building [33m 3519[2mms[22m[39m
+     [33m[2m✓[22m[39m suggests ghost nodes and solidifies them on click [33m 3632[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/store.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 89[2mms[22m[39m
+ [32m✓[39m src/app/api/analysis/metrics/route.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 62[2mms[22m[39m
+ [32m✓[39m src/app/api/analysis/smells/route.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 42[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/runtime-tests.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/genetic.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 26[2mms[22m[39m
+ [32m✓[39m src/app/api/observability/latest/route.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 46[2mms[22m[39m
+ [32m✓[39m src/app/api/refactor/heal/route.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 27[2mms[22m[39m
+ [32m✓[39m src/app/api/vcr/route.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 110[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/flow-view.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 30[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/refactor.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/app/api/approvals/approve/route.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/edit.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/prd.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/branches.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/risk.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 28[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/prompt-governance.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/execute.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 35[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/cycles.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 32[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/heatmap.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/mermaid.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 37[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/phases.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/build.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/metrics.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/smells.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/observability.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/traces.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 3[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Suites 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/store/blueprint-store.test.ts[2m [ src/store/blueprint-store.test.ts ][22m
+[31m[1mError[22m: Failed to resolve import "@abhinav2203/codeflow-core/schema" from "src/store/blueprint-store.test.ts". Does the file exist?[39m
+  Plugin: [35mvite:import-analysis[39m
+  File: [36m/Users/abhinavnehra/git/CodeFlow/src/store/blueprint-store.test.ts[39m:4:30
+[33m  1  |  import { beforeEach, describe, expect, it } from "vitest";
+  2  |  import { emptyContract } from "@abhinav2203/codeflow-core/schema";
+     |                                 ^
+  3  |  import { useBlueprintStore } from "@/store/blueprint-store";
+  4  |  const makeGraph = () => ({[39m
+[90m [2m❯[22m TransformPluginContext._formatLog node_modules/vite/dist/node/chunks/node.js:[2m30209:39[22m[39m
+[90m [2m❯[22m TransformPluginContext.error node_modules/vite/dist/node/chunks/node.js:[2m30206:14[22m[39m
+[90m [2m❯[22m normalizeUrl node_modules/vite/dist/node/chunks/node.js:[2m27496:18[22m[39m
+[90m [2m❯[22m node_modules/vite/dist/node/chunks/node.js:[2m27559:30[22m[39m
+[90m [2m❯[22m TransformPluginContext.transform node_modules/vite/dist/node/chunks/node.js:[2m27527:4[22m[39m
+[90m [2m❯[22m EnvironmentPluginContainer.transform node_modules/vite/dist/node/chunks/node.js:[2m29998:14[22m[39m
+[90m [2m❯[22m loadAndTransform node_modules/vite/dist/node/chunks/node.js:[2m24133:26[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯[22m[39m
+
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 2 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/lib/blueprint/vcr.test.ts[2m > [22mbuildVcrRecording[2m > [22mrecords idle state for unvisited nodes in each frame
+[31m[1mAssertionError[22m: expected undefined to be 'idle' // Object.is equality[39m
+
+[32m- Expected:[39m
+"idle"
+
+[31m+ Received:[39m
+undefined
+
+[36m [2m❯[22m src/lib/blueprint/vcr.test.ts:[2m96:47[22m[39m
+    [90m 94|[39m     [35mconst[39m { frames } [33m=[39m [34mbuildVcrRecording[39m(graph[33m,[39m spans)[33m;[39m
+    [90m 95|[39m
+    [90m 96|[39m     [34mexpect[39m(frames[[34m0[39m][33m.[39mnodeStates[[32m"b"[39m][33m?.[39mstatus)[33m.[39m[34mtoBe[39m([32m"idle"[39m)[33m;[39m
+    [90m   |[39m                                               [31m^[39m
+    [90m 97|[39m     [34mexpect[39m(frames[[34m0[39m][33m.[39mnodeStates[[32m"b"[39m][33m?.[39mcount)[33m.[39m[34mtoBe[39m([34m0[39m)[33m;[39m
+    [90m 98|[39m   })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/lib/blueprint/vcr.test.ts[2m > [22mbuildVcrRecording[2m > [22mhandles spans that cannot be resolved to a node
+[31m[1mAssertionError[22m: expected undefined to be +0 // Object.is equality[39m
+
+[32m- Expected:[39m
+0
+
+[31m+ Received:[39m
+undefined
+
+[36m [2m❯[22m src/lib/blueprint/vcr.test.ts:[2m187:46[22m[39m
+    [90m185|[39m
+    [90m186|[39m     [34mexpect[39m(frames[[34m0[39m][33m.[39mnodeId)[33m.[39m[34mtoBeUndefined[39m()[33m;[39m
+    [90m187|[39m     expect(frames[0].nodeStates["a"]?.count).toBe(0); // node "a" unto…
+    [90m   |[39m                                              [31m^[39m
+    [90m188|[39m   })[33m;[39m
+    [90m189|[39m })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m56 passed[39m[22m[90m (58)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m247 passed[39m[22m[90m (249)[39m
+[2m   Start at [22m 15:02:02
+[2m   Duration [22m 51.82s[2m (transform 7.67s, setup 13.17s, import 45.69s, tests 152.92s, environment 123.98s)[22m

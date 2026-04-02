@@ -1,0 +1,109 @@
+VERIFICATION: ISSUES_FOUND
+Incomplete implementation in: .gitignore
+Incomplete implementation in: AGENTS.md
+Incomplete implementation in: README.md
+Potential hardcoded values in: README.md
+Incomplete implementation in: docs/ai-coding-risk-playbook.md
+Incomplete implementation in: docs/execution-validation-contract.md
+Incomplete implementation in: eslint.config.mjs
+Incomplete implementation in: next-env.d.ts
+Incomplete implementation in: next.config.ts
+Incomplete implementation in: package-lock.json
+Incomplete implementation in: package.json
+Incomplete implementation in: src/app/api/approvals/approve/route.test.ts
+Potential hardcoded values in: src/app/api/approvals/approve/route.test.ts
+Incomplete implementation in: src/app/api/approvals/approve/route.ts
+Incomplete implementation in: src/app/api/blueprint/route.ts
+Incomplete implementation in: src/app/api/branches/[id]/route.test.ts
+Potential hardcoded values in: src/app/api/branches/[id]/route.test.ts
+Incomplete implementation in: src/app/api/branches/[id]/route.ts
+Incomplete implementation in: src/app/api/branches/route.ts
+Incomplete implementation in: src/app/api/code-completions/route.ts
+Incomplete implementation in: src/app/api/code-suggestions/route.ts
+Incomplete implementation in: src/app/api/digital-twin/route.ts
+Incomplete implementation in: src/app/api/digital-twin/simulate/route.test.ts
+Potential hardcoded values in: src/app/api/digital-twin/simulate/route.test.ts
+Incomplete implementation in: src/app/api/digital-twin/simulate/route.ts
+Incomplete implementation in: src/app/api/executions/run/route.test.ts
+Potential hardcoded values in: src/app/api/executions/run/route.test.ts
+Incomplete implementation in: src/app/api/executions/run/route.ts
+Incomplete implementation in: src/app/api/export/route.ts
+Incomplete implementation in: src/app/api/generate-blueprint/route.test.ts
+Potential hardcoded values in: src/app/api/generate-blueprint/route.test.ts
+Incomplete implementation in: src/app/api/generate-blueprint/route.ts
+Incomplete implementation in: src/app/api/genetic/evolve/route.test.ts
+Potential hardcoded values in: src/app/api/genetic/evolve/route.test.ts
+Incomplete implementation in: src/app/api/ghost-nodes/route.test.ts
+Potential hardcoded values in: src/app/api/ghost-nodes/route.test.ts
+Incomplete implementation in: src/app/api/ghost-nodes/route.ts
+Incomplete implementation in: src/app/api/implement-node/route.test.ts
+Potential hardcoded values in: src/app/api/implement-node/route.test.ts
+Incomplete implementation in: src/app/api/implement-node/route.ts
+Incomplete implementation in: src/app/api/mcp/invoke/route.ts
+Potential hardcoded values in: src/app/api/mcp/invoke/route.ts
+Incomplete implementation in: src/app/api/mcp/tools/route.ts
+Potential hardcoded values in: src/app/api/mcp/tools/route.ts
+Incomplete implementation in: src/app/api/observability/ingest/route.ts
+Incomplete implementation in: src/app/api/observability/latest/route.ts
+Incomplete implementation in: src/app/api/refactor/detect/route.test.ts
+Potential hardcoded values in: src/app/api/refactor/detect/route.test.ts
+Incomplete implementation in: src/app/api/refactor/heal/route.test.ts
+Potential hardcoded values in: src/app/api/refactor/heal/route.test.ts
+Incomplete implementation in: src/app/api/vcr/route.test.ts
+Potential hardcoded values in: src/app/api/vcr/route.test.ts
+Incomplete implementation in: src/app/api/vcr/route.ts
+Incomplete implementation in: src/app/error.tsx
+Incomplete implementation in: src/app/globals.css
+Incomplete implementation in: src/app/loading.tsx
+Incomplete implementation in: src/components/blueprint-workbench.test.tsx
+Incomplete implementation in: src/components/blueprint-workbench.tsx
+Potential hardcoded values in: src/components/blueprint-workbench.tsx
+Incomplete implementation in: src/components/code-editor.tsx
+Incomplete implementation in: src/components/codeflow-brand.tsx
+Incomplete implementation in: src/components/codeflow-cat-showcase.module.css
+Incomplete implementation in: src/components/codeflow-cat-showcase.tsx
+Incomplete implementation in: src/components/graph-canvas.tsx
+Incomplete implementation in: src/components/policy-workbench.tsx
+Incomplete implementation in: src/lib/blueprint/approval-store.ts
+Incomplete implementation in: src/lib/blueprint/branch-store.ts
+Incomplete implementation in: src/lib/blueprint/checkpoint-store.ts
+Placeholder found in: src/lib/blueprint/codegen.ts
+Incomplete implementation in: src/lib/blueprint/codegen.ts
+Incomplete implementation in: src/lib/blueprint/compile-validation.test.ts
+Incomplete implementation in: src/lib/blueprint/compile-validation.ts
+Incomplete implementation in: src/lib/blueprint/digital-twin.test.ts
+Incomplete implementation in: src/lib/blueprint/digital-twin.ts
+Incomplete implementation in: src/lib/blueprint/execute.ts
+Incomplete implementation in: src/lib/blueprint/export.test.ts
+Incomplete implementation in: src/lib/blueprint/export.ts
+Incomplete implementation in: src/lib/blueprint/flow-view.test.ts
+Incomplete implementation in: src/lib/blueprint/flow-view.ts
+Incomplete implementation in: src/lib/blueprint/genetic.test.ts
+Incomplete implementation in: src/lib/blueprint/genetic.ts
+Incomplete implementation in: src/lib/blueprint/heatmap.test.ts
+Incomplete implementation in: src/lib/blueprint/mcp.ts
+Incomplete implementation in: src/lib/blueprint/observability-store.ts
+Incomplete implementation in: src/lib/blueprint/observability.test.ts
+Incomplete implementation in: src/lib/blueprint/phases.ts
+Incomplete implementation in: src/lib/blueprint/prompt-governance.test.ts
+Incomplete implementation in: src/lib/blueprint/prompt-governance.ts
+Incomplete implementation in: src/lib/blueprint/refactor.test.ts
+Incomplete implementation in: src/lib/blueprint/refactor.ts
+Incomplete implementation in: src/lib/blueprint/risk.ts
+Incomplete implementation in: src/lib/blueprint/run-store.ts
+Incomplete implementation in: src/lib/blueprint/runner.test.ts
+Incomplete implementation in: src/lib/blueprint/runner.ts
+Incomplete implementation in: src/lib/blueprint/runtime-contracts.ts
+Incomplete implementation in: src/lib/blueprint/runtime-tests.test.ts
+Incomplete implementation in: src/lib/blueprint/runtime-tests.ts
+Incomplete implementation in: src/lib/blueprint/runtime-workspace.ts
+Potential hardcoded values in: src/lib/blueprint/runtime-workspace.ts
+Incomplete implementation in: src/lib/blueprint/schema.ts
+Incomplete implementation in: src/lib/blueprint/session-store.ts
+Incomplete implementation in: src/lib/blueprint/store-paths.ts
+Incomplete implementation in: src/lib/blueprint/store.ts
+Incomplete implementation in: src/lib/blueprint/typescript-workspace.ts
+Incomplete implementation in: src/lib/blueprint/vcr.ts
+Incomplete implementation in: src/lib/browser/storage.ts
+Incomplete implementation in: src/lib/server/run-command.ts
+

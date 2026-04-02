@@ -1,0 +1,6 @@
+TYPE_CHECK: FAIL
+src/store/blueprint-store.test.ts(3,37): error TS2307: Cannot find module '@abhinav2203/codeflow-core/schema' or its corresponding type declarations.
+src/store/blueprint-store.test.ts(4,31): error TS2307: Cannot find module '@abhinav2203/codeflow-core/schema' or its corresponding type declarations.
+src/store/blueprint-store.test.ts(47,44): error TS7006: Parameter 'current' implicitly has an 'any' type.
+src/store/blueprint-store.ts(3,52): error TS2307: Cannot find module '@abhinav2203/codeflow-core/schema' or its corresponding type declarations.
+src/store/blueprint-store.ts(37,41): error TS7006: Parameter 'node' implicitly has an 'any' type.

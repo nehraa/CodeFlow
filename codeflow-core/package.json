@@ -1,0 +1,52 @@
+{
+  "name": "@abhinav2203/codeflow-core",
+  "description": "Framework-agnostic CodeFlow analysis core for blueprint generation, repository analysis, exports, and conflict detection.",
+  "version": "0.1.1",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./analyzer": {
+      "types": "./dist/analyzer/index.d.ts",
+      "default": "./dist/analyzer/index.js"
+    },
+    "./schema": {
+      "types": "./dist/schema/index.d.ts",
+      "default": "./dist/schema/index.js"
+    },
+    "./export": {
+      "types": "./dist/export/index.d.ts",
+      "default": "./dist/export/index.js"
+    },
+    "./conflicts": {
+      "types": "./dist/conflicts/index.d.ts",
+      "default": "./dist/conflicts/index.js"
+    },
+    "./store-paths": {
+      "types": "./dist/store-paths.d.ts",
+      "default": "./dist/store-paths.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepare": "npm run build"
+  },
+  "dependencies": {
+    "ts-morph": "^27.0.2",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "typescript": "^5.9.3"
+  }
+}

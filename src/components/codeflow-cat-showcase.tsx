@@ -6,12 +6,17 @@ import {
   MotionConfig,
   domAnimation,
   m,
+  useMotionValue,
   useReducedMotion,
+  useSpring,
   type Transition
 } from "framer-motion";
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, Suspense, lazy } from "react";
 
 import styles from "@/components/codeflow-cat-showcase.module.css";
+
+// Lazy load the 3D cat component
+const CuteCat3D = lazy(() => import("@/components/CuteCat3D").then(mod => ({ default: mod.CuteCat3D })));
 
 type SceneId =
   | "spec"
@@ -225,11 +230,11 @@ function entranceTransition(reducedMotion: boolean): Transition {
   return reducedMotion
     ? { duration: 0.16 }
     : {
-        type: "spring" as const,
-        stiffness: 180,
-        damping: 22,
-        mass: 0.8
-      };
+      type: "spring" as const,
+      stiffness: 180,
+      damping: 22,
+      mass: 0.8
+    };
 }
 
 export function CodeflowCatShowcase({
@@ -307,9 +312,13 @@ export function CodeflowCatShowcase({
                   className={styles.stageGlow}
                   transition={loopTransition(reducedMotion, 4.8)}
                 />
-                <SceneBackdrop reducedMotion={reducedMotion} scene={scene} />
-                <SceneTelemetry reducedMotion={reducedMotion} scene={scene} />
-                <CatRig reducedMotion={reducedMotion} scene={scene} />
+            <SceneBackdrop reducedMotion={reducedMotion} scene={scene} />
+            <SceneTelemetry reducedMotion={reducedMotion} scene={scene} />
+            <div style={{ position: "absolute", inset: 0, zIndex: 5 }}>
+              <Suspense fallback={<div style={{ width: "100%", height: "100%" }} />}>
+                <CuteCat3D sceneId={scene.id} reducedMotion={reducedMotion} />
+              </Suspense>
+            </div>
               </m.div>
             </AnimatePresence>
           </div>
@@ -389,10 +398,10 @@ function SceneBackdrop({ scene, reducedMotion }: { scene: SceneDefinition; reduc
   const reel: Transition = reducedMotion
     ? { duration: 0.18 }
     : {
-        duration: 1.6,
-        ease: "linear",
-        repeat: Number.POSITIVE_INFINITY
-      };
+      duration: 1.6,
+      ease: "linear",
+      repeat: Number.POSITIVE_INFINITY
+    };
 
   return (
     <m.svg aria-hidden="true" className={styles.backdrop} viewBox="0 0 420 300">
@@ -521,17 +530,93 @@ function SceneBackdrop({ scene, reducedMotion }: { scene: SceneDefinition; reduc
 }
 
 function CatRig({ scene, reducedMotion }: { scene: SceneDefinition; reducedMotion: boolean }) {
+  // Interactive: Mouse tracking for pupils
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const springConfig = { stiffness: 300, damping: 30 };
+  const pupilOffsetX = useSpring(mouseX, springConfig);
+  const pupilOffsetY = useSpring(mouseY, springConfig);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!containerRef.current || reducedMotion) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const relativeX = (e.clientX - rect.left) / rect.width;
+    const relativeY = (e.clientY - rect.top) / rect.height;
+    mouseX.set((relativeX - 0.5) * 8);
+    mouseY.set((relativeY - 0.5) * 8);
+  }, [mouseX, mouseY, reducedMotion]);
+
+  // Interactive: Random blinks with variable timing (2-8 seconds)
+  const [blinkKey, setBlinkKey] = useState(0);
+  useEffect(() => {
+    if (reducedMotion) return;
+    const scheduleBlink = () => {
+      const delay = Math.random() * 6000 + 2000;
+      return window.setTimeout(() => {
+        setBlinkKey((k) => k + 1);
+      }, delay);
+    };
+    const timer = scheduleBlink();
+    return () => window.clearTimeout(timer);
+  }, [blinkKey, reducedMotion]);
+
+  const blinkTransition: Transition = reducedMotion
+    ? { duration: 0.18 }
+    : { duration: 0.1, ease: "easeInOut" };
+
+  // Interactive: Click to boop (nose)
+  const [isBooping, setIsBooping] = useState(false);
+  const boopScale = useSpring(1, { stiffness: 400, damping: 15 });
+
+  const handleNoseClick = useCallback(() => {
+    if (reducedMotion || isBooping) return;
+    setIsBooping(true);
+    boopScale.set(1.2);
+    setTimeout(() => boopScale.set(1), 150);
+    setTimeout(() => setIsBooping(false), 300);
+  }, [reducedMotion, isBooping, boopScale]);
+
+  // Interactive: Space to jump
+  const [isJumping, setIsJumping] = useState(false);
+  const jumpY = useSpring(0, { stiffness: 200, damping: 15 });
+
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    // Only trigger jump if not inside an input/textarea and not already jumping
+    if (
+      e.code === "Space" &&
+      !reducedMotion &&
+      !isJumping &&
+      !(e.target instanceof HTMLInputElement) &&
+      !(e.target instanceof HTMLTextAreaElement)
+    ) {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsJumping(true);
+      jumpY.set(-30);
+      setTimeout(() => jumpY.set(0), 150);
+      setTimeout(() => setIsJumping(false), 300);
+    }
+  }, [reducedMotion, isJumping, jumpY]);
+
+  useEffect(() => {
+    if (reducedMotion) return;
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown, reducedMotion]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || reducedMotion) return;
+    container.addEventListener("mousemove", handleMouseMove);
+    return () => container.removeEventListener("mousemove", handleMouseMove);
+  }, [handleMouseMove, reducedMotion]);
+
   const bodyTransition = loopTransition(reducedMotion, 2.8);
   const tailTransition = loopTransition(reducedMotion, 1.7);
   const headTransition = loopTransition(reducedMotion, scene.id === "implementation" ? 1.2 : 2.4);
   const pawTransition = loopTransition(reducedMotion, scene.id === "implementation" ? 0.74 : 1.5, 0.18);
-  const blinkTransition: Transition = reducedMotion
-    ? { duration: 0.18 }
-    : {
-        duration: 5.2,
-        ease: "easeInOut",
-        repeat: Number.POSITIVE_INFINITY
-      };
 
   const bodyAnimation =
     scene.id === "error"
@@ -576,135 +661,221 @@ function CatRig({ scene, reducedMotion }: { scene: SceneDefinition; reducedMotio
         ? { x: [-2, 2, -2] }
         : { x: [-1, 2, -1], y: [0, 1, 0] };
 
+  // Cute Pixar-style cat - rounded body, big head, chibi proportions
+  const catBodyPath = "M 195 195 C 185 175 195 155 225 150 C 275 145 315 160 325 185 C 335 210 320 235 285 245 C 250 255 205 250 195 225 C 190 215 190 205 195 195 Z";
+  const catBellyPath = "M 220 185 C 240 180 270 188 278 205 C 285 222 275 238 255 242 C 235 246 215 238 210 220 C 208 205 215 192 220 185 Z";
+  const catHeadPath = "M 175 105 C 155 115 148 145 155 175 C 162 205 195 220 235 218 C 275 216 310 195 320 160 C 330 125 315 95 285 85 C 255 75 225 80 205 88 C 185 95 185 95 175 105 Z";
+
+  // Cute fluffy tail
+  const catTailPath = "M 310 210 C 340 200 370 180 385 150 C 395 125 390 100 375 85 C 365 75 355 80 350 95 C 345 115 350 140 340 165 C 335 178 325 195 310 210 Z";
+
+  // Round cute ears like the reference image
+  const leftEarOuter = "M 170 95 C 160 75 155 55 165 40 C 175 28 195 32 205 48 C 212 60 210 78 200 92 C 190 100 178 102 170 95 Z";
+  const leftEarInner = "M 178 58 C 185 48 192 45 195 55 C 198 68 192 82 185 88 C 180 92 175 72 178 58 Z";
+  const rightEarOuter = "M 270 92 C 285 68 300 45 320 42 C 335 40 342 58 338 78 C 334 98 318 115 298 120 C 285 124 275 118 270 112 C 265 105 268 98 270 92 Z";
+  const rightEarInner = "M 315 55 C 322 48 328 48 330 58 C 332 70 325 88 315 95 C 308 100 308 68 315 55 Z";
+
+  // Cute stubby legs
+  const backLegLeft = "M 210 220 C 208 235 208 250 215 258 C 222 265 235 265 242 258 C 248 250 246 232 244 218 C 242 208 235 202 228 204 C 218 206 212 212 210 220 Z";
+  const backLegRight = "M 305 222 C 308 238 310 252 305 260 C 300 266 288 266 282 260 C 275 252 278 235 280 220 C 282 210 290 205 298 208 C 304 210 305 216 305 222 Z";
+  const frontLegLeft = "M 188 188 C 185 208 182 228 188 242 C 192 250 202 250 208 244 C 215 236 215 218 212 195 C 210 182 200 176 192 178 C 186 180 186 182 188 188 Z";
+
+  // Cute small muzzle and tiny nose
+  const muzzlePath = "M 215 158 C 225 152 248 154 255 162 C 262 170 252 182 238 185 C 224 188 210 180 212 168 C 214 162 214 160 215 158 Z";
+  const nosePath = "M 228 165 C 232 162 238 162 242 165 C 246 168 245 174 242 178 C 238 182 232 182 228 178 C 224 174 224 168 228 165 Z";
+  const mouthLeft = "M 235 180 Q 230 188 222 190";
+  const mouthRight = "M 237 180 Q 244 188 252 190";
+
+  // Shorter, cuter whiskers
+  const whiskerL1 = "M 205 165 Q 185 162 172 158";
+  const whiskerL2 = "M 208 172 Q 188 174 176 180";
+  const whiskerL3 = "M 206 178 Q 188 185 178 192";
+  const whiskerR1 = "M 265 165 Q 285 162 298 158";
+  const whiskerR2 = "M 262 172 Q 282 174 294 180";
+  const whiskerR3 = "M 264 178 Q 282 185 292 192";
+
   return (
-    <m.svg
-      aria-label={`${scene.title} mascot`}
-      className={styles.cat}
-      role="img"
-      viewBox="0 0 420 300"
-    >
-      <defs>
-        <linearGradient id="catBodyGradient" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="#9aa4ba" />
-          <stop offset="54%" stopColor="#6b748d" />
-          <stop offset="100%" stopColor="#3f475f" />
-        </linearGradient>
-        <linearGradient id="catCreamGradient" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="#f6efe4" />
-          <stop offset="100%" stopColor="#d3c6b5" />
-        </linearGradient>
-      </defs>
-
-      <m.ellipse
-        animate={reducedMotion ? { scaleX: 1, opacity: 0.26 } : { scaleX: [1, 0.92, 1], opacity: [0.26, 0.18, 0.26] }}
-        className={styles.shadow}
-        cx="272"
-        cy="244"
-        rx="94"
-        ry="18"
-        transition={bodyTransition}
-      />
-
-      <m.g
-        animate={reducedMotion ? { x: 0, y: 0, rotate: 0 } : bodyAnimation}
-        className={styles.catFrame}
-        transition={bodyTransition}
+    <div ref={containerRef} style={{ width: "100%", height: "100%", cursor: reducedMotion ? "default" : "pointer" }}>
+      <m.svg
+        aria-label={`${scene.title} mascot`}
+        className={styles.cat}
+        role="img"
+        viewBox="0 0 420 300"
+        style={{ y: isJumping ? jumpY : 0 }}
       >
-        <m.path
-          animate={reducedMotion ? { rotate: 0 } : tailAnimation}
-          className={styles.tail}
-          d="M 308 182 C 356 144 366 232 318 230"
-          style={{ transformOrigin: "308px 182px" }}
-          transition={tailTransition}
+        <defs>
+          <linearGradient id="catBodyGradient" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#9aa4ba" />
+            <stop offset="54%" stopColor="#6b748d" />
+            <stop offset="100%" stopColor="#3f475f" />
+          </linearGradient>
+          <linearGradient id="catCreamGradient" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#f6efe4" />
+            <stop offset="100%" stopColor="#d3c6b5" />
+          </linearGradient>
+        </defs>
+
+        <m.ellipse
+          animate={reducedMotion ? { scaleX: 1, opacity: 0.26 } : { scaleX: [1, 0.92, 1], opacity: [0.26, 0.18, 0.26] }}
+          className={styles.shadow}
+          cx="260"
+          cy="250"
+          rx="85"
+          ry="16"
+          transition={bodyTransition}
         />
-        <ellipse className={styles.body} cx="262" cy="184" rx="76" ry="56" />
-        <ellipse className={styles.belly} cx="246" cy="196" rx="38" ry="32" />
-        <rect className={styles.leg} height="66" rx="20" width="26" x="208" y="184" />
-        <rect className={styles.leg} height="66" rx="20" width="26" x="236" y="188" />
-        <rect className={styles.leg} height="68" rx="20" width="26" x="284" y="190" />
-        <rect className={styles.paw} height="18" rx="9" width="30" x="206" y="236" />
-        <rect className={styles.paw} height="18" rx="9" width="30" x="234" y="240" />
-        <rect className={styles.paw} height="18" rx="9" width="30" x="282" y="242" />
 
         <m.g
-          animate={reducedMotion ? { x: 0, y: 0, rotate: 0 } : headAnimation}
-          transition={headTransition}
+          animate={reducedMotion ? { x: 0, y: 0, rotate: 0 } : bodyAnimation}
+          className={styles.catFrame}
+          transition={bodyTransition}
         >
-          <path className={styles.ear} d="M 194 96 L 176 54 L 214 76 Z" />
-          <path className={styles.ear} d="M 264 96 L 286 56 L 244 76 Z" />
-          <path className={styles.earInner} d="M 194 88 L 186 66 L 206 78 Z" />
-          <path className={styles.earInner} d="M 264 88 L 272 66 L 252 78 Z" />
-          <circle className={styles.head} cx="230" cy="118" r="56" />
-          <ellipse className={styles.muzzle} cx="230" cy="142" rx="32" ry="20" />
-          <ellipse className={styles.cheek} cx="202" cy="138" rx="10" ry="8" />
-          <ellipse className={styles.cheek} cx="258" cy="138" rx="10" ry="8" />
-          <m.ellipse
-            animate={reducedMotion ? { scaleY: 1 } : { scaleY: [1, 1, 0.12, 1, 1] }}
-            className={styles.eye}
-            cx="210"
-            cy="116"
-            rx="12"
-            ry="14"
-            style={{ transformOrigin: "210px 116px" }}
-            transition={blinkTransition}
+          {/* Tail - animated with organic curves */}
+          <m.path
+            animate={reducedMotion ? { rotate: 0 } : tailAnimation}
+            className={styles.tail}
+            d={catTailPath}
+            style={{ transformOrigin: "326px 206px" }}
+            transition={tailTransition}
           />
-          <m.ellipse
-            animate={reducedMotion ? { scaleY: 1 } : { scaleY: [1, 1, 0.12, 1, 1] }}
-            className={styles.eye}
-            cx="248"
-            cy="116"
-            rx="12"
-            ry="14"
-            style={{ transformOrigin: "248px 116px" }}
-            transition={blinkTransition}
-          />
-          <m.circle
-            animate={reducedMotion ? { x: 0, y: 0 } : pupilAnimation}
-            className={styles.pupil}
-            cx="210"
-            cy="118"
-            r="5"
-            transition={loopTransition(reducedMotion, 3.2)}
-          />
-          <m.circle
-            animate={reducedMotion ? { x: 0, y: 0 } : pupilAnimation}
-            className={styles.pupil}
-            cx="248"
-            cy="118"
-            r="5"
-            transition={loopTransition(reducedMotion, 3.2, 0.12)}
-          />
-          <circle className={styles.eyeGlint} cx="213" cy="114" r="2" />
-          <circle className={styles.eyeGlint} cx="251" cy="114" r="2" />
-          <path className={styles.nose} d="M 224 132 L 230 138 L 236 132 Z" />
-          <path className={styles.mouth} d="M 230 138 Q 224 146 216 146" />
-          <path className={styles.mouth} d="M 230 138 Q 236 146 244 146" />
-          <path className={styles.whisker} d="M 198 142 L 168 136" />
-          <path className={styles.whisker} d="M 198 148 L 166 150" />
-          <path className={styles.whisker} d="M 262 142 L 292 136" />
-          <path className={styles.whisker} d="M 262 148 L 294 150" />
-          <SceneAccessory reducedMotion={reducedMotion} sceneId={scene.id} />
-        </m.g>
 
-        <m.rect
-          animate={reducedMotion ? { x: 0, y: 0 } : pawAnimation}
-          className={styles.frontPaw}
-          height="74"
-          rx="20"
-          width="30"
-          x="186"
-          y="182"
-          transition={pawTransition}
-        />
-        <rect className={styles.paw} height="18" rx="9" width="34" x="184" y="238" />
-      </m.g>
-    </m.svg>
+          {/* Body with organic curves */}
+          <path className={styles.body} d={catBodyPath} />
+
+          {/* Belly patch */}
+          <path className={styles.belly} d={catBellyPath} />
+
+          {/* Back legs */}
+          <path className={styles.leg} d={backLegLeft} />
+          <path className={styles.leg} d={backLegRight} />
+
+          {/* Back paws */}
+          <ellipse className={styles.paw} cx="228" cy="258" rx="16" ry="9" />
+          <ellipse className={styles.paw} cx="294" cy="260" rx="16" ry="9" />
+
+          {/* Head group with animation */}
+          <m.g
+            animate={reducedMotion ? { x: 0, y: 0, rotate: 0 } : headAnimation}
+            transition={headTransition}
+          >
+            {/* Ears */}
+            <path className={styles.ear} d={leftEarOuter} />
+            <path className={styles.ear} d={rightEarOuter} />
+            <path className={styles.earInner} d={leftEarInner} />
+            <path className={styles.earInner} d={rightEarInner} />
+
+            {/* Head */}
+            <path className={styles.head} d={catHeadPath} />
+
+            {/* Muzzle */}
+            <path className={styles.muzzle} d={muzzlePath} />
+
+            {/* Cheeks - repositioned for new head shape */}
+            <ellipse className={styles.cheek} cx="185" cy="155" rx="14" ry="12" />
+            <ellipse className={styles.cheek} cx="290" cy="153" rx="14" ry="12" />
+
+            {/* Eyes with blinking animation - bigger cute eyes */}
+            <m.ellipse
+              key={`eye-l-${blinkKey}`}
+              animate={reducedMotion ? { scaleY: 1 } : { scaleY: [1, 1, 0.12, 1, 1] }}
+              className={styles.eye}
+              cx="200"
+              cy="135"
+              rx="16"
+              ry="18"
+              style={{ transformOrigin: "200px 135px" }}
+              transition={blinkTransition}
+            />
+            <m.ellipse
+              key={`eye-r-${blinkKey}`}
+              animate={reducedMotion ? { scaleY: 1 } : { scaleY: [1, 1, 0.12, 1, 1] }}
+              className={styles.eye}
+              cx="262"
+              cy="133"
+              rx="16"
+              ry="18"
+              style={{ transformOrigin: "262px 133px" }}
+              transition={blinkTransition}
+            />
+
+            {/* Pupils with mouse tracking - bigger for cuteness */}
+            <m.ellipse
+              animate={reducedMotion ? { x: 0, y: 0 } : pupilAnimation}
+              className={styles.pupil}
+              cx="200"
+              cy="137"
+              rx="6"
+              ry="8"
+              style={{
+                x: reducedMotion ? 0 : pupilOffsetX,
+                y: reducedMotion ? 0 : pupilOffsetY,
+                transformOrigin: "200px 137px"
+              }}
+              transition={loopTransition(reducedMotion, 3.2)}
+            />
+            <m.ellipse
+              animate={reducedMotion ? { x: 0, y: 0 } : pupilAnimation}
+              className={styles.pupil}
+              cx="262"
+              cy="135"
+              rx="6"
+              ry="8"
+              style={{
+                x: reducedMotion ? 0 : pupilOffsetX,
+                y: reducedMotion ? 0 : pupilOffsetY,
+                transformOrigin: "262px 135px"
+              }}
+              transition={loopTransition(reducedMotion, 3.2, 0.12)}
+            />
+
+            {/* Eye glints - bigger for cuteness */}
+            <circle className={styles.eyeGlint} cx="204" cy="130" r="3.5" />
+            <circle className={styles.eyeGlint} cx="266" cy="128" r="3.5" />
+
+            {/* Nose with boop interaction - repositioned */}
+            <m.path
+              animate={reducedMotion ? { scale: 1 } : { scale: isBooping ? 1.2 : 1 }}
+              className={styles.nose}
+              d={nosePath}
+              onClick={handleNoseClick}
+              style={{ cursor: reducedMotion ? "default" : "pointer", transformOrigin: "235px 168px" }}
+              transition={{ duration: 0.15 }}
+            />
+
+            {/* Mouth */}
+            <path className={styles.mouth} d={mouthLeft} />
+            <path className={styles.mouth} d={mouthRight} />
+
+            {/* Whiskers with organic curves */}
+            <path className={styles.whisker} d={whiskerL1} />
+            <path className={styles.whisker} d={whiskerL2} />
+            <path className={styles.whisker} d={whiskerL3} />
+            <path className={styles.whisker} d={whiskerR1} />
+            <path className={styles.whisker} d={whiskerR2} />
+            <path className={styles.whisker} d={whiskerR3} />
+
+            <SceneAccessory reducedMotion={reducedMotion} sceneId={scene.id} />
+          </m.g>
+
+          {/* Front leg */}
+          <m.path
+            animate={reducedMotion ? { x: 0, y: 0 } : pawAnimation}
+            className={styles.frontPaw}
+            d={frontLegLeft}
+            transition={pawTransition}
+          />
+
+          {/* Front paw */}
+          <ellipse className={styles.paw} cx="188" cy="242" rx="14" ry="8" />
+        </m.g>
+      </m.svg>
+    </div>
   );
 }
 
 function SceneAccessory({ sceneId, reducedMotion }: { sceneId: SceneId; reducedMotion: boolean }) {
   if (sceneId === "spec") {
-    return <rect className={styles.visor} height="22" rx="11" width="66" x="197" y="102" />;
+    return <rect className={styles.visor} height="22" rx="11" width="66" x="193" y="112" />;
   }
 
   if (sceneId === "ghost") {
@@ -712,9 +883,9 @@ function SceneAccessory({ sceneId, reducedMotion }: { sceneId: SceneId; reducedM
       <m.circle
         animate={reducedMotion ? { scale: 1, opacity: 0.9 } : { scale: [0.92, 1.1, 0.92], opacity: [0.5, 1, 0.5] }}
         className={styles.focusRing}
-        cx="230"
-        cy="118"
-        r="44"
+        cx="226"
+        cy="130"
+        r="48"
         transition={loopTransition(reducedMotion, 1.8)}
       />
     );
@@ -723,9 +894,9 @@ function SceneAccessory({ sceneId, reducedMotion }: { sceneId: SceneId; reducedM
   if (sceneId === "digitalTwin") {
     return (
       <>
-        <circle className={styles.glasses} cx="210" cy="116" r="18" />
-        <circle className={styles.glasses} cx="248" cy="116" r="18" />
-        <line className={styles.glassesBridge} x1="228" x2="230" y1="116" y2="116" />
+        <circle className={styles.glasses} cx="196" cy="128" r="20" />
+        <circle className={styles.glasses} cx="256" cy="126" r="20" />
+        <line className={styles.glassesBridge} x1="216" x2="236" y1="128" y2="128" />
       </>
     );
   }
@@ -733,13 +904,13 @@ function SceneAccessory({ sceneId, reducedMotion }: { sceneId: SceneId; reducedM
   if (sceneId === "heatmap") {
     return (
       <>
-        <m.g animate={reducedMotion ? { rotate: 0 } : { rotate: [0, 18, 0] }} style={{ transformOrigin: "306px 174px" }} transition={loopTransition(reducedMotion, 0.9)}>
-          <rect className={styles.fanSheet} height="46" rx="12" width="34" x="288" y="150" />
-          <line className={styles.fanLine} x1="294" x2="314" y1="160" y2="160" />
-          <line className={styles.fanLine} x1="294" x2="314" y1="170" y2="170" />
-          <line className={styles.fanLine} x1="294" x2="310" y1="180" y2="180" />
+        <m.g animate={reducedMotion ? { rotate: 0 } : { rotate: [0, 18, 0] }} style={{ transformOrigin: "324px 186px" }} transition={loopTransition(reducedMotion, 0.9)}>
+          <rect className={styles.fanSheet} height="50" rx="12" width="36" x="306" y="160" />
+          <line className={styles.fanLine} x1="310" x2="338" y1="172" y2="172" />
+          <line className={styles.fanLine} x1="310" x2="338" y1="182" y2="182" />
+          <line className={styles.fanLine} x1="310" x2="334" y1="192" y2="192" />
         </m.g>
-        <path className={styles.tongue} d="M 226 150 Q 230 158 234 150" />
+        <path className={styles.tongue} d="M 222 160 Q 228 172 234 160" />
       </>
     );
   }
@@ -749,7 +920,7 @@ function SceneAccessory({ sceneId, reducedMotion }: { sceneId: SceneId; reducedM
       <m.path
         animate={reducedMotion ? { opacity: 0.95 } : { opacity: [0.35, 1, 0.35] }}
         className={styles.alertBolt}
-        d="M 228 66 L 216 92 H 230 L 220 114 L 246 84 H 234 Z"
+        d="M 224 76 L 210 106 H 226 L 214 134 L 244 100 H 228 Z"
         transition={loopTransition(reducedMotion, 1.2)}
       />
     );
@@ -760,8 +931,8 @@ function SceneAccessory({ sceneId, reducedMotion }: { sceneId: SceneId; reducedM
       <m.path
         animate={reducedMotion ? { opacity: 1, scale: 1 } : { opacity: [0.25, 1, 0.25], scale: [0.82, 1.18, 0.82] }}
         className={styles.polishStar}
-        d="M 286 78 L 292 64 L 298 78 L 312 84 L 298 90 L 292 104 L 286 90 L 272 84 Z"
-        style={{ transformOrigin: "292px 84px" }}
+        d="M 284 88 L 292 70 L 298 88 L 316 96 L 298 104 L 292 122 L 284 104 L 266 96 Z"
+        style={{ transformOrigin: "292px 96px" }}
         transition={loopTransition(reducedMotion, 1.4)}
       />
     );
