@@ -11,3 +11,10 @@ artifacts
 .env*.local
 # CodeRag index files
 .coderag-*
+
+# Claude Code working directories
+claude-code/
+.claude/
+
+# Serena tooling
+.serena/
