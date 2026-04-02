@@ -31,6 +31,18 @@ npm install
 npm run dev
 ```
 
+## CodeRag Integration
+
+CodeFlow now includes CodeRag for intelligent code retrieval:
+
+```bash
+npm install @abhinav2203/coderag@^0.2.1
+```
+
+- CodeRag indexes the codebase on blueprint builds and exports
+- Query the codebase via `POST /api/coderag` with `{ "query": "your question", "depth": 2 }`
+- Requires `GEMINI_API_KEY` in `.env` for Gemini embeddings (falls back to local-hash if not set)
+
 Then open `http://localhost:3000`.
 
 ## Test and verify

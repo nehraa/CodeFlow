@@ -12,11 +12,28 @@ import {
 } from "@/lib/blueprint/approval-store";
 import { createCheckpointIfNeeded } from "@/lib/blueprint/checkpoint-store";
 import { createRunId, saveRunRecord } from "@/lib/blueprint/run-store";
-import { upsertSession } from "@/lib/blueprint/session-store";
+import { loadLatestSession, upsertSession } from "@/lib/blueprint/session-store";
+import { initCodeRag } from "@/lib/coderag";
 
 export async function POST(request: Request) {
   try {
     const payload = exportBlueprintRequestSchema.parse(await request.json());
+    const existingSession = await loadLatestSession(payload.graph.projectName);
+    const repoPath = existingSession?.repoPath;
+    const reindexCodeRag = async (docsDir: string): Promise<void> => {
+      if (!repoPath) {
+        console.warn("[CodeFlow] Skipping CodeRag re-index because no repoPath is stored for the project", {
+          projectName: payload.graph.projectName
+        });
+        return;
+      }
+
+      try {
+        await initCodeRag(payload.graph.projectName, repoPath, docsDir);
+      } catch (error) {
+        console.warn("CodeRag re-indexing failed:", error instanceof Error ? error.message : error);
+      }
+    };
     const runPlan = createRunPlan(payload.graph);
     const assessment = await assessExportRisk(payload.graph, runPlan, payload.outputDir);
     const runId = createRunId();
@@ -92,6 +109,8 @@ export async function POST(request: Request) {
               targetDir: assessment.outputDir
             });
 
+            await reindexCodeRag(sandboxResult.docsDir);
+
             return {
               ...sandboxResult,
               rootDir: assessment.outputDir,
@@ -105,6 +124,11 @@ export async function POST(request: Request) {
             executionReport,
             payload.codeDrafts
           );
+
+    if (payload.graph.mode !== "yolo") {
+      await reindexCodeRag(result.docsDir);
+    }
+
     const finalResult = checkpointDir ? { ...result, checkpointDir } : result;
     const session = await upsertSession({
       graph: payload.graph,
