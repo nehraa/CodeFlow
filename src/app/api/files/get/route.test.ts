@@ -98,13 +98,6 @@ describe("GET /api/files/get", () => {
 
   it("returns 400 when path is a directory", async () => {
     await fs.mkdir(path.join(tmpDir, "sub"), { recursive: true });
-    // We need a valid extension trick – directories won't pass extension check anyway.
-    // So test via a file path that resolves to a directory name with an allowed extension
-    // isn't practical; instead check the is-directory guard by creating a
-    // sub/index.ts directory (unusual but valid).
-    // The more realistic test: validateFilePath passes (valid path), fileExists passes,
-    // but stat shows it's a directory.  Achieve this by calling GET with a path that
-    // points to a file with an allowed extension that IS actually a directory.
     // Create a directory named "src.ts" (unusual, but tests the guard).
     await fs.mkdir(path.join(tmpDir, "src.ts"));
 
