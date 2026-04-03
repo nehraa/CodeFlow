@@ -4,6 +4,8 @@ import { z } from "zod";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
+import { useBlueprintStore } from "@/store/blueprint-store";
+
 import { CodeflowCatLogo } from "@/components/codeflow-brand";
 import { CodeEditor } from "@/components/code-editor";
 import { CodeflowCatShowcase } from "@/components/codeflow-cat-showcase";
@@ -266,6 +268,8 @@ function ToolbarMenuSection({ title, children }: { title: string; children: Reac
 }
 
 export function BlueprintWorkbench() {
+  const { setGraph: syncGraphToStore, setSelectedNodeId: syncSelectedToStore, setRepoPath: syncRepoPathToStore, mode: workbenchMode, setMode: setWorkbenchMode } = useBlueprintStore();
+
   const MIN_OBSERVABILITY_INTERVAL_SECS = 2;
   const [projectName, setProjectName] = useState("CodeFlow Workspace");
   const [repoPath, setRepoPath] = useState("");
@@ -543,6 +547,13 @@ export function BlueprintWorkbench() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Cmd/Ctrl+Shift+E to toggle IDE mode
+      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key === "E") {
+        event.preventDefault();
+        setWorkbenchMode(workbenchMode === "graph" ? "ide" : "graph");
+        return;
+      }
+
       if ((event.key === "Delete" || event.key === "Backspace") && !drilldownNodeId && graph && selectedNodeId) {
         setGraph(deleteNodeFromGraph(graph, selectedNodeId));
         setSelectedNodeId(null);
@@ -551,7 +562,7 @@ export function BlueprintWorkbench() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [drilldownNodeId, graph, selectedNodeId]);
+  }, [drilldownNodeId, graph, selectedNodeId, workbenchMode, setWorkbenchMode]);
 
   useEffect(() => {
     if (!openToolbarMenu) {
