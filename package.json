@@ -10,11 +10,15 @@
     "lint": "eslint . --max-warnings=0",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "codeflow": "tsx scripts/start-codeflow.ts",
+    "codeflow:dev": "tsx scripts/start-codeflow.ts dev",
+    "codeflow:build": "tsx scripts/start-codeflow.ts build",
+    "codeflow:test": "tsx scripts/start-codeflow.ts test",
+    "codeflow:check": "tsx scripts/start-codeflow.ts check"
   },
   "dependencies": {
     "@abhinav2203/coderag": "^0.2.1",
-    "react-rnd": "^10.4.13",
     "@monaco-editor/react": "^4.7.0",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
@@ -24,12 +28,14 @@
     "next": "^16.1.6",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "react-rnd": "^10.4.13",
     "three": "^0.183.2",
     "ts-morph": "^27.0.2",
     "typescript": "^5.9.3",
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
@@ -40,6 +46,7 @@
     "eslint-config-next": "^16.2.1",
     "jsdom": "^28.1.0",
     "tinyexec": "^1.0.2",
+    "tsx": "^4.21.0",
     "vitest": "^4.1.0"
   }
 }
