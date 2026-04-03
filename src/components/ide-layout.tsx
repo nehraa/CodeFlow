@@ -5,6 +5,7 @@ import { Rnd, type RndResizeCallback } from "react-rnd";
 
 import { FileTree } from "@/components/file-tree";
 import { GraphCanvas } from "@/components/graph-canvas";
+import { getNavigationTarget, hasNavigationMetadata } from "@/lib/blueprint/node-navigation";
 import { useBlueprintStore } from "@/store/blueprint-store";
 import {
   readFloatingGraph,
@@ -89,6 +90,33 @@ export function IdeLayout({ children }: { children: React.ReactNode }): JSX.Elem
       writeFloatingGraph({ x, y, width, height });
     }
   }, [floatingGraph]);
+
+  // Graph-to-editor navigation: when a node is selected, open its source file
+  useEffect(() => {
+    if (!isIdeMode || !selectedNodeId || !graph) return;
+
+    const node = graph.nodes.find((n) => n.id === selectedNodeId);
+    if (!node) return;
+
+    // Check if node has navigation metadata
+    if (!hasNavigationMetadata(node)) {
+      console.debug(`Node ${node.name} has no source location metadata`);
+      return;
+    }
+
+    const target = getNavigationTarget(node);
+    if (target) {
+      // Open the file and switch to IDE mode if needed
+      const files = openFiles.includes(target.filePath)
+        ? openFiles
+        : [...openFiles, target.filePath];
+      setOpenFiles(files);
+      setActiveFile(target.filePath);
+
+      // TODO: Scroll Monaco to the exact line (requires editor ref)
+      console.debug(`Navigating to ${target.filePath}:${target.lineNumber}`);
+    }
+  }, [selectedNodeId, graph, isIdeMode, openFiles, setOpenFiles, setActiveFile]);
 
   const handleFloatingGraphDragStop = useCallback(
     (_: unknown, d: { x: number; y: number }) => {
