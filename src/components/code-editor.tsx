@@ -8,6 +8,7 @@ import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
 import tsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker";
 
 import type { BlueprintGraph } from "@/lib/blueprint/schema";
+import { getTypeScriptLanguageService } from "./ts-language-service";
 
 // Configure Monaco workers before any Monaco initialization
 self.MonacoEnvironment = {
