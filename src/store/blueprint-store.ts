@@ -9,6 +9,11 @@ export interface BlueprintStore {
   graph: BlueprintGraph | null;
   setGraph: (next: GraphStateUpdater) => void;
   updateNode: (id: string, patch: NodeUpdater) => void;
+  openFiles: string[];
+  activeFile: string | null;
+  setOpenFiles: (paths: string[]) => void;
+  setActiveFile: (path: string | null) => void;
+  closeFile: (path: string) => void;
 }
 
 const resolveGraphUpdate = (
@@ -38,6 +43,29 @@ export const useBlueprintStore = create<BlueprintStore>((set) => ({
             node.id === id ? resolveNodeUpdate(node, patch) : node
           )
         }
+      };
+    }),
+  openFiles: [],
+  activeFile: null,
+  setOpenFiles: (paths) =>
+    set(() => ({
+      openFiles: paths
+    })),
+  setActiveFile: (path) =>
+    set(() => ({
+      activeFile: path
+    })),
+  closeFile: (path) =>
+    set((state) => {
+      const nextOpenFiles = state.openFiles.filter((f) => f !== path);
+      const nextActiveFile =
+        state.activeFile === path
+          ? nextOpenFiles[nextOpenFiles.length - 1] ?? null
+          : state.activeFile;
+
+      return {
+        openFiles: nextOpenFiles,
+        activeFile: nextActiveFile
       };
     })
 }));
