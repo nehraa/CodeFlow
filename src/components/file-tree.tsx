@@ -17,6 +17,7 @@ type FileTreeNode = FileNode & {
 
 type FileTreeProps = {
   onFileSelect: (path: string) => void;
+  selectedPath?: string;
 };
 
 const FILE_LIST_API_ENDPOINT = "/api/files/list";
@@ -40,12 +41,14 @@ function FileTreeItem({
   node,
   depth,
   onToggle,
-  onSelect
+  onSelect,
+  selectedPath
 }: {
   node: FileTreeNode;
   depth: number;
   onToggle: (path: string) => void;
   onSelect: (path: string) => void;
+  selectedPath?: string;
 }): JSX.Element {
   const handleToggle = useCallback(() => {
     onToggle(node.path);
@@ -75,9 +78,10 @@ function FileTreeItem({
             }
           }
         }}
-        role={node.isDirectory ? "button" : "listitem"}
-        tabIndex={node.isDirectory ? 0 : -1}
+        role="treeitem"
+        tabIndex={0}
         aria-expanded={node.isDirectory ? node.isExpanded : undefined}
+        aria-selected={!node.isDirectory ? node.path === selectedPath : undefined}
       >
         {node.isDirectory && (
           <span className={`file-tree-chevron ${node.isExpanded ? "expanded" : ""}`}>
@@ -110,6 +114,7 @@ function FileTreeItem({
                 depth={depth + 1}
                 onToggle={onToggle}
                 onSelect={onSelect}
+                selectedPath={selectedPath}
               />
             ))
           ) : (
@@ -123,9 +128,9 @@ function FileTreeItem({
   );
 }
 
-export function FileTree({ onFileSelect }: FileTreeProps): JSX.Element {
+export function FileTree({ onFileSelect, selectedPath }: FileTreeProps): JSX.Element {
   const [rootNode, setRootNode] = useState<FileTreeNode>({
-    path: "/",
+    path: ".",
     name: "root",
     isDirectory: true,
     isExpanded: false,
@@ -219,6 +224,7 @@ export function FileTree({ onFileSelect }: FileTreeProps): JSX.Element {
         depth={0}
         onToggle={expandNode}
         onSelect={onFileSelect}
+        selectedPath={selectedPath}
       />
     </div>
   );

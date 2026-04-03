@@ -1,5 +1,5 @@
-import { readdir, stat } from "fs/promises";
-import { join, basename } from "path";
+import { readdir, stat } from "node:fs/promises";
+import { join, basename } from "node:path";
 
 /**
  * Information about a file or directory in the repository.

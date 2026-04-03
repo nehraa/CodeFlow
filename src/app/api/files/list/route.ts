@@ -31,22 +31,39 @@ function hasAllowedExtension(filename: string): boolean {
 export async function POST(request: Request) {
   try {
     const payload = listFilesRequestSchema.parse(await request.json());
-    const dirPath = path.resolve(payload.path);
+    const rootDir = process.cwd();
+    const dirPath = path.resolve(rootDir, payload.path);
 
-    let entries: string[];
+    const rel = path.relative(rootDir, dirPath);
+    if (rel.startsWith("..") || path.isAbsolute(rel)) {
+      return NextResponse.json(
+        { error: "Access to the requested path is not allowed" },
+        { status: 400 }
+      );
+    }
+
+    let dirStat;
     try {
-      entries = await readdir(dirPath);
+      dirStat = await stat(dirPath);
     } catch (error) {
-      if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-        return NextResponse.json(
-          { error: "Directory not found" },
-          { status: 404 }
-        );
+      if (error instanceof Error && "code" in error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code === "ENOENT") {
+          return NextResponse.json(
+            { error: "Directory not found" },
+            { status: 404 }
+          );
+        }
+        if (code === "EACCES") {
+          return NextResponse.json(
+            { error: "Permission denied" },
+            { status: 403 }
+          );
+        }
       }
       throw error;
     }
 
-    const dirStat = await stat(dirPath);
     if (!dirStat.isDirectory()) {
       return NextResponse.json(
         { error: "Path is not a directory" },
@@ -54,26 +71,27 @@ export async function POST(request: Request) {
       );
     }
 
-    const fileEntries: FileEntry[] = [];
+    const entries = await readdir(dirPath, { withFileTypes: true });
 
-    for (const entryName of entries) {
-      const entryPath = path.join(dirPath, entryName);
+    const entryResults = await Promise.all(
+      entries.map(async (entry) => {
+        const isDirectory = entry.isDirectory();
 
-      try {
-        const entryStat = await stat(entryPath);
-        const isDirectory = entryStat.isDirectory();
-
-        if (isDirectory || hasAllowedExtension(entryName)) {
-          fileEntries.push({
-            path: entryPath,
-            name: entryName,
-            isDirectory
-          });
+        if (!isDirectory && !hasAllowedExtension(entry.name)) {
+          return null;
         }
-      } catch {
-        continue;
-      }
-    }
+
+        const entryPath = path.join(dirPath, entry.name);
+
+        return {
+          path: path.relative(rootDir, entryPath),
+          name: entry.name,
+          isDirectory
+        };
+      })
+    );
+
+    const fileEntries: FileEntry[] = entryResults.filter((entry): entry is FileEntry => entry !== null);
 
     fileEntries.sort((a, b) => {
       if (a.isDirectory && !b.isDirectory) return -1;

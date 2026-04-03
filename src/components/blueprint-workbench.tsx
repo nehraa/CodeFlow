@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { CodeflowCatLogo } from "@/components/codeflow-brand";
 import { CodeEditor } from "@/components/code-editor";
 import { CodeflowCatShowcase } from "@/components/codeflow-cat-showcase";
+import { FileTabs } from "@/components/file-tabs";
 import { GraphCanvas } from "@/components/graph-canvas";
 import { generateNodeCode, getNodeStubPath, isCodeBearingNode } from "@/lib/blueprint/codegen";
 import { addEdgeToGraph, addNodeToGraph, deleteNodeFromGraph } from "@/lib/blueprint/edit";
@@ -384,6 +385,7 @@ export function BlueprintWorkbench() {
   const [showGeneticPanel, setShowGeneticPanel] = useState(false);
   const [showMascotPanel, setShowMascotPanel] = useState(false);
   const [showPhasePanel, setShowPhasePanel] = useState(false);
+  const [showFilePanel, setShowFilePanel] = useState(false);
   const [geneticGenerations, setGeneticGenerations] = useState(3);
   const [geneticPopulationSize, setGeneticPopulationSize] = useState(6);
   const [tournamentResult, setTournamentResult] = useState<TournamentResult | null>(null);
@@ -2468,6 +2470,9 @@ export function BlueprintWorkbench() {
                 <button disabled={!graph} onClick={() => runToolbarAction(() => setShowEditPanel((current) => !current))} type="button">
                   {showEditPanel ? "Hide edit graph" : "Edit graph"}
                 </button>
+                <button disabled={!graph} onClick={() => runToolbarAction(() => setShowFilePanel((current) => !current))} type="button">
+                  {showFilePanel ? "Hide file explorer" : "File explorer"}
+                </button>
                 <button
                   disabled={!graph}
                   onClick={() =>
@@ -4082,6 +4087,18 @@ export function BlueprintWorkbench() {
               <p>Click &quot;Run tournament&quot; to evolve and benchmark architecture variants.</p>
             </div>
           )}
+        </aside>
+      ) : null}
+
+      {showFilePanel && graph ? (
+        <aside className="floating-panel file-explorer-panel">
+          <div className="floating-panel-header">
+            <h2>File Explorer</h2>
+            <button onClick={() => setShowFilePanel(false)} type="button">
+              Close
+            </button>
+          </div>
+          <FileTabs />
         </aside>
       ) : null}
 

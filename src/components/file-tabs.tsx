@@ -21,7 +21,7 @@ function getLanguageFromPath(filePath: string): "typescript" | "javascript" | "j
 }
 
 function getFileName(filePath: string): string {
-  const parts = filePath.split("/");
+  const parts = filePath.split(/[\\/]/);
   return parts[parts.length - 1] ?? filePath;
 }
 
@@ -72,7 +72,7 @@ export function FileTabs(): JSX.Element {
   return (
     <div className="file-tabs-container">
       <div className="file-tree-panel">
-        <FileTree onFileSelect={handleFileSelect} />
+        <FileTree onFileSelect={handleFileSelect} selectedPath={activeFile ?? undefined} />
       </div>
 
       <div className="editor-panel">
@@ -81,29 +81,31 @@ export function FileTabs(): JSX.Element {
             <div className="no-tabs">No files open</div>
           ) : (
             openFiles.map((path) => (
-              <button
-                key={path}
-                className={`tab ${path === activeFile ? "active" : ""}`}
-                onClick={() => handleTabClick(path)}
-                role="tab"
-                aria-selected={path === activeFile}
-              >
-                <span className="tab-icon">
-                  {path.endsWith(".tsx") || path.endsWith(".ts") ? "📘" :
-                   path.endsWith(".js") || path.endsWith(".jsx") ? "📒" :
-                   path.endsWith(".json") ? "📋" :
-                   path.endsWith(".md") ? "📝" : "📄"}
-                </span>
-                <span className="tab-name">{getFileName(path)}</span>
-                <span
+              <div key={path} className={`tab ${path === activeFile ? "active" : ""}`}>
+                <button
+                  className="tab-content"
+                  onClick={() => handleTabClick(path)}
+                  role="tab"
+                  aria-selected={path === activeFile}
+                  type="button"
+                >
+                  <span className="tab-icon">
+                    {path.endsWith(".tsx") || path.endsWith(".ts") ? "📘" :
+                     path.endsWith(".js") || path.endsWith(".jsx") ? "📒" :
+                     path.endsWith(".json") ? "📋" :
+                     path.endsWith(".md") ? "📝" : "📄"}
+                  </span>
+                  <span className="tab-name">{getFileName(path)}</span>
+                </button>
+                <button
                   className="tab-close"
                   onClick={(e) => handleCloseFile(path, e)}
-                  role="button"
+                  type="button"
                   aria-label={`Close ${getFileName(path)}`}
                 >
                   ×
-                </span>
-              </button>
+                </button>
+              </div>
             ))
           )}
         </div>
