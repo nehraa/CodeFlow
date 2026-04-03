@@ -102,10 +102,11 @@ function checkForbiddenPatterns(filePath: string): {
   isSafe: boolean;
   reason?: string;
 } {
-  const normalized = normalize(filePath);
-
-  // Check for parent directory traversal (..)
-  const segments = normalized.split(/[\/\\]/);
+  // Split on raw separators WITHOUT normalizing first.
+  // path.normalize() collapses ".." and can strip dotfile segments (e.g.
+  // ".env/../foo.txt" becomes "foo.txt"), which would silently defeat the
+  // traversal and dotfile checks below.
+  const segments = filePath.split(/[/\\]/);
   for (const segment of segments) {
     if (segment === "..") {
       return { isSafe: false, reason: "Path contains parent directory traversal" };
@@ -212,7 +213,13 @@ export function validateFilePath(
   const pathToCheck =
     platform === "win32" ? normalizedResolved.toLowerCase() : normalizedResolved;
 
-  if (!pathToCheck.startsWith(rootToCheck)) {
+  // Use a separator-aware containment check to avoid false positives when the
+  // repo root is a prefix of another directory name (e.g. /repo vs /repo2).
+  const normalizedSep = platform === "win32" ? "\\" : "/";
+  const withinRoot =
+    pathToCheck === rootToCheck ||
+    pathToCheck.startsWith(rootToCheck + normalizedSep);
+  if (!withinRoot) {
     throw new FileSecurityError(
       "Resolved path escapes repository root directory",
       "PATH_ESCAPE",
@@ -240,8 +247,12 @@ export async function ensureFileIsWithinRepo(
   try {
     const root = getRepoRoot(repoRoot);
 
-    // Resolve symlinks and get canonical paths
-    const resolvedFilePath = await realpath(resolve(filePath));
+    // Resolve relative paths against the repository root, then resolve
+    // symlinks and get canonical paths.
+    const candidatePath = isAbsolute(filePath)
+      ? filePath
+      : resolve(root, filePath);
+    const resolvedFilePath = await realpath(candidatePath);
     const resolvedRepoRoot = await realpath(root);
 
     // Normalize paths for comparison

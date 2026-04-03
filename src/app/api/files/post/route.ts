@@ -5,7 +5,6 @@ import { z } from "zod";
 import {
   validateFilePath,
   FileSecurityError,
-  fileExists,
   ensureFileIsWithinRepo,
 } from "@/lib/file-security";
 
@@ -45,7 +44,7 @@ export async function POST(request: Request): Promise<Response> {
     if (!parseResult.success) {
       return NextResponse.json<FileErrorResponse>(
         {
-          error: parseResult.error.errors.map((e) => e.message).join(", "),
+          error: parseResult.error.issues.map((e) => e.message).join(", "),
           code: "VALIDATION_ERROR",
         },
         { status: 400 }
@@ -68,26 +67,40 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     const dirPath = path.dirname(validatedPath);
-    const allPathsWithinRepo = await Promise.all([
-      ensureFileIsWithinRepo(dirPath, REPO_ROOT),
-      ensureFileIsWithinRepo(validatedPath, REPO_ROOT),
-    ]);
 
-    if (!allPathsWithinRepo.every(Boolean)) {
+    // Create parent directories first so that realpath() can resolve the
+    // directory when ensureFileIsWithinRepo() performs its symlink check.
+    await fs.mkdir(dirPath, { recursive: true });
+
+    // Defense-in-depth: verify the created directory resolves within the repo
+    // root after symlink resolution.
+    const dirWithinRepo = await ensureFileIsWithinRepo(dirPath, REPO_ROOT);
+    if (!dirWithinRepo) {
       return NextResponse.json<FileErrorResponse>(
         { error: "Path escapes repository root", code: "PATH_ESCAPE" },
         { status: 403 }
       );
     }
 
-    await fs.mkdir(dirPath, { recursive: true });
+    // Check file existence (F_OK) before writing so we can report whether
+    // this is a create or update.  R_OK would give a false negative for
+    // files that exist but are not readable.
+    let existed = false;
+    try {
+      await fs.access(validatedPath, fs.constants.F_OK);
+      existed = true;
+    } catch {
+      // File does not exist – this is a create operation.
+    }
 
-    const existed = await fileExists(validatedPath);
+    const fileData =
+      encoding === "base64" ? Buffer.from(content, "base64") : content;
 
-    const decodedContent =
-      encoding === "base64" ? Buffer.from(content, "base64").toString("utf-8") : content;
-
-    await fs.writeFile(validatedPath, decodedContent, "utf-8");
+    if (typeof fileData === "string") {
+      await fs.writeFile(validatedPath, fileData, "utf-8");
+    } else {
+      await fs.writeFile(validatedPath, fileData);
+    }
 
     const stats = await fs.stat(validatedPath);
 
