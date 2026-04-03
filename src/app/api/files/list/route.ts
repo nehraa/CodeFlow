@@ -4,6 +4,9 @@ import path from "node:path";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+const DEFAULT_REPO_ROOT = process.env.CODEFLOW_REPO_ROOT ?? process.cwd();
+const REPO_PATH_HEADER = "x-codeflow-repo-path";
+
 const listFilesRequestSchema = z.object({
   path: z.string().min(1)
 });
@@ -31,7 +34,8 @@ function hasAllowedExtension(filename: string): boolean {
 export async function POST(request: Request) {
   try {
     const payload = listFilesRequestSchema.parse(await request.json());
-    const rootDir = process.cwd();
+    const repoPathHeader = request.headers.get(REPO_PATH_HEADER);
+    const rootDir = repoPathHeader || DEFAULT_REPO_ROOT;
     const dirPath = path.resolve(rootDir, payload.path);
 
     const rel = path.relative(rootDir, dirPath);

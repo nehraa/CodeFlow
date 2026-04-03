@@ -2,6 +2,8 @@
 
 import { useCallback, useState } from "react";
 
+import { useBlueprintStore } from "@/store/blueprint-store";
+
 type FileNode = {
   path: string;
   name: string;
@@ -22,10 +24,14 @@ type FileTreeProps = {
 
 const FILE_LIST_API_ENDPOINT = "/api/files/list";
 
-async function fetchFileList(directoryPath: string): Promise<FileNode[]> {
+async function fetchFileList(directoryPath: string, repoPath: string | null): Promise<FileNode[]> {
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (repoPath) {
+    headers["x-codeflow-repo-path"] = repoPath;
+  }
   const response = await fetch(FILE_LIST_API_ENDPOINT, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers,
     body: JSON.stringify({ path: directoryPath })
   });
 
@@ -129,6 +135,7 @@ function FileTreeItem({
 }
 
 export function FileTree({ onFileSelect, selectedPath }: FileTreeProps): JSX.Element {
+  const { repoPath } = useBlueprintStore();
   const [rootNode, setRootNode] = useState<FileTreeNode>({
     path: ".",
     name: "root",
@@ -158,7 +165,7 @@ export function FileTree({ onFileSelect, selectedPath }: FileTreeProps): JSX.Ele
 
         void (async () => {
           try {
-            const files = await fetchFileList(path);
+            const files = await fetchFileList(path, repoPath);
             const sortedFiles = files.sort((a, b) => {
               if (a.isDirectory !== b.isDirectory) {
                 return a.isDirectory ? -1 : 1;
