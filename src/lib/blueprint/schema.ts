@@ -101,6 +101,16 @@ export const sourceRefSchema = z.object({
 });
 export type SourceRef = z.infer<typeof sourceRefSchema>;
 
+export const sourceLocationSchema = z.object({
+  filePath: z.string(),
+  startLine: z.number().int().positive(),
+  endLine: z.number().int().positive(),
+  startColumn: z.number().int().nonnegative().optional(),
+  endColumn: z.number().int().nonnegative().optional(),
+  symbolName: z.string().optional()
+});
+export type SourceLocation = z.infer<typeof sourceLocationSchema>;
+
 export const traceStateSchema = z.object({
   status: traceStatusSchema,
   count: z.number().int().nonnegative(),
@@ -165,7 +175,8 @@ export const blueprintNodeSchema = z.object({
   specDraft: z.string().optional(),
   implementationDraft: z.string().optional(),
   lastVerification: nodeVerificationSchema.optional(),
-  mcpServers: z.array(mcpServerConfigSchema).optional()
+  mcpServers: z.array(mcpServerConfigSchema).optional(),
+  sourceLocation: sourceLocationSchema.optional()
 });
 export type BlueprintNode = z.input<typeof blueprintNodeSchema>;
 export type MaterializedBlueprintNode = z.infer<typeof blueprintNodeSchema>;
