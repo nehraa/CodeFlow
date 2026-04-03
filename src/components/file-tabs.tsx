@@ -26,7 +26,7 @@ function getFileName(filePath: string): string {
 }
 
 export function FileTabs(): JSX.Element {
-  const { openFiles, activeFile, setActiveFile, closeFile, setOpenFiles } = useBlueprintStore();
+  const { openFiles, activeFile, setActiveFile, closeFile, setOpenFiles, repoPath, dirtyFiles, setFileDirty, clearFileDirty } = useBlueprintStore();
   const [fileContents, setFileContents] = useState<Record<string, string>>({});
 
   const handleFileSelect = useCallback((path: string) => {
@@ -45,15 +45,44 @@ export function FileTabs(): JSX.Element {
 
   const handleContentChange = useCallback((path: string, value: string) => {
     setFileContents((prev) => ({ ...prev, [path]: value }));
-  }, []);
+    setFileDirty(path, true);
+  }, [setFileDirty]);
+
+  const handleSave = useCallback(async (path: string) => {
+    const content = fileContents[path];
+    if (!content) return;
+
+    const headers: Record<string, string> = { "content-type": "application/json" };
+    if (repoPath) {
+      headers["x-codeflow-repo-path"] = repoPath;
+    }
+
+    try {
+      const res = await fetch("/api/files/post", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ path, content })
+      });
+      if (res.ok) {
+        setFileDirty(path, false);
+        clearFileDirty(path);
+      }
+    } catch (err) {
+      console.error("Save failed:", err);
+    }
+  }, [fileContents, repoPath, setFileDirty, clearFileDirty]);
 
   useEffect(() => {
     if (!activeFile) return;
 
     if (!(activeFile in fileContents)) {
+      const headers: Record<string, string> = { "content-type": "application/json" };
+      if (repoPath) {
+        headers["x-codeflow-repo-path"] = repoPath;
+      }
       fetch("/api/files/get", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers,
         body: JSON.stringify({ path: activeFile })
       })
         .then((res) => {

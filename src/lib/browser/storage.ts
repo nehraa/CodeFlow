@@ -5,6 +5,9 @@ export const NVIDIA_API_KEY_SESSION_STORAGE_KEY = "codeflow_nvidia_api_key_sessi
 export const LIVE_COMPLETIONS_STORAGE_KEY = "codeflow_live_completions";
 export const AUTO_IMPLEMENT_STORAGE_KEY = "codeflow_auto_implement";
 export const THEME_STORAGE_KEY = "codeflow_theme";
+export const WORKBENCH_MODE_STORAGE_KEY = "codeflow_workbench_mode";
+export const FLOATING_GRAPH_STORAGE_KEY = "codeflow_floating_graph";
+export const REPO_PATH_STORAGE_KEY = "codeflow_repo_path";
 
 type StorageKind = "local" | "session";
 
@@ -79,4 +82,41 @@ export function storeSessionApiKey(value: string) {
   const trimmed = value.trim();
   writeStoredValue("session", NVIDIA_API_KEY_SESSION_STORAGE_KEY, trimmed || null);
   writeStoredValue("local", LEGACY_NVIDIA_API_KEY_STORAGE_KEY, null);
+}
+
+export interface StoredFloatingGraph {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export function readWorkbenchMode(): "graph" | "ide" | null {
+  return readLocalPreference(WORKBENCH_MODE_STORAGE_KEY) as "graph" | "ide" | null;
+}
+
+export function writeWorkbenchMode(mode: "graph" | "ide") {
+  writeLocalPreference(WORKBENCH_MODE_STORAGE_KEY, mode);
+}
+
+export function readFloatingGraph(): StoredFloatingGraph | null {
+  const value = readLocalPreference(FLOATING_GRAPH_STORAGE_KEY);
+  if (!value) return null;
+  try {
+    return JSON.parse(value) as StoredFloatingGraph;
+  } catch {
+    return null;
+  }
+}
+
+export function writeFloatingGraph(panel: StoredFloatingGraph) {
+  writeLocalPreference(FLOATING_GRAPH_STORAGE_KEY, JSON.stringify(panel));
+}
+
+export function readRepoPath(): string | null {
+  return readLocalPreference(REPO_PATH_STORAGE_KEY);
+}
+
+export function writeRepoPath(path: string | null) {
+  writeLocalPreference(REPO_PATH_STORAGE_KEY, path);
 }

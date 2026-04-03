@@ -10,7 +10,8 @@ import {
   fileExists,
 } from "@/lib/file-security";
 
-const REPO_ROOT = process.env.CODEFLOW_REPO_ROOT ?? process.cwd();
+const DEFAULT_REPO_ROOT = process.env.CODEFLOW_REPO_ROOT ?? process.cwd();
+const REPO_PATH_HEADER = "x-codeflow-repo-path";
 
 interface FileErrorResponse {
   error: string;
@@ -21,6 +22,8 @@ export async function GET(request: Request): Promise<Response> {
   try {
     const url = new URL(request.url);
     const filePathParam = url.searchParams.get("path");
+    const repoPathHeader = request.headers.get(REPO_PATH_HEADER);
+    const repoRoot = repoPathHeader || DEFAULT_REPO_ROOT;
 
     if (!filePathParam) {
       return NextResponse.json<FileErrorResponse>(
@@ -31,7 +34,7 @@ export async function GET(request: Request): Promise<Response> {
 
     let validatedPath: string;
     try {
-      validatedPath = validateFilePath(filePathParam, REPO_ROOT);
+      validatedPath = validateFilePath(filePathParam, repoRoot);
     } catch (error) {
       if (error instanceof FileSecurityError) {
         return NextResponse.json<FileErrorResponse>(

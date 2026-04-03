@@ -8,7 +8,8 @@ import {
   ensureFileIsWithinRepo,
 } from "@/lib/file-security";
 
-const REPO_ROOT = process.env.CODEFLOW_REPO_ROOT ?? process.cwd();
+const DEFAULT_REPO_ROOT = process.env.CODEFLOW_REPO_ROOT ?? process.cwd();
+const REPO_PATH_HEADER = "x-codeflow-repo-path";
 
 const fileWriteSchema = z.object({
   path: z.string().min(1, "Path is required"),
@@ -53,9 +54,12 @@ export async function POST(request: Request): Promise<Response> {
 
     const { path: filePathParam, content, encoding } = parseResult.data;
 
+    const repoPathHeader = request.headers.get(REPO_PATH_HEADER);
+    const repoRoot = repoPathHeader || DEFAULT_REPO_ROOT;
+
     let validatedPath: string;
     try {
-      validatedPath = validateFilePath(filePathParam, REPO_ROOT);
+      validatedPath = validateFilePath(filePathParam, repoRoot);
     } catch (error) {
       if (error instanceof FileSecurityError) {
         return NextResponse.json<FileErrorResponse>(
@@ -74,7 +78,7 @@ export async function POST(request: Request): Promise<Response> {
 
     // Defense-in-depth: verify the created directory resolves within the repo
     // root after symlink resolution.
-    const dirWithinRepo = await ensureFileIsWithinRepo(dirPath, REPO_ROOT);
+    const dirWithinRepo = await ensureFileIsWithinRepo(dirPath, repoRoot);
     if (!dirWithinRepo) {
       return NextResponse.json<FileErrorResponse>(
         { error: "Path escapes repository root", code: "PATH_ESCAPE" },
@@ -83,7 +87,7 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     // Check file existence (F_OK) before writing so we can report whether
-    // this is a create or update.  R_OK would give a false negative for
+    // this is a create or update. R_OK would give a false negative for
     // files that exist but are not readable.
     let existed = false;
     try {

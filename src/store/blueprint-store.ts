@@ -1,9 +1,21 @@
+"use client";
+
 import { create } from "zustand";
 
 import type { BlueprintGraph, BlueprintNode } from "@abhinav2203/codeflow-core/schema";
 
 type GraphStateUpdater = BlueprintGraph | null | ((current: BlueprintGraph | null) => BlueprintGraph | null);
 type NodeUpdater = Partial<BlueprintNode> | ((node: BlueprintNode) => BlueprintNode);
+
+export type WorkbenchMode = "graph" | "ide";
+
+export interface FloatingGraphPanel {
+  visible: boolean;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
 
 export interface BlueprintStore {
   graph: BlueprintGraph | null;
@@ -14,6 +26,17 @@ export interface BlueprintStore {
   setOpenFiles: (paths: string[]) => void;
   setActiveFile: (path: string | null) => void;
   closeFile: (path: string) => void;
+  repoPath: string | null;
+  setRepoPath: (path: string | null) => void;
+  mode: WorkbenchMode;
+  setMode: (mode: WorkbenchMode) => void;
+  floatingGraph: FloatingGraphPanel;
+  setFloatingGraph: (panel: Partial<FloatingGraphPanel>) => void;
+  selectedNodeId: string | null;
+  setSelectedNodeId: (id: string | null) => void;
+  dirtyFiles: Record<string, boolean>;
+  setFileDirty: (path: string, dirty: boolean) => void;
+  clearFileDirty: (path: string) => void;
 }
 
 const resolveGraphUpdate = (
@@ -35,7 +58,6 @@ export const useBlueprintStore = create<BlueprintStore>((set) => ({
       if (!state.graph) {
         return state;
       }
-
       return {
         graph: {
           ...state.graph,
@@ -65,7 +87,42 @@ export const useBlueprintStore = create<BlueprintStore>((set) => ({
 
       return {
         openFiles: nextOpenFiles,
-        activeFile: nextActiveFile
+        activeFile: nextActiveFile,
+        dirtyFiles: { ...state.dirtyFiles, [path]: false }
       };
+    }),
+  repoPath: null,
+  setRepoPath: (path) => set(() => ({ repoPath: path })),
+  mode: "graph",
+  setMode: (mode) =>
+    set((state) => ({
+      mode,
+      floatingGraph: {
+        ...state.floatingGraph,
+        visible: mode === "ide" && state.activeFile !== null
+      }
+    })),
+  floatingGraph: {
+    visible: false,
+    x: 0,
+    y: 0,
+    width: 400,
+    height: 350
+  },
+  setFloatingGraph: (panel) =>
+    set((state) => ({
+      floatingGraph: { ...state.floatingGraph, ...panel }
+    })),
+  selectedNodeId: null,
+  setSelectedNodeId: (id) => set(() => ({ selectedNodeId: id })),
+  dirtyFiles: {},
+  setFileDirty: (path, dirty) =>
+    set((state) => ({
+      dirtyFiles: { ...state.dirtyFiles, [path]: dirty }
+    })),
+  clearFileDirty: (path) =>
+    set((state) => {
+      const { [path]: _, ...rest } = state.dirtyFiles;
+      return { dirtyFiles: rest };
     })
 }));

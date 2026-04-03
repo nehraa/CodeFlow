@@ -4,8 +4,20 @@ import { useCallback, useEffect, useRef } from "react";
 
 import dynamic from "next/dynamic";
 import type * as Monaco from "monaco-editor";
+import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
+import tsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker";
 
 import type { BlueprintGraph } from "@/lib/blueprint/schema";
+
+// Configure Monaco workers before any Monaco initialization
+self.MonacoEnvironment = {
+  getWorker(_: unknown, label: string) {
+    if (label === "typescript" || label === "javascript") {
+      return new tsWorker();
+    }
+    return new editorWorker();
+  }
+};
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   ssr: false,
@@ -94,7 +106,7 @@ export function CodeEditor({
   height = "28rem",
   ariaLabel,
   readOnly = false,
-  theme = "light",
+  theme = "dark",
   completionContext
 }: CodeEditorProps) {
   const monacoRef = useRef<typeof Monaco | null>(null);
