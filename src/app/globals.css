@@ -1,3 +1,5 @@
+@import "@xyflow/react/dist/style.css";
+
 :root {
   color-scheme: light;
   --bg: #eef2ff;
@@ -3449,6 +3451,9 @@ select:focus {
 }
 
 .workbench-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
   padding: 1rem;
 }
 
@@ -3607,7 +3612,9 @@ select:focus {
 }
 
 .workbench-main {
-  min-height: calc(100vh - 8rem);
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
   padding-top: 0;
 }
 
@@ -4894,14 +4901,16 @@ select:focus {
 /* IDE shell */
 
 .workbench-main-ide {
-  min-height: calc(100vh - 8.75rem);
+  height: 100%;
+  min-height: 0;
 }
 
 .ide-layout-shell {
   display: grid;
   grid-template-columns: 16.5rem minmax(0, 1fr) 22rem;
   gap: 0.9rem;
-  min-height: calc(100vh - 10rem);
+  height: 100%;
+  min-height: 0;
   align-items: stretch;
 }
 
@@ -4925,7 +4934,7 @@ select:focus {
 
 .ide-main-stack {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) 18rem;
+  grid-template-rows: minmax(0, 1fr) clamp(15.5rem, 25vh, 19rem);
   gap: 0.9rem;
   min-height: 0;
 }
@@ -4943,6 +4952,7 @@ select:focus {
 }
 
 .ide-bottom-panel {
+  min-height: clamp(15.5rem, 25vh, 19rem);
   overflow: hidden;
   border-radius: 24px;
   border: 1px solid rgba(148, 163, 184, 0.14);
@@ -4999,6 +5009,23 @@ select:focus {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+.numeric-stepper {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.numeric-stepper button {
+  min-width: 2.75rem;
+  padding-inline: 0.85rem;
+}
+
+.numeric-stepper input {
+  text-align: center;
+  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
 }
 
 .prompt-dock-sidebar {
@@ -5442,7 +5469,22 @@ select:focus {
 }
 
 @media (max-width: 960px) {
+  .workbench-shell {
+    height: auto;
+    min-height: 100vh;
+    overflow: auto;
+  }
+
+  .workbench-main {
+    overflow: visible;
+  }
+
+  .workbench-main-ide {
+    height: auto;
+  }
+
   .ide-layout-shell {
+    height: auto;
     grid-template-columns: 1fr;
   }
 
@@ -5459,4 +5501,69 @@ select:focus {
     min-height: 24rem;
     height: calc(100% - 5rem);
   }
+}
+
+/* ── OpenCode Integration Styles ───────────────────────────────────────────── */
+
+.opencode-status-mini {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-dot.status-stopped {
+  background: #888;
+}
+
+.status-dot.status-starting {
+  background: #f59e0b;
+  animation: status-pulse 1s ease-in-out infinite;
+}
+
+.status-dot.status-running {
+  background: #22c55e;
+}
+
+.status-dot.status-error {
+  background: #ef4444;
+}
+
+@keyframes status-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.opencode-panel {
+  width: min(28rem, 95vw);
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.opencode-panel .field {
+  margin-bottom: 0.75rem;
+}
+
+.opencode-panel .button-row {
+  margin-top: 0.75rem;
+}
+
+.opencode-panel button.primary {
+  background: var(--accent);
+  color: white;
 }

@@ -141,6 +141,55 @@ Set `CODEFLOW_STORE_ROOT` to override the default location.
 
 Browser-only preferences such as live completions, auto-implement, and theme stay in local storage. The raw NVIDIA API key is no longer persisted there; it is held in the current browser session only unless you provide it through `NVIDIA_API_KEY`.
 
+## OpenCode Integration
+
+CodeFlow supports OpenCode as an alternative AI backend for code generation and implementation:
+
+### Setup
+
+1. Install OpenCode globally (optional, for CLI usage):
+   ```bash
+   npm install -g opencode-ai
+   ```
+
+2. Configure OpenCode from the CodeFlow settings panel:
+   - Open Settings (gear icon or press `S`)
+   - Click "Configure OpenCode"
+   - Select your AI provider (Anthropic, OpenAI, Google, etc.)
+   - Enter your API key
+   - Click "Start Server"
+
+### Features
+
+- **Multiple AI Providers**: Support for Anthropic (Claude), OpenAI (GPT), Google (Gemini), Azure OpenAI, Groq, Mistral, Cohere, Perplexity, OpenRouter, AWS Bedrock, and local models
+- **MCP Servers**: Configure Model Context Protocol servers for enhanced agent capabilities
+- **Skills & Hooks**: Enable OpenCode skills and configure pre/post hooks for automated workflows
+- **Agent Types**: Choose between "build" (full file access) or "plan" (read-only analysis) agents
+
+### OpenCode API Routes
+
+- `GET /api/opencode/status` - Get server status
+- `POST /api/opencode/start` - Start the OpenCode server
+- `POST /api/opencode/stop` - Stop the OpenCode server
+- `POST /api/opencode/restart` - Restart the OpenCode server
+- `POST /api/opencode/agent` - Send a message to the agent
+- `GET /api/opencode/sessions` - List OpenCode sessions
+- `POST /api/opencode/sessions` - Create a new session
+- `GET /api/opencode/sessions/:id` - Get session details
+- `POST /api/opencode/sessions/:id` - Send message to session
+- `DELETE /api/opencode/sessions/:id` - Delete session
+- `GET /api/opencode/mcp` - List configured MCP servers
+- `POST /api/opencode/mcp` - Configure MCP server
+- `GET /api/opencode/permissions` - List pending permission requests
+- `POST /api/opencode/permissions` - Reply to permission request
+
+### Using OpenCode for Code Generation
+
+When OpenCode is running, you can use it for:
+- Node implementation (`POST /api/implement-node` with `useOpencode: true`)
+- Code suggestions (`POST /api/code-suggestions` with `useOpencode: true`)
+- Direct agent queries via the OpenCode panel in the workbench
+
 ## API routes
 
 - `POST /api/blueprint`
