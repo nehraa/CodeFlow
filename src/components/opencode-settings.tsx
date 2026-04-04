@@ -285,7 +285,6 @@ export function OpencodeSettings({ onClose, onStatusChange }: Props) {
             setModel(PROVIDER_CONFIGS[newProvider].defaultModel);
             setIsManuallySelected(true); // Mark as user's explicit choice
           }}
-          }}
         >
           {PROVIDERS.map((p) => (
             <option key={p.id} value={p.id}>
