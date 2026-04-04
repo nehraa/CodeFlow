@@ -278,4 +278,104 @@ describe("POST /api/generate-blueprint", () => {
 
     expect(body.graph.nodes[0]?.name).toContain("Sentinel");
   });
+
+  it("normalizes supported AI relation synonyms and drops unsupported edge kinds with warnings", async () => {
+    const storeRoot = await fs.mkdtemp(path.join(os.tmpdir(), "codeflow-ai-build-store-"));
+    createdDirs.push(storeRoot);
+    process.env.CODEFLOW_STORE_ROOT = storeRoot;
+    process.env.NVIDIA_API_KEY = "nvapi-test";
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                nodes: [
+                  {
+                    kind: "module",
+                    name: "Task Page",
+                    contract: {
+                      calls: [{ target: "Task API", kind: "depends-on", description: "Needs task data" }]
+                    }
+                  },
+                  {
+                    kind: "api",
+                    name: "Task API"
+                  },
+                  {
+                    kind: "class",
+                    name: "Task Store"
+                  }
+                ],
+                edges: [
+                  {
+                    from: "Task Page",
+                    to: "Task API",
+                    kind: "uses"
+                  },
+                  {
+                    from: "Task API",
+                    to: "Task Store",
+                    kind: "contains"
+                  }
+                ],
+                workflows: [],
+                warnings: []
+              })
+            }
+          }
+        ]
+      })
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await POST(
+      new Request("http://localhost/api/generate-blueprint", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({
+          projectName: "AI Route Test",
+          prompt: "A task page backed by an API and store",
+          mode: "essential"
+        })
+      })
+    );
+
+    expect(response.status).toBe(200);
+
+    const body = (await response.json()) as {
+      graph: {
+        edges: Array<{ from: string; to: string; kind: string }>;
+        warnings: string[];
+        nodes: Array<{
+          name: string;
+          contract: {
+            calls: Array<{ target: string; kind?: string }>;
+          };
+        }>;
+      };
+    };
+
+    expect(body.graph.edges).toHaveLength(1);
+    expect(body.graph.edges[0]).toMatchObject({
+      kind: "calls"
+    });
+    expect(
+      body.graph.nodes.find((node) => node.name === "Task Page")?.contract.calls[0]
+    ).toMatchObject({
+      target: "Task API",
+      kind: "imports"
+    });
+    expect(body.graph.warnings).toEqual(
+      expect.arrayContaining([
+        'Normalized AI node "Task Page" call kind "depends-on" to "imports".',
+        'Normalized AI edge "Task Page" -> "Task API" kind "uses" to "calls".',
+        'Dropped AI edge "Task API" -> "Task Store" kind "contains" because it is not supported by the blueprint schema.'
+      ])
+    );
+  });
 });

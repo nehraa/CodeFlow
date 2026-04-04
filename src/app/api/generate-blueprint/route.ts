@@ -4,14 +4,13 @@ import { z } from "zod";
 import {
   blueprintGraphSchema,
   emptyContract,
-  edgeKindSchema,
   nodeKindSchema,
   sourceRefSchema
 } from "@/lib/blueprint/schema";
 import { getNvidiaKeySource, requestNvidiaChatCompletion, resolveNvidiaApiKey } from "@/lib/blueprint/nvidia";
 import { withSpecDrafts } from "@/lib/blueprint/phases";
 import { withCodeflowGovernance } from "@/lib/blueprint/prompt-governance";
-import type { BlueprintGraph } from "@/lib/blueprint/schema";
+import type { BlueprintEdgeKind, BlueprintGraph, DesignCall } from "@/lib/blueprint/schema";
 import { createRunPlan } from "@/lib/blueprint/plan";
 import { createRunId, saveRunRecord } from "@/lib/blueprint/run-store";
 import { upsertSession } from "@/lib/blueprint/session-store";
@@ -23,6 +22,124 @@ const requestSchema = z.object({
   mode: z.enum(["essential", "yolo"]),
   nvidiaApiKey: z.string().optional()
 });
+
+const aiRelationKindSchema = z.string().trim().min(1).optional();
+
+const DIRECT_EDGE_KIND_MAP = new Map<string, BlueprintEdgeKind>([
+  ["imports", "imports"],
+  ["calls", "calls"],
+  ["inherits", "inherits"],
+  ["renders", "renders"],
+  ["emits", "emits"],
+  ["consumes", "consumes"],
+  ["reads-state", "reads-state"],
+  ["writes-state", "writes-state"]
+]);
+
+const EDGE_KIND_SYNONYMS = new Map<string, BlueprintEdgeKind>([
+  ["import", "imports"],
+  ["depends", "imports"],
+  ["depends-on", "imports"],
+  ["depends on", "imports"],
+  ["require", "imports"],
+  ["requires", "imports"],
+  ["call", "calls"],
+  ["invoke", "calls"],
+  ["invokes", "calls"],
+  ["use", "calls"],
+  ["uses", "calls"],
+  ["request", "calls"],
+  ["requests", "calls"],
+  ["route-to", "calls"],
+  ["routes-to", "calls"],
+  ["routes to", "calls"],
+  ["trigger", "calls"],
+  ["triggers", "calls"],
+  ["inherit", "inherits"],
+  ["extends", "inherits"],
+  ["implement", "inherits"],
+  ["implements", "inherits"],
+  ["render", "renders"],
+  ["display", "renders"],
+  ["displays", "renders"],
+  ["emit", "emits"],
+  ["publish", "emits"],
+  ["publishes", "emits"],
+  ["dispatch", "emits"],
+  ["dispatches", "emits"],
+  ["consume", "consumes"],
+  ["subscribe", "consumes"],
+  ["subscribes", "consumes"],
+  ["listen", "consumes"],
+  ["listens", "consumes"],
+  ["read", "reads-state"],
+  ["reads", "reads-state"],
+  ["reads state", "reads-state"],
+  ["select", "reads-state"],
+  ["selects", "reads-state"],
+  ["write", "writes-state"],
+  ["writes", "writes-state"],
+  ["writes state", "writes-state"],
+  ["update", "writes-state"],
+  ["updates", "writes-state"],
+  ["set", "writes-state"],
+  ["sets", "writes-state"],
+  ["mutate", "writes-state"],
+  ["mutates", "writes-state"]
+]);
+
+const normalizeRelationKindToken = (rawKind: string): string =>
+  rawKind.trim().toLowerCase().replace(/[_\s]+/g, "-");
+
+const normalizeEdgeKind = (
+  rawKind: string | undefined,
+  warnings: string[],
+  context: string,
+  fallbackKind?: BlueprintEdgeKind
+): BlueprintEdgeKind | null => {
+  if (!rawKind?.trim()) {
+    return fallbackKind ?? null;
+  }
+
+  const normalizedToken = normalizeRelationKindToken(rawKind);
+  const directKind = DIRECT_EDGE_KIND_MAP.get(normalizedToken);
+  if (directKind) {
+    return directKind;
+  }
+
+  const synonymKind =
+    EDGE_KIND_SYNONYMS.get(normalizedToken) ??
+    EDGE_KIND_SYNONYMS.get(normalizedToken.replace(/-/g, " "));
+  if (synonymKind) {
+    warnings.push(`Normalized AI ${context} kind "${rawKind}" to "${synonymKind}".`);
+    return synonymKind;
+  }
+
+  warnings.push(
+    `Dropped AI ${context} kind "${rawKind}" because it is not supported by the blueprint schema.`
+  );
+  return null;
+};
+
+const normalizeDesignCalls = (
+  calls:
+    | Array<{
+        target: string;
+        kind?: string;
+        description?: string;
+      }>
+    | undefined,
+  warnings: string[],
+  context: string
+): DesignCall[] =>
+  (calls ?? []).map((call) => {
+    const kind = normalizeEdgeKind(call.kind, warnings, `${context} call`);
+    return {
+      target: call.target,
+      description: call.description,
+      ...(kind ? { kind } : {})
+    };
+  });
 
 const aiContractSchema = z
   .object({
@@ -54,7 +171,7 @@ const aiContractSchema = z
             .array(
               z.object({
                 target: z.string(),
-                kind: edgeKindSchema.optional(),
+                kind: aiRelationKindSchema,
                 description: z.string().optional()
               })
             )
@@ -69,7 +186,7 @@ const aiContractSchema = z
       .array(
         z.object({
           target: z.string(),
-          kind: edgeKindSchema.optional(),
+          kind: aiRelationKindSchema,
           description: z.string().optional()
         })
       )
@@ -97,7 +214,7 @@ const aiNodeSchema = z.object({
 const aiEdgeSchema = z.object({
   from: z.string(),
   to: z.string(),
-  kind: edgeKindSchema.optional(),
+  kind: aiRelationKindSchema,
   label: z.string().optional(),
   required: z.boolean().optional(),
   confidence: z.number().min(0).max(1).optional()
@@ -155,7 +272,7 @@ Return ONLY valid JSON matching this exact schema:
     {
       "from": "node-id-1",
       "to": "node-id-2",
-      "kind": "calls" | "imports" | "inherits",
+      "kind": "imports" | "calls" | "inherits" | "renders" | "emits" | "consumes" | "reads-state" | "writes-state",
       "required": true,
       "confidence": 0.8
     }
@@ -181,6 +298,8 @@ Guidelines:
 - Use kind "function" for standalone functions
 - Use kind "module" for modules/domains
 - Create meaningful edges showing relationships
+- Edge kinds must be one of: imports, calls, inherits, renders, emits, consumes, reads-state, writes-state
+- Do not emit unsupported relationship names like contains, owns, manages, or depends-on
 - Include at least one workflow if applicable
 - Generate unique IDs using format: kind-name-lowercase (e.g., "ui-screen-workspace", "api-tasks")
 - Keep summaries concise and informative
@@ -261,6 +380,7 @@ const normalizeAiBlueprint = (
   request: z.infer<typeof requestSchema>
 ): BlueprintGraph => {
   const generatedAt = new Date().toISOString();
+  const warnings = [...payload.warnings];
   const normalizedNodes = payload.nodes.map((node) => {
     const name = node.name.trim();
     const contractSummary = node.contract?.summary?.trim();
@@ -288,12 +408,16 @@ const normalizeAiBlueprint = (
           inputs: method.inputs ?? [],
           outputs: method.outputs ?? [],
           sideEffects: method.sideEffects ?? [],
-          calls: method.calls ?? []
+          calls: normalizeDesignCalls(
+            method.calls,
+            warnings,
+            `method "${name}.${method.name}"`
+          )
         })),
         sideEffects: node.contract?.sideEffects ?? [],
         errors: node.contract?.errors ?? [],
         dependencies: node.contract?.dependencies ?? [],
-        calls: node.contract?.calls ?? [],
+        calls: normalizeDesignCalls(node.contract?.calls, warnings, `node "${name}"`),
         uiAccess: node.contract?.uiAccess ?? [],
         backendAccess: node.contract?.backendAccess ?? [],
         notes: node.contract?.notes ?? []
@@ -322,10 +446,20 @@ const normalizeAiBlueprint = (
         return null;
       }
 
+      const normalizedKind = normalizeEdgeKind(
+        edge.kind,
+        warnings,
+        `edge "${edge.from}" -> "${edge.to}"`,
+        "calls"
+      );
+      if (!normalizedKind) {
+        return null;
+      }
+
       return {
         from,
         to,
-        kind: edge.kind ?? "calls",
+        kind: normalizedKind,
         label: edge.label?.trim() || undefined,
         required: edge.required ?? true,
         confidence: edge.confidence ?? 0.65
@@ -346,7 +480,7 @@ const normalizeAiBlueprint = (
       nodes: normalizedNodes,
       edges: normalizedEdges,
       workflows: payload.workflows,
-      warnings: payload.warnings
+      warnings
     })
   );
 };

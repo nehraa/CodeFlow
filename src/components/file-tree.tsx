@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import path from "node:path";
+
+import { useCallback, useEffect, useState } from "react";
 
 import { useBlueprintStore } from "@/store/blueprint-store";
 
@@ -29,6 +31,7 @@ async function fetchFileList(directoryPath: string, repoPath: string | null): Pr
   if (repoPath) {
     headers["x-codeflow-repo-path"] = repoPath;
   }
+
   const response = await fetch(FILE_LIST_API_ENDPOINT, {
     method: "POST",
     headers,
@@ -39,8 +42,48 @@ async function fetchFileList(directoryPath: string, repoPath: string | null): Pr
     throw new Error(`Failed to fetch file list: ${response.statusText}`);
   }
 
-  const data = (await response.json()) as FileNode[];
-  return data;
+  return (await response.json()) as FileNode[];
+}
+
+function sortEntries(entries: FileNode[]): FileNode[] {
+  return [...entries].sort((a, b) => {
+    if (a.isDirectory !== b.isDirectory) {
+      return a.isDirectory ? -1 : 1;
+    }
+
+    return a.name.localeCompare(b.name);
+  });
+}
+
+function createInitialRoot(repoPath: string | null): FileTreeNode {
+  return {
+    path: ".",
+    name: repoPath ? path.basename(repoPath) : "workspace",
+    isDirectory: true,
+    isExpanded: true,
+    isLoading: true,
+    children: undefined
+  };
+}
+
+function getFileBadge(name: string): string {
+  const ext = name.split(".").pop()?.toLowerCase();
+  switch (ext) {
+    case "ts":
+      return "TS";
+    case "tsx":
+      return "TSX";
+    case "js":
+      return "JS";
+    case "jsx":
+      return "JSX";
+    case "json":
+      return "{}";
+    case "md":
+      return "MD";
+    default:
+      return "·";
+  }
 }
 
 function FileTreeItem({
@@ -55,54 +98,42 @@ function FileTreeItem({
   onToggle: (path: string) => void;
   onSelect: (path: string) => void;
   selectedPath?: string;
-}): JSX.Element {
-  const handleToggle = useCallback(() => {
-    onToggle(node.path);
-  }, [onToggle, node.path]);
-
-  const handleSelect = useCallback(() => {
-    if (!node.isDirectory) {
-      onSelect(node.path);
-    }
-  }, [onSelect, node.path, node.isDirectory]);
-
+}) {
   const indentationStyle = { paddingLeft: `${depth * 16 + 8}px` };
 
   return (
     <div className="file-tree-item">
       <div
+        aria-expanded={node.isDirectory ? node.isExpanded : undefined}
+        aria-selected={!node.isDirectory ? node.path === selectedPath : undefined}
         className={`file-tree-row ${node.isDirectory ? "directory" : "file"} ${!node.isDirectory ? "selectable" : ""}`}
-        style={indentationStyle}
-        onClick={node.isDirectory ? handleToggle : handleSelect}
+        onClick={() => (node.isDirectory ? onToggle(node.path) : onSelect(node.path))}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
             if (node.isDirectory) {
-              handleToggle();
+              onToggle(node.path);
             } else {
-              handleSelect();
+              onSelect(node.path);
             }
           }
         }}
         role="treeitem"
+        style={indentationStyle}
         tabIndex={0}
-        aria-expanded={node.isDirectory ? node.isExpanded : undefined}
-        aria-selected={!node.isDirectory ? node.path === selectedPath : undefined}
       >
-        {node.isDirectory && (
+        {node.isDirectory ? (
           <span className={`file-tree-chevron ${node.isExpanded ? "expanded" : ""}`}>
             {node.isLoading ? "◌" : node.isExpanded ? "▼" : "▶"}
           </span>
-        )}
-        <span className="file-tree-icon">
-          {node.isDirectory ? (node.isExpanded ? "📂" : "📁") : "📄"}
+        ) : null}
+        <span className={`file-tree-icon ${node.isDirectory ? "is-directory" : "is-file"}`}>
+          {node.isDirectory ? (node.isExpanded ? "dir" : "dir") : getFileBadge(node.name)}
         </span>
-        <span className={`file-tree-name ${!node.isDirectory ? "file-name" : ""}`}>
-          {node.name}
-        </span>
+        <span className={`file-tree-name ${!node.isDirectory ? "file-name" : ""}`}>{node.name}</span>
       </div>
 
-      {node.isDirectory && node.isExpanded && (
+      {node.isDirectory && node.isExpanded ? (
         <div className="file-tree-children" role="group">
           {node.isLoading ? (
             <div className="file-tree-loading" style={indentationStyle}>
@@ -112,14 +143,14 @@ function FileTreeItem({
             <div className="file-tree-error" style={indentationStyle}>
               {node.error}
             </div>
-          ) : node.children && node.children.length > 0 ? (
+          ) : node.children?.length ? (
             node.children.map((child) => (
               <FileTreeItem
                 key={child.path}
-                node={child}
                 depth={depth + 1}
-                onToggle={onToggle}
+                node={child}
                 onSelect={onSelect}
+                onToggle={onToggle}
                 selectedPath={selectedPath}
               />
             ))
@@ -129,108 +160,140 @@ function FileTreeItem({
             </div>
           )}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
 
-export function FileTree({ onFileSelect, selectedPath }: FileTreeProps): JSX.Element {
+export function FileTree({ onFileSelect, selectedPath }: FileTreeProps) {
   const { repoPath } = useBlueprintStore();
-  const [rootNode, setRootNode] = useState<FileTreeNode>({
-    path: ".",
-    name: "root",
-    isDirectory: true,
-    isExpanded: false,
-    isLoading: false,
-    children: undefined
-  });
+  const [rootNode, setRootNode] = useState<FileTreeNode>(() => createInitialRoot(repoPath));
 
-  const expandNode = useCallback(async (path: string) => {
-    setRootNode((prevRoot) => {
-      const updateNode = (node: FileTreeNode): FileTreeNode => {
-        if (node.path !== path) {
-          if (node.children) {
-            return { ...node, children: node.children.map(updateNode) };
+  useEffect(() => {
+    let cancelled = false;
+
+    void fetchFileList(".", repoPath)
+      .then((entries) => {
+        if (cancelled) {
+          return;
+        }
+
+        setRootNode({
+          ...createInitialRoot(repoPath),
+          isLoading: false,
+          children: sortEntries(entries).map((entry) => ({
+            ...entry,
+            isExpanded: false,
+            isLoading: false
+          }))
+        });
+      })
+      .catch((error) => {
+        if (cancelled) {
+          return;
+        }
+
+        setRootNode({
+          ...createInitialRoot(repoPath),
+          isLoading: false,
+          error: error instanceof Error ? error.message : "Failed to load"
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [repoPath]);
+
+  const expandNode = useCallback(
+    (pathToExpand: string) => {
+      setRootNode((prevRoot) => {
+        const updateNode = (node: FileTreeNode): FileTreeNode => {
+          if (node.path !== pathToExpand) {
+            if (node.children) {
+              return { ...node, children: node.children.map(updateNode) };
+            }
+
+            return node;
           }
-          return node;
-        }
 
-        if (!node.isDirectory || node.isLoading) {
-          return node;
-        }
+          if (!node.isDirectory || node.isLoading) {
+            return node;
+          }
 
-        if (node.children !== undefined) {
-          return { ...node, isExpanded: !node.isExpanded };
-        }
+          if (node.children !== undefined) {
+            return { ...node, isExpanded: !node.isExpanded };
+          }
 
-        void (async () => {
-          try {
-            const files = await fetchFileList(path, repoPath);
-            const sortedFiles = files.sort((a, b) => {
-              if (a.isDirectory !== b.isDirectory) {
-                return a.isDirectory ? -1 : 1;
-              }
-              return a.name.localeCompare(b.name);
-            });
+          void (async () => {
+            try {
+              const files = sortEntries(await fetchFileList(pathToExpand, repoPath));
+              setRootNode((currentRoot) => {
+                const withChildren = (currentNode: FileTreeNode): FileTreeNode => {
+                  if (currentNode.path !== pathToExpand) {
+                    if (currentNode.children) {
+                      return { ...currentNode, children: currentNode.children.map(withChildren) };
+                    }
 
-            setRootNode((currentRoot) => {
-              const updateWithChildren = (n: FileTreeNode): FileTreeNode => {
-                if (n.path !== path) {
-                  if (n.children) {
-                    return { ...n, children: n.children.map(updateWithChildren) };
+                    return currentNode;
                   }
-                  return n;
-                }
-                return {
-                  ...n,
-                  isExpanded: true,
-                  isLoading: false,
-                  children: sortedFiles.map((file) => ({
-                    ...file,
-                    isExpanded: false,
+
+                  return {
+                    ...currentNode,
+                    error: undefined,
+                    isExpanded: true,
                     isLoading: false,
-                    children: file.isDirectory ? undefined : undefined
-                  }))
+                    children: files.map((file) => ({
+                      ...file,
+                      isExpanded: false,
+                      isLoading: false
+                    }))
+                  };
                 };
-              };
-              return updateWithChildren(currentRoot);
-            });
-          } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : "Failed to load";
-            setRootNode((currentRoot) => {
-              const updateWithError = (n: FileTreeNode): FileTreeNode => {
-                if (n.path !== path) {
-                  if (n.children) {
-                    return { ...n, children: n.children.map(updateWithError) };
+
+                return withChildren(currentRoot);
+              });
+            } catch (error) {
+              const errorMessage = error instanceof Error ? error.message : "Failed to load";
+              setRootNode((currentRoot) => {
+                const withError = (currentNode: FileTreeNode): FileTreeNode => {
+                  if (currentNode.path !== pathToExpand) {
+                    if (currentNode.children) {
+                      return { ...currentNode, children: currentNode.children.map(withError) };
+                    }
+
+                    return currentNode;
                   }
-                  return n;
-                }
-                return {
-                  ...n,
-                  isLoading: false,
-                  isExpanded: true,
-                  error: errorMessage
+
+                  return {
+                    ...currentNode,
+                    error: errorMessage,
+                    isExpanded: true,
+                    isLoading: false
+                  };
                 };
-              };
-              return updateWithError(currentRoot);
-            });
-          }
-        })();
 
-        return { ...node, isLoading: true, isExpanded: true };
-      };
+                return withError(currentRoot);
+              });
+            }
+          })();
 
-      return updateNode(prevRoot);
-    });
-  }, []);
+          return { ...node, error: undefined, isExpanded: true, isLoading: true };
+        };
+
+        return updateNode(prevRoot);
+      });
+    },
+    [repoPath]
+  );
 
   return (
     <div className="file-tree" role="tree">
       <FileTreeItem
-        node={rootNode}
         depth={0}
-        onToggle={expandNode}
+        node={rootNode}
         onSelect={onFileSelect}
+        onToggle={expandNode}
         selectedPath={selectedPath}
       />
     </div>

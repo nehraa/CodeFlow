@@ -72,7 +72,7 @@ export class FileSecurityError extends Error {
  * @returns The resolved repository root path
  */
 function getRepoRoot(repoRoot?: string): string {
-  const root = repoRoot ?? process.env.CODEFLOW_REPO_ROOT ?? process.cwd();
+  const root = repoRoot ?? process.env.CODEFLOW_REPO_ROOT ?? /* turbopackIgnore: true */ process.cwd();
   return resolve(root);
 }
 

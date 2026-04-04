@@ -2,63 +2,97 @@
 
 import type * as Monaco from "monaco-editor";
 
-/**
- * Enhanced TypeScript language service that provides repo-aware completions.
- * This supplements the AI completion path with Monaco's built-in TypeScript
- * language features including symbol navigation, hover, and diagnostics.
- */
+type LanguageDefaultsApi = {
+  addExtraLib: (content: string, filePath?: string) => Monaco.IDisposable;
+  setCompilerOptions: (options: Record<string, unknown>) => void;
+  setDiagnosticsOptions: (options: Record<string, unknown>) => void;
+};
+
+type MonacoTypeScriptApi = {
+  javascriptDefaults: LanguageDefaultsApi;
+  typescriptDefaults: LanguageDefaultsApi;
+  JsxEmit: {
+    ReactJSX?: number;
+    React?: number;
+  };
+  ModuleKind: {
+    ESNext: number;
+  };
+  ModuleResolutionKind: {
+    NodeJs: number;
+  };
+  ScriptTarget: {
+    ESNext: number;
+  };
+};
+
+function getTypeScriptApi(monaco: typeof Monaco): MonacoTypeScriptApi | null {
+  return (monaco.languages as unknown as { typescript?: MonacoTypeScriptApi }).typescript ?? null;
+}
+
+function toExtraLibPath(filePath: string): string {
+  const normalized = filePath.replace(/\\/g, "/").replace(/^\/+/, "");
+  return `file:///${normalized}`;
+}
+
 export class TypeScriptLanguageService {
   private monaco: typeof Monaco;
-  private disposables: Monaco.IDisposable[] = [];
+  private defaultsConfigured = false;
+  private workspaceLibs = new Map<string, Monaco.IDisposable>();
+  private globalLibDisposables: Monaco.IDisposable[] = [];
 
   constructor(monaco: typeof Monaco) {
     this.monaco = monaco;
   }
 
-  /**
-   * Configure TypeScript defaults for optimal IDE experience.
-   * Call this after Monaco mounts.
-   */
   configureDefaults(): void {
-    const tsDefaults = this.monaco.languages.typescript.typescriptDefaults;
+    if (this.defaultsConfigured) {
+      return;
+    }
 
-    // Enable JavaScript/TypeScript features
-    tsDefaults.setDiagnosticsOptions({
-      noSemanticValidation: false,
-      noSyntaxValidation: false
-    });
+    const api = getTypeScriptApi(this.monaco);
+    if (!api) {
+      return;
+    }
 
-    tsDefaults.setCompilerOptions({
-      target: this.monaco.languages.typescript.ScriptTarget.ESNext,
-      allowNonTsExtensions: true,
-      moduleResolution: this.monaco.languages.typescript.ModuleResolutionKind.NodeJs,
-      module: this.monaco.languages.typescript.ModuleKind.ESNext,
-      noEmit: true,
-      esModuleInterop: true,
-      jsx: this.monaco.languages.typescript.JsxEmit.React,
+    const jsxMode = api.JsxEmit.ReactJSX ?? api.JsxEmit.React ?? 2;
+    const compilerOptions = {
       allowJs: true,
-      checkJs: true,
-      strict: true,
+      allowNonTsExtensions: true,
       baseUrl: ".",
+      checkJs: true,
+      esModuleInterop: true,
+      jsx: jsxMode,
+      module: api.ModuleKind.ESNext,
+      moduleResolution: api.ModuleResolutionKind.NodeJs,
+      noEmit: true,
       paths: {
         "@/*": ["./src/*"],
         "@/components/*": ["./src/components/*"],
         "@/lib/*": ["./src/lib/*"],
         "@/store/*": ["./src/store/*"]
-      }
+      },
+      strict: true,
+      target: api.ScriptTarget.ESNext
+    };
+
+    api.typescriptDefaults.setCompilerOptions(compilerOptions);
+    api.javascriptDefaults.setCompilerOptions(compilerOptions);
+
+    api.typescriptDefaults.setDiagnosticsOptions({
+      noSemanticValidation: false,
+      noSyntaxValidation: false
+    });
+    api.javascriptDefaults.setDiagnosticsOptions({
+      noSemanticValidation: false,
+      noSyntaxValidation: false
     });
 
-    // Add common type definitions
-    this.addGlobalTypes();
+    this.addGlobalTypes(api);
+    this.defaultsConfigured = true;
   }
 
-  /**
-   * Add common type definitions for better completions.
-   */
-  private addGlobalTypes(): void {
-    const tsDefaults = this.monaco.languages.typescript.typescriptDefaults;
-
-    // React types
+  private addGlobalTypes(api: MonacoTypeScriptApi): void {
     const reactTypes = `
       declare namespace React {
         type ReactNode = import('react').ReactNode;
@@ -90,7 +124,6 @@ export class TypeScriptLanguageService {
       }
     `;
 
-    // Node.js globals
     const nodeTypes = `
       declare module 'node:fs' {
         export function readFile(path: string, encoding: string): Promise<string>;
@@ -102,39 +135,34 @@ export class TypeScriptLanguageService {
       }
     `;
 
-    tsDefaults.addExtraLib(reactTypes, "file:///node_modules/@types/react-global.d.ts");
-    tsDefaults.addExtraLib(nextTypes, "file:///node_modules/@types/next-global.d.ts");
-    tsDefaults.addExtraLib(nodeTypes, "file:///node_modules/@types/node-global.d.ts");
+    this.globalLibDisposables.push(
+      api.typescriptDefaults.addExtraLib(reactTypes, "file:///node_modules/@types/react-global.d.ts"),
+      api.typescriptDefaults.addExtraLib(nextTypes, "file:///node_modules/@types/next-global.d.ts"),
+      api.typescriptDefaults.addExtraLib(nodeTypes, "file:///node_modules/@types/node-global.d.ts")
+    );
   }
 
-  /**
-   * Add type definitions from an analyzed repo.
-   * This enables completions based on actual codebase types.
-   */
-  addRepoTypes(filePath: string, content: string): void {
-    const tsDefaults = this.monaco.languages.typescript.typescriptDefaults;
-    tsDefaults.addExtraLib(content, `file:///${filePath}`);
+  upsertWorkspaceFile(filePath: string, content: string): void {
+    this.configureDefaults();
+    const api = getTypeScriptApi(this.monaco);
+    if (!api) {
+      return;
+    }
+
+    const extraLibPath = toExtraLibPath(filePath);
+    this.workspaceLibs.get(extraLibPath)?.dispose();
+    this.workspaceLibs.set(extraLibPath, api.typescriptDefaults.addExtraLib(content, extraLibPath));
   }
 
-  /**
-   * Get TypeScript worker for additional language features.
-   */
-  getWorker(): Thenable<Monaco.languages.typescript.LanguageWorker> {
-    return this.monaco.languages.typescript.getTypeScriptWorker();
-  }
-
-  /**
-   * Clean up disposables.
-   */
   dispose(): void {
-    this.disposables.forEach((d) => d.dispose());
-    this.disposables = [];
+    this.globalLibDisposables.forEach((disposable) => disposable.dispose());
+    this.globalLibDisposables = [];
+    this.workspaceLibs.forEach((disposable) => disposable.dispose());
+    this.workspaceLibs.clear();
+    this.defaultsConfigured = false;
   }
 }
 
-/**
- * Singleton instance accessor.
- */
 let languageService: TypeScriptLanguageService | null = null;
 
 export function getTypeScriptLanguageService(monaco: typeof Monaco): TypeScriptLanguageService {

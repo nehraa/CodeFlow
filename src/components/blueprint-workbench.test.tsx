@@ -197,7 +197,7 @@ describe("BlueprintWorkbench", () => {
 
     expect(await screen.findByRole("button", { name: "saveTask" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "saveTask" }));
-    expect(screen.getByDisplayValue("Save a task.")).toBeInTheDocument();
+    expect(screen.getByText("Save a task.")).toBeInTheDocument();
     expect(screen.getByText(/1 tasks across 1 batches/)).toBeInTheDocument();
     expect((screen.getByLabelText("Code editor") as HTMLTextAreaElement).value).toContain("export function saveTask");
     expect(screen.getByLabelText("Live completions")).toBeChecked();
@@ -303,7 +303,7 @@ describe("BlueprintWorkbench", () => {
     fireEvent.click(screen.getByRole("button", { name: "Build blueprint" }));
 
     expect(await screen.findByText("Building blueprint with NVIDIA")).toBeInTheDocument();
-    expect(screen.getByText(/Waiting for the model response|Sending your prompt to NVIDIA/)).toBeInTheDocument();
+    expect((await screen.findAllByText(/Waiting for the model response|Sending your prompt to NVIDIA/)).length).toBeGreaterThan(0);
 
     resolveBuild?.({
       ok: true,
@@ -370,6 +370,40 @@ describe("BlueprintWorkbench", () => {
 
     expect(await screen.findByText("Blueprint ready")).toBeInTheDocument();
     expect(screen.getByText(/Built 1 nodes, 0 edges, and 0 workflows/)).toBeInTheDocument();
+  });
+
+  it("shows an actionable message when the local server is unreachable during blueprint build", async () => {
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (input === "/api/generate-blueprint" && (!init?.method || init.method === "GET")) {
+        return {
+          ok: true,
+          json: async () => ({
+            serverApiKeyConfigured: false
+          })
+        };
+      }
+
+      throw new TypeError("NetworkError when attempting to fetch resource.");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BlueprintWorkbench />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    fireEvent.click(screen.getByLabelText("PRD / Repo (JS/TS)"));
+    fireEvent.change(screen.getByLabelText("PRD markdown"), {
+      target: { value: "# Functions\n- Function: saveTask()" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Build blueprint" }));
+
+    expect(
+      (
+        await screen.findAllByText(
+          "CodeFlow could not reach the local server while trying to build the blueprint. Start the app on http://localhost:3000 and reload this page."
+        )
+      ).length
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Blueprint build failed")).toBeInTheDocument();
   });
 
   it("drills into a module graph and shows detailed function documentation", async () => {
@@ -920,16 +954,16 @@ describe("BlueprintWorkbench", () => {
       );
     });
 
-    // Analysis panel should appear and render each section
-    expect(await screen.findByRole("heading", { name: "Analysis" })).toBeInTheDocument();
+    // Analysis results should render in the Problems dock
+    expect(await screen.findByRole("heading", { name: "Warnings, drift, and health" })).toBeInTheDocument();
     expect(await screen.findByText("Graph Metrics")).toBeInTheDocument();
     expect(await screen.findByText("1 nodes")).toBeInTheDocument();
     expect(await screen.findByText("Architecture Health: 85/100")).toBeInTheDocument();
     expect(await screen.findByText(/1 smell detected/)).toBeInTheDocument();
     expect(await screen.findByText(/orphan-node/)).toBeInTheDocument();
-    expect(await screen.findByText("Dependency Cycles")).toBeInTheDocument();
+    expect(await screen.findByText("Dependency cycles")).toBeInTheDocument();
     expect(await screen.findByText("No dependency cycles found. Graph is a clean DAG!")).toBeInTheDocument();
-    expect(await screen.findByText("Mermaid Diagram")).toBeInTheDocument();
+    expect(await screen.findByText("Mermaid")).toBeInTheDocument();
     expect(await screen.findByText(/graph TD/)).toBeInTheDocument();
 
     // The status callout should show analysis summary

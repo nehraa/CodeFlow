@@ -1,0 +1,63 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - button "CodeFlow" [ref=e6] [cursor=pointer]:
+          - generic [ref=e7]:
+            - img [ref=e8]
+            - text: CodeFlow
+          - generic [ref=e23]: ▾
+        - generic [ref=e24]:
+          - button "Build" [ref=e26] [cursor=pointer]:
+            - text: Build
+            - generic [ref=e27]: ▾
+          - button "View" [ref=e29] [cursor=pointer]:
+            - text: View
+            - generic [ref=e30]: ▾
+          - button "Tools" [ref=e32] [cursor=pointer]:
+            - text: Tools
+            - generic [ref=e33]: ▾
+        - generic [ref=e34]:
+          - status [ref=e35]:
+            - strong [ref=e36]: Ready to build
+            - generic [ref=e37]: Enter a project description or repo input, then build a blueprint.
+          - button "Toolbar build blueprint" [ref=e38] [cursor=pointer]: Build blueprint
+    - generic [ref=e39]:
+      - generic [ref=e40]:
+        - generic [ref=e41]: Phase spec
+        - generic [ref=e42]: AI blueprint
+        - generic [ref=e43]: essential
+        - generic [ref=e44]: Server environment key detected.
+      - generic [ref=e45]:
+        - generic [ref=e46]:
+          - generic [ref=e47]:
+            - heading "Architecture map" [level=2] [ref=e48]
+            - paragraph [ref=e49]: No graph yet
+          - button "Apply trace overlay" [disabled] [ref=e51]
+        - generic [ref=e52]:
+          - generic [ref=e53]:
+            - generic [ref=e54]:
+              - paragraph [ref=e55]: Blueprint Input
+              - heading "Describe what CodeFlow should build" [level=3] [ref=e56]
+              - paragraph [ref=e57]: A calm brief in. A clean graph out.
+            - img [ref=e58]
+          - group [ref=e73]:
+            - generic [ref=e74]: Input mode
+            - generic [ref=e75]:
+              - generic [ref=e76]:
+                - radio "AI Prompt" [checked] [ref=e77]
+                - text: AI Prompt
+              - generic [ref=e78]:
+                - radio "PRD / Repo" [ref=e79]
+                - text: PRD / Repo
+          - generic [ref=e80]:
+            - generic [ref=e81]: Describe your project
+            - textbox "Describe your project" [ref=e82]:
+              - /placeholder: A task management app with a React frontend and Node backend. Or a Rails monolith, a Django app, a Go service, a Swift iOS client, or any other stack you want to visualize.
+          - generic [ref=e83]:
+            - button "Build blueprint" [ref=e84] [cursor=pointer]
+            - button "Settings" [ref=e85] [cursor=pointer]: Advanced settings
+        - paragraph [ref=e87]: Build a blueprint from an AI prompt, PRD text, or a JavaScript/TypeScript repo.
+  - button "Open Next.js Dev Tools" [ref=e93] [cursor=pointer]:
+    - img [ref=e94]
+  - alert [ref=e97]

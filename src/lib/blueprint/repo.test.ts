@@ -27,5 +27,17 @@ describe("analyzeTypeScriptRepo", () => {
     expect(taskServiceClass?.contract.methods.some((method) => method.name === "saveTask")).toBe(true);
     expect(saveTaskFunction?.contract.calls.some((call) => call.target === "normalizeTask")).toBe(true);
     expect(saveTaskFunction?.contract.dependencies).toContain("normalizeTask");
+    expect(taskServiceClass?.sourceLocation).toMatchObject({
+      filePath: "src/services/task-service.ts",
+      startLine: 13,
+      endLine: 22,
+      symbolName: "TaskService"
+    });
+    expect(saveTaskFunction?.sourceLocation).toMatchObject({
+      filePath: "src/services/task-service.ts",
+      startLine: 14,
+      endLine: 21,
+      symbolName: "TaskService.saveTask"
+    });
   });
 });

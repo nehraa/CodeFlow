@@ -1,16 +1,52 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const { codeRagQueryMock, getCodeRagMock } = vi.hoisted(() => ({
+  codeRagQueryMock: vi.fn(),
+  getCodeRagMock: vi.fn()
+}));
+
+vi.mock("@/lib/coderag", () => ({
+  getCodeRag: getCodeRagMock
+}));
+
 import { POST } from "@/app/api/code-completions/route";
 import { emptyContract } from "@/lib/blueprint/schema";
 
 afterEach(() => {
   delete process.env.NVIDIA_API_KEY;
   vi.unstubAllGlobals();
+  codeRagQueryMock.mockReset();
+  getCodeRagMock.mockReset();
 });
 
 describe("POST /api/code-completions", () => {
   it("returns inline completion items for the active blueprint node", async () => {
     process.env.NVIDIA_API_KEY = "nvapi-test";
+    codeRagQueryMock.mockResolvedValue({
+      question: "Where should saveTask persist tasks?",
+      answerMode: "context-only",
+      answer: "persistTask is the relevant persistence helper.",
+      context: {
+        graphSummary: "saveTask calls persistTask",
+        warnings: [],
+        primaryNode: {
+          nodeId: "function:persist-task",
+          name: "persistTask",
+          kind: "function",
+          filePath: "src/tasks.ts",
+          fullFileContent: "export function persistTask(input: TaskInput): Task {\n  return { id: \"1\", ...input } as Task;\n}\n",
+          startLine: 1,
+          endLine: 3,
+          callSiteLines: [1],
+          doc: "Persists the task payload.",
+          relationship: "primary"
+        },
+        relatedNodes: []
+      }
+    });
+    getCodeRagMock.mockReturnValue({
+      query: codeRagQueryMock
+    });
 
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -83,7 +119,8 @@ describe("POST /api/code-completions", () => {
           cursorOffset: 58,
           linePrefix: "  return ",
           lineSuffix: "",
-          triggerCharacter: "("
+          triggerCharacter: "(",
+          retrievalQuery: "Where should saveTask persist tasks?"
         })
       })
     );
@@ -98,5 +135,11 @@ describe("POST /api/code-completions", () => {
     expect(body.suggestions[0]?.label).toBe("persistTask(input)");
     expect(body.suggestions[1]?.kind).toBe("snippet");
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(codeRagQueryMock).toHaveBeenCalledWith("Where should saveTask persist tasks?", { depth: 2 });
+    const payload = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string) as {
+      messages: Array<{ role: string; content: string }>;
+    };
+    expect(payload.messages[1]?.content).toContain("CodeRAG retrieval context");
+    expect(payload.messages[1]?.content).toContain("Primary node: persistTask");
   });
 });

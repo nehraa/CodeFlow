@@ -1,5 +1,6 @@
 "use client";
 
+import type { QueryResult, RetrievedNodeContext } from "@abhinav2203/coderag";
 import { z } from "zod";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -10,12 +11,15 @@ import { CodeflowCatLogo } from "@/components/codeflow-brand";
 import { CodeEditor } from "@/components/code-editor";
 import { CodeflowCatShowcase } from "@/components/codeflow-cat-showcase";
 import { FileTabs } from "@/components/file-tabs";
+import { FileTree } from "@/components/file-tree";
 import { GraphCanvas } from "@/components/graph-canvas";
+import { IdeLayout } from "@/components/ide-layout";
 import { generateNodeCode, getNodeStubPath, isCodeBearingNode } from "@/lib/blueprint/codegen";
 import { addEdgeToGraph, addNodeToGraph, deleteNodeFromGraph } from "@/lib/blueprint/edit";
 import { buildDetailFlow, indexRuntimeExecutionResult } from "@/lib/blueprint/flow-view";
 import { computeHeatmap } from "@/lib/blueprint/heatmap";
 import type { HeatmapData } from "@/lib/blueprint/heatmap";
+import { formatNavigationTarget, getNavigationTarget, isValidNavigationTarget } from "@/lib/blueprint/node-navigation";
 import { canEnterImplementationPhase, canEnterIntegrationPhase, setGraphPhase } from "@/lib/blueprint/phases";
 import { applyTraceOverlay } from "@/lib/blueprint/traces";
 import { frameIndexToPosition, positionToFrameIndex, replayAtFrame } from "@/lib/blueprint/vcr";
@@ -27,9 +31,13 @@ import {
   AUTO_IMPLEMENT_STORAGE_KEY,
   LIVE_COMPLETIONS_STORAGE_KEY,
   loadSessionApiKey,
+  readFloatingGraph,
   readLocalBooleanPreference,
+  readRepoPath,
   storeSessionApiKey,
-  writeLocalBooleanPreference
+  writeFloatingGraph,
+  writeLocalBooleanPreference,
+  writeRepoPath
 } from "@/lib/browser/storage";
 import type {
   ApprovalRecord,
@@ -162,6 +170,18 @@ type VcrResponse = {
   error?: string;
 };
 
+type CodeRagStatusResponse = {
+  status?: "ready" | "not_initialized";
+  message?: string;
+  details?: Record<string, unknown>;
+  error?: string;
+};
+
+type CodeRagQueryResponse = {
+  results?: QueryResult;
+  error?: string;
+};
+
 type DigitalTwinResponse = {
   snapshot?: DigitalTwinSnapshot | null;
   graph?: BlueprintGraph | null;
@@ -200,6 +220,16 @@ type RefactorHealResponse = {
 };
 
 type StatusTone = "info" | "success" | "danger";
+type IdeDockTab = "terminal" | "heatmap" | "vcr" | "traces" | "problems";
+type ActivityEntryTone = "info" | "success" | "error" | "command";
+type ActivityEntry = {
+  id: string;
+  source: string;
+  message: string;
+  tone: ActivityEntryTone;
+  timestamp: string;
+  detail?: string;
+};
 
 const tracesSchema = z.array(traceSpanSchema);
 
@@ -210,6 +240,21 @@ const maskApiKey = (value: string) => {
   }
 
   return `${trimmed.slice(0, 4)}...${trimmed.slice(-4)}`;
+};
+
+const normalizeClientFetchError = (
+  error: unknown,
+  fallback: string,
+  actionLabel: string
+): string => {
+  if (error instanceof TypeError) {
+    const message = error.message.trim();
+    if (/failed to fetch|networkerror|load failed|fetch resource/i.test(message)) {
+      return `CodeFlow could not reach the local server while trying to ${actionLabel}. Start the app on http://localhost:3000 and reload this page.`;
+    }
+  }
+
+  return error instanceof Error ? error.message : fallback;
 };
 
 const updateNode = (
@@ -268,20 +313,30 @@ function ToolbarMenuSection({ title, children }: { title: string; children: Reac
 }
 
 export function BlueprintWorkbench() {
-  const { setGraph: syncGraphToStore, setSelectedNodeId: syncSelectedToStore, setRepoPath: syncRepoPathToStore, mode: workbenchMode, setMode: setWorkbenchMode } = useBlueprintStore();
+  const {
+    activeFile,
+    floatingGraph,
+    graph,
+    openFiles,
+    repoPath,
+    selectedNodeId,
+    setActiveFile,
+    setFloatingGraph,
+    setGraph,
+    setOpenFiles,
+    setRepoPath,
+    setSelectedNodeId
+  } = useBlueprintStore();
 
   const MIN_OBSERVABILITY_INTERVAL_SECS = 2;
   const [projectName, setProjectName] = useState("CodeFlow Workspace");
-  const [repoPath, setRepoPath] = useState("");
   const [prdText, setPrdText] = useState("");
   const [aiPrompt, setAiPrompt] = useState("");
   const [nvidiaApiKey, setNvidiaApiKey] = useState("");
-  const [mode, setMode] = useState<ExecutionMode>("essential");
+  const [executionMode, setExecutionMode] = useState<ExecutionMode>("essential");
   const [outputDir, setOutputDir] = useState("");
   const [traceInput, setTraceInput] = useState("");
   const [runInput, setRunInput] = useState("{}");
-  const [graph, setGraph] = useState<BlueprintGraph | null>(null);
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
   const [exportResult, setExportResult] = useState<ExportResult | null>(null);
@@ -312,13 +367,21 @@ export function BlueprintWorkbench() {
     "Enter a project description or repo input, then build a blueprint."
   );
   const [statusTone, setStatusTone] = useState<StatusTone>("info");
+  const [activeDockTab, setActiveDockTab] = useState<IdeDockTab>("terminal");
+  const [activityFeed, setActivityFeed] = useState<ActivityEntry[]>([]);
+  const [codeRagStatus, setCodeRagStatus] = useState<"checking" | "ready" | "not_initialized" | "error">("checking");
+  const [codeRagMessage, setCodeRagMessage] = useState("Checking CodeRAG status...");
+  const [codeRagQuery, setCodeRagQuery] = useState("");
+  const [codeRagDepth, setCodeRagDepth] = useState(2);
+  const [codeRagResult, setCodeRagResult] = useState<QueryResult | null>(null);
+  const [codeRagError, setCodeRagError] = useState<string | null>(null);
+  const [codeRagLoading, setCodeRagLoading] = useState(false);
   const [openToolbarMenu, setOpenToolbarMenu] = useState<ToolbarMenuKey>(null);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showPromptPanel, setShowPromptPanel] = useState(true);
   const [showEditPanel, setShowEditPanel] = useState(false);
   const [showInspector, setShowInspector] = useState(false);
-  const [showAnalysisPanel, setShowAnalysisPanel] = useState(false);
   const [showObservabilityPanel, setShowObservabilityPanel] = useState(false);
   const [autoObservability, setAutoObservability] = useState(false);
   const [observabilityIntervalSecs, setObservabilityIntervalSecs] = useState(5);
@@ -389,11 +452,12 @@ export function BlueprintWorkbench() {
   const [showGeneticPanel, setShowGeneticPanel] = useState(false);
   const [showMascotPanel, setShowMascotPanel] = useState(false);
   const [showPhasePanel, setShowPhasePanel] = useState(false);
-  const [showFilePanel, setShowFilePanel] = useState(false);
   const [geneticGenerations, setGeneticGenerations] = useState(3);
   const [geneticPopulationSize, setGeneticPopulationSize] = useState(6);
   const [tournamentResult, setTournamentResult] = useState<TournamentResult | null>(null);
   const [geneticError, setGeneticError] = useState<string | null>(null);
+  const [editorRevealTarget, setEditorRevealTarget] = useState<ReturnType<typeof getNavigationTarget>>(null);
+  const [navigationError, setNavigationError] = useState<string | null>(null);
 
   const selectedNode = graph?.nodes.find((node) => node.id === selectedNodeId) ?? null;
   const drilldownNodeId = drilldownStack.at(-1) ?? null;
@@ -532,11 +596,61 @@ export function BlueprintWorkbench() {
   const shouldShowPromptComposer = showPromptPanel || !graph;
   const toolbarStatusLabel = statusTitle;
   const toolbarStatusToneClass = `toolbar-status toolbar-status-${statusTone}`;
+  const legacyFloatingPanelsEnabled = false;
   const closeToolbarMenus = () => setOpenToolbarMenu(null);
   const runToolbarAction = (action: () => void) => {
     closeToolbarMenus();
     action();
   };
+  const pushActivity = useCallback(
+    (source: string, message: string, tone: ActivityEntryTone = "info", detail?: string) => {
+      setActivityFeed((current) => {
+        const entry: ActivityEntry = {
+          id: `${Date.now()}-${current.length}`,
+          source,
+          message,
+          tone,
+          timestamp: new Date().toISOString(),
+          detail
+        };
+
+        return [...current, entry].slice(-80);
+      });
+    },
+    []
+  );
+  const refreshCodeRagStatus = useCallback(
+    async (announce = false) => {
+      try {
+        const response = await fetch("/api/coderag");
+        const body = (await response.json()) as CodeRagStatusResponse;
+        const nextStatus = response.ok ? body.status ?? "error" : "error";
+        const nextMessage = body.message ?? body.error ?? "Failed to load CodeRAG status.";
+
+        setCodeRagStatus(nextStatus);
+        setCodeRagMessage(nextMessage);
+        if (nextStatus !== "ready") {
+          setCodeRagResult(null);
+        }
+        setCodeRagError(null);
+
+        if (announce) {
+          pushActivity("CodeRAG", nextMessage, nextStatus === "ready" ? "success" : "info");
+        }
+      } catch (caughtError) {
+        const message =
+          caughtError instanceof Error ? caughtError.message : "Failed to load CodeRAG status.";
+        setCodeRagStatus("error");
+        setCodeRagMessage(message);
+        setCodeRagError(message);
+
+        if (announce) {
+          pushActivity("CodeRAG", message, "error");
+        }
+      }
+    },
+    [pushActivity]
+  );
   const apiKeyStatus = nvidiaApiKey.trim()
     ? `Browser session key active (${maskApiKey(nvidiaApiKey)}).`
     : serverApiKeyConfigured
@@ -547,13 +661,6 @@ export function BlueprintWorkbench() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Cmd/Ctrl+Shift+E to toggle IDE mode
-      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key === "E") {
-        event.preventDefault();
-        setWorkbenchMode(workbenchMode === "graph" ? "ide" : "graph");
-        return;
-      }
-
       if ((event.key === "Delete" || event.key === "Backspace") && !drilldownNodeId && graph && selectedNodeId) {
         setGraph(deleteNodeFromGraph(graph, selectedNodeId));
         setSelectedNodeId(null);
@@ -562,7 +669,7 @@ export function BlueprintWorkbench() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [drilldownNodeId, graph, selectedNodeId, workbenchMode, setWorkbenchMode]);
+  }, [drilldownNodeId, graph, selectedNodeId, setGraph, setSelectedNodeId]);
 
   useEffect(() => {
     if (!openToolbarMenu) {
@@ -596,6 +703,57 @@ export function BlueprintWorkbench() {
       setAutoImplementNodes(storedAutoImplement);
     }
   }, []);
+
+  useEffect(() => {
+    const storedRepoPath = readRepoPath();
+    if (storedRepoPath) {
+      setRepoPath(storedRepoPath);
+    }
+
+    const storedFloatingGraph = readFloatingGraph();
+    if (storedFloatingGraph) {
+      setFloatingGraph(storedFloatingGraph);
+    }
+  }, [setFloatingGraph, setRepoPath]);
+
+  useEffect(() => {
+    writeRepoPath(repoPath?.trim() ? repoPath : null);
+  }, [repoPath]);
+
+  useEffect(() => {
+    writeFloatingGraph({
+      x: floatingGraph.x,
+      y: floatingGraph.y,
+      width: floatingGraph.width,
+      height: floatingGraph.height
+    });
+  }, [floatingGraph.height, floatingGraph.width, floatingGraph.x, floatingGraph.y]);
+
+  useEffect(() => {
+    if (!activeFile) {
+      setEditorRevealTarget(null);
+    }
+  }, [activeFile]);
+
+  useEffect(() => {
+    pushActivity(
+      "CodeFlow",
+      "IDE shell ready.",
+      "info",
+      "Explorer, graph, editor, dock, and agent rail are live."
+    );
+  }, [pushActivity]);
+
+  useEffect(() => {
+    void refreshCodeRagStatus();
+  }, [refreshCodeRagStatus]);
+
+  useEffect(() => {
+    setShowObservabilityPanel(activeDockTab === "heatmap");
+    setShowVcrPanel(activeDockTab === "vcr");
+    setShowDigitalTwinPanel(activeDockTab === "traces");
+    setShowRefactorPanel(activeDockTab === "problems");
+  }, [activeDockTab]);
 
   useEffect(() => {
     let ignore = false;
@@ -642,7 +800,7 @@ export function BlueprintWorkbench() {
     const messages = useAI
       ? [
           "Sending your prompt to NVIDIA.",
-          "Waiting for the model response. This can take a bit for larger prompts.",
+          "Waiting for the executionModel response. This can take a bit for larger prompts.",
           "Validating the returned blueprint structure.",
           "Preparing the graph for the workbench."
         ]
@@ -716,40 +874,6 @@ export function BlueprintWorkbench() {
     return () => window.clearInterval(intervalId);
   }, [vcrPlaying, vcrRecording]);
 
-  // Clear VCR state when the panel is closed.
-  useEffect(() => {
-    if (!showVcrPanel) {
-      setVcrGraph(null);
-      setVcrPlaying(false);
-      setVcrRecording(null);
-      setVcrFrameIndex(0);
-      setVcrError(null);
-    }
-  }, [showVcrPanel]);
-
-  // Clear Digital Twin state when the panel is closed.
-  useEffect(() => {
-    if (!showDigitalTwinPanel) {
-      setDigitalTwinSnapshot(null);
-      setDigitalTwinGraph(null);
-      setDigitalTwinError(null);
-      setDigitalTwinPollError(null);
-      setDigitalTwinLastUpdatedAt(null);
-    }
-  }, [showDigitalTwinPanel]);
-
-  // Clear transient refactor state when the panel is closed, but keep the
-  // last report so the badge and canvas highlighting persist.
-  useEffect(() => {
-    if (!showRefactorPanel) {
-      // Abort any in-flight drift detection or healing request so it cannot update state after close.
-      refactorAbortRef.current?.abort();
-      refactorAbortRef.current = null;
-      setHealResult(null);
-      setRefactorError(null);
-    }
-  }, [showRefactorPanel]);
-
   // Clear the full refactor report when the graph is replaced by an external
   // action (new build, branch switch, etc.) so stale drift highlighting doesn't
   // linger.  Skip when the graph was just replaced by a heal operation — the
@@ -790,7 +914,7 @@ export function BlueprintWorkbench() {
         caughtError instanceof Error ? caughtError.message : "Observability polling failed."
       );
     }
-  }, [projectName]);
+  }, [projectName, setGraph]);
 
   useEffect(() => {
     if (!autoObservability) {
@@ -829,7 +953,7 @@ export function BlueprintWorkbench() {
         caughtError instanceof Error ? caughtError.message : "Digital Twin polling failed."
       );
     }
-  }, [projectName, digitalTwinWindowSecs]);
+  }, [digitalTwinWindowSecs, projectName, setGraph]);
 
   useEffect(() => {
     if (!autoDigitalTwin || !showDigitalTwinPanel) return;
@@ -845,6 +969,8 @@ export function BlueprintWorkbench() {
     if (!projectName.trim()) return;
     setBusyLabel("Loading digital twin");
     setDigitalTwinError(null);
+    setActiveDockTab("traces");
+    pushActivity("Traces", "Refreshing Digital Twin.", "command");
 
     try {
       const response = await fetch(
@@ -863,19 +989,27 @@ export function BlueprintWorkbench() {
       }
       setDigitalTwinPollError(null);
       setDigitalTwinLastUpdatedAt(body.snapshot?.computedAt ?? new Date().toISOString());
+      pushActivity("Traces", "Digital Twin refreshed.", "success");
     } catch (caughtError) {
+      pushActivity(
+        "Traces",
+        caughtError instanceof Error ? caughtError.message : "Failed to load digital twin.",
+        "error"
+      );
       setDigitalTwinError(
         caughtError instanceof Error ? caughtError.message : "Failed to load digital twin."
       );
     } finally {
       setBusyLabel(null);
     }
-  }, [projectName, digitalTwinWindowSecs]);
+  }, [digitalTwinWindowSecs, projectName, pushActivity, setActiveDockTab, setGraph]);
 
   const handleSimulateAction = useCallback(async () => {
     if (!projectName.trim() || !simulateNodeIds.trim()) return;
     setBusyLabel("Simulating user action");
     setDigitalTwinError(null);
+    setActiveDockTab("traces");
+    pushActivity("Traces", "Running Digital Twin simulation.", "command");
 
     try {
       const nodeIds = simulateNodeIds
@@ -901,13 +1035,18 @@ export function BlueprintWorkbench() {
       // Refresh the digital twin view after the simulation.
       await handleLoadDigitalTwin();
     } catch (caughtError) {
+      pushActivity(
+        "Traces",
+        caughtError instanceof Error ? caughtError.message : "Failed to simulate user action.",
+        "error"
+      );
       setDigitalTwinError(
         caughtError instanceof Error ? caughtError.message : "Failed to simulate user action."
       );
     } finally {
       setBusyLabel(null);
     }
-  }, [projectName, simulateNodeIds, simulateLabel, handleLoadDigitalTwin]);
+  }, [handleLoadDigitalTwin, projectName, pushActivity, setActiveDockTab, simulateLabel, simulateNodeIds]);
 
   const handleDetectDrift = useCallback(async () => {
     if (!graph) return;
@@ -919,6 +1058,8 @@ export function BlueprintWorkbench() {
     setBusyLabel("Detecting drift");
     setRefactorError(null);
     setHealResult(null);
+    setActiveDockTab("problems");
+    pushActivity("Problems", "Detecting architectural drift.", "command");
 
     try {
       const response = await fetch("/api/refactor/detect", {
@@ -934,8 +1075,22 @@ export function BlueprintWorkbench() {
       }
 
       setRefactorReport(body.report ?? null);
+      if (body.report) {
+        pushActivity(
+          "Problems",
+          body.report.isHealthy
+            ? "Architecture is healthy."
+            : `${body.report.totalIssues} drift issues detected.`,
+          body.report.isHealthy ? "success" : "error"
+        );
+      }
     } catch (caughtError) {
       if ((caughtError as { name?: string }).name === "AbortError") return;
+      pushActivity(
+        "Problems",
+        caughtError instanceof Error ? caughtError.message : "Failed to detect drift.",
+        "error"
+      );
       setRefactorError(
         caughtError instanceof Error ? caughtError.message : "Failed to detect drift."
       );
@@ -945,7 +1100,7 @@ export function BlueprintWorkbench() {
       }
       setBusyLabel(null);
     }
-  }, [graph]);
+  }, [graph, pushActivity, setActiveDockTab]);
 
   const handleHealArchitecture = useCallback(async () => {
     if (!graph) return;
@@ -956,6 +1111,8 @@ export function BlueprintWorkbench() {
 
     setBusyLabel("Healing architecture");
     setRefactorError(null);
+    setActiveDockTab("problems");
+    pushActivity("Problems", "Applying graph heal operations.", "command");
 
     try {
       const response = await fetch("/api/refactor/heal", {
@@ -982,8 +1139,18 @@ export function BlueprintWorkbench() {
         `Fixed ${body.result?.issuesFixed ?? 0} drift issue${(body.result?.issuesFixed ?? 0) !== 1 ? "s" : ""}.`
       );
       setStatusTone("success");
+      pushActivity(
+        "Problems",
+        `Healed ${body.result?.issuesFixed ?? 0} drift issue${(body.result?.issuesFixed ?? 0) === 1 ? "" : "s"}.`,
+        "success"
+      );
     } catch (caughtError) {
       if ((caughtError as { name?: string }).name === "AbortError") return;
+      pushActivity(
+        "Problems",
+        caughtError instanceof Error ? caughtError.message : "Failed to heal architecture.",
+        "error"
+      );
       setRefactorError(
         caughtError instanceof Error ? caughtError.message : "Failed to heal architecture."
       );
@@ -993,7 +1160,7 @@ export function BlueprintWorkbench() {
       }
       setBusyLabel(null);
     }
-  }, [graph]);
+  }, [graph, pushActivity, setGraph, setActiveDockTab]);
 
   // ── Genetic Evolution handler ─────────────────────────────────────────────
   const handleRunGeneticEvolution = useCallback(async () => {
@@ -1035,6 +1202,12 @@ export function BlueprintWorkbench() {
 
   const handleBuild = async () => {
     const buildStartedAt = performance.now();
+    setActiveDockTab("terminal");
+    pushActivity(
+      useAI ? "NVIDIA" : "Blueprint",
+      useAI ? "Starting AI blueprint build." : "Starting repo blueprint build.",
+      "command"
+    );
     setBusyLabel("Building blueprint");
     setError(null);
     setExecutionResult(null);
@@ -1048,14 +1221,14 @@ export function BlueprintWorkbench() {
         ? {
             projectName,
             prompt: aiPrompt.trim(),
-            mode,
+            mode: executionMode,
             nvidiaApiKey: nvidiaApiKey.trim() || undefined
           }
         : {
             projectName,
-            repoPath: repoPath.trim() || undefined,
+            repoPath: repoPath?.trim() || undefined,
             prdText: prdText.trim() || undefined,
-            mode
+            mode: executionMode
           };
 
       if (useAI && !aiPrompt.trim()) {
@@ -1092,6 +1265,12 @@ export function BlueprintWorkbench() {
       setShowPromptPanel(false);
       setExportResult(null);
       setGhostSuggestions([]);
+      void refreshCodeRagStatus();
+      pushActivity(
+        useAI ? "NVIDIA" : "Blueprint",
+        `Blueprint ready with ${body.graph.nodes.length} nodes and ${body.graph.edges.length} edges.`,
+        "success"
+      );
       setStatusTone("success");
       setStatusTitle("Blueprint ready");
       setStatusDetail(
@@ -1102,7 +1281,12 @@ export function BlueprintWorkbench() {
         durationMs: Math.round(performance.now() - buildStartedAt)
       });
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : "Failed to build blueprint.";
+      const message = normalizeClientFetchError(
+        caughtError,
+        "Failed to build blueprint.",
+        "build the blueprint"
+      );
+      pushActivity(useAI ? "NVIDIA" : "Blueprint", message, "error");
       setError(message);
       setStatusTone("danger");
       setStatusTitle("Blueprint build failed");
@@ -1119,6 +1303,7 @@ export function BlueprintWorkbench() {
     }
 
     try {
+      setActiveDockTab("traces");
       const spans = tracesSchema.parse(JSON.parse(traceInput));
       const nextGraph = applyTraceOverlay(graph, spans);
       setGraph(nextGraph);
@@ -1140,7 +1325,13 @@ export function BlueprintWorkbench() {
       }
 
       setError(null);
+      pushActivity("Traces", `Applied ${spans.length} trace span${spans.length === 1 ? "" : "s"} to the graph.`, "success");
     } catch (caughtError) {
+      pushActivity(
+        "Traces",
+        caughtError instanceof Error ? caughtError.message : "Failed to apply traces.",
+        "error"
+      );
       setError(caughtError instanceof Error ? caughtError.message : "Failed to apply traces.");
     }
   };
@@ -1153,6 +1344,8 @@ export function BlueprintWorkbench() {
 
     setBusyLabel("Exporting artifacts");
     setError(null);
+    setActiveDockTab("terminal");
+    pushActivity("Export", "Preparing artifact export.", "command");
 
     try {
       const response = await fetch("/api/export", {
@@ -1189,12 +1382,59 @@ export function BlueprintWorkbench() {
       setRunPlan(body.runPlan);
       setSession(body.session);
       setExportResult(body.result);
+      void refreshCodeRagStatus();
+      pushActivity("Export", `Artifacts written to ${body.result.rootDir}.`, "success");
     } catch (caughtError) {
+      pushActivity(
+        "Export",
+        caughtError instanceof Error ? caughtError.message : "Failed to export artifacts.",
+        "error"
+      );
       setError(caughtError instanceof Error ? caughtError.message : "Failed to export artifacts.");
     } finally {
       setBusyLabel(null);
     }
   };
+
+  const handleRunCodeRagQuery = useCallback(async () => {
+    if (!codeRagQuery.trim()) {
+      setCodeRagError("Enter a CodeRAG query.");
+      return;
+    }
+
+    setCodeRagLoading(true);
+    setCodeRagError(null);
+    pushActivity("CodeRAG", `Querying \"${codeRagQuery.trim()}\".`, "command");
+
+    try {
+      const response = await fetch("/api/coderag", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          query: codeRagQuery.trim(),
+          depth: codeRagDepth
+        })
+      });
+      const body = (await response.json()) as CodeRagQueryResponse;
+
+      if (!response.ok || !body.results) {
+        throw new Error(body.error ?? "CodeRAG query failed.");
+      }
+
+      setCodeRagStatus("ready");
+      setCodeRagMessage("CodeRAG context is ready and will be reused by the coding agent.");
+      setCodeRagResult(body.results);
+      pushActivity("CodeRAG", "Retrieval context updated.", "success");
+    } catch (caughtError) {
+      const message = caughtError instanceof Error ? caughtError.message : "CodeRAG query failed.";
+      setCodeRagError(message);
+      setCodeRagResult(null);
+      pushActivity("CodeRAG", message, "error");
+      void refreshCodeRagStatus();
+    } finally {
+      setCodeRagLoading(false);
+    }
+  }, [codeRagDepth, codeRagQuery, pushActivity, refreshCodeRagStatus]);
 
   const requestNodeImplementation = async (
     targetGraph: BlueprintGraph,
@@ -1208,6 +1448,8 @@ export function BlueprintWorkbench() {
         graph: targetGraph,
         nodeId,
         currentCode,
+        retrievalQuery: codeRagQuery.trim() || undefined,
+        retrievalDepth: codeRagDepth,
         nvidiaApiKey: nvidiaApiKey.trim() || undefined
       })
     });
@@ -1297,6 +1539,8 @@ export function BlueprintWorkbench() {
 
     setBusyLabel("Implementing node");
     setError(null);
+    setActiveDockTab("terminal");
+    pushActivity("Implementation", `Implementing ${activeCodeNode.name}.`, "command");
 
     try {
       const body = await requestNodeImplementation(graph, activeCodeNode.id, activeCodeDraft);
@@ -1311,7 +1555,13 @@ export function BlueprintWorkbench() {
       setStatusTone("success");
       setStatusTitle("Node implemented");
       setStatusDetail(`Implemented ${activeCodeNode.name}. Run it before moving on.`);
+      pushActivity("Implementation", `${activeCodeNode.name} implementation draft updated.`, "success");
     } catch (caughtError) {
+      pushActivity(
+        "Implementation",
+        caughtError instanceof Error ? caughtError.message : "Failed to implement node.",
+        "error"
+      );
       setError(caughtError instanceof Error ? caughtError.message : "Failed to implement node.");
     } finally {
       setBusyLabel(null);
@@ -1337,6 +1587,14 @@ export function BlueprintWorkbench() {
 
     setBusyLabel(graph.phase === "integration" ? "Running integration" : "Running node");
     setError(null);
+    setActiveDockTab("terminal");
+    pushActivity(
+      "Runtime",
+      graph.phase === "integration"
+        ? "Running integration flow."
+        : `Running ${activeCodeNode?.name ?? "selected node"}.`,
+      "command"
+    );
 
     try {
       const response = await fetch("/api/executions/run", {
@@ -1378,6 +1636,12 @@ export function BlueprintWorkbench() {
             .join(" ")
         );
       } else {
+        pushActivity(
+          "Runtime",
+          body.result.steps.find((step) => step.status === "failed" || step.status === "blocked")?.message ??
+            (body.result.stderr || body.result.error || "Execution failed."),
+          "error"
+        );
         setStatusTone("danger");
         setStatusTitle("Execution failed");
         setStatusDetail(
@@ -1385,7 +1649,21 @@ export function BlueprintWorkbench() {
             (body.result.stderr || body.result.error || "Unknown execution failure.")
         );
       }
+      if (body.result.success) {
+        pushActivity(
+          "Runtime",
+          body.result.summary
+            ? `${body.result.summary.passed} passed, ${body.result.summary.failed} failed, ${body.result.summary.blocked} blocked.`
+            : "Execution succeeded.",
+          "success"
+        );
+      }
     } catch (caughtError) {
+      pushActivity(
+        "Runtime",
+        caughtError instanceof Error ? caughtError.message : "Failed to execute.",
+        "error"
+      );
       setError(caughtError instanceof Error ? caughtError.message : "Failed to execute.");
     } finally {
       setBusyLabel(null);
@@ -1400,6 +1678,8 @@ export function BlueprintWorkbench() {
 
     setBusyLabel("Loading observability");
     setError(null);
+    setActiveDockTab("heatmap");
+    pushActivity("Observability", "Refreshing observability data.", "command");
 
     try {
       const response = await fetch(
@@ -1419,7 +1699,13 @@ export function BlueprintWorkbench() {
       setLatestLogs(body.latestLogs ?? []);
       setObservabilityPollError(null);
       setObservabilityLastUpdatedAt(new Date().toISOString());
+      pushActivity("Observability", "Observability data refreshed.", "success");
     } catch (caughtError) {
+      pushActivity(
+        "Observability",
+        caughtError instanceof Error ? caughtError.message : "Failed to load observability.",
+        "error"
+      );
       setError(caughtError instanceof Error ? caughtError.message : "Failed to load observability.");
     } finally {
       setBusyLabel(null);
@@ -1427,13 +1713,15 @@ export function BlueprintWorkbench() {
   };
 
   const handleAnalyzeConflicts = async () => {
-    if (!graph || !repoPath.trim()) {
+    if (!graph || !repoPath?.trim()) {
       setError("Build a blueprint and provide a repo path before analyzing conflicts.");
       return;
     }
 
     setBusyLabel("Analyzing conflicts");
     setError(null);
+    setActiveDockTab("problems");
+    pushActivity("Problems", "Analyzing graph drift against the repo.", "command");
 
     try {
       const response = await fetch("/api/conflicts", {
@@ -1441,7 +1729,7 @@ export function BlueprintWorkbench() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           graph,
-          repoPath: repoPath.trim()
+          repoPath: repoPath?.trim()
         })
       });
       const body = (await response.json()) as ConflictResponse;
@@ -1451,7 +1739,13 @@ export function BlueprintWorkbench() {
       }
 
       setConflictReport(body.report);
+      pushActivity("Problems", `${body.report.conflicts.length} drift conflicts reported.`, "success");
     } catch (caughtError) {
+      pushActivity(
+        "Problems",
+        caughtError instanceof Error ? caughtError.message : "Failed to analyze conflicts.",
+        "error"
+      );
       setError(caughtError instanceof Error ? caughtError.message : "Failed to analyze conflicts.");
     } finally {
       setBusyLabel(null);
@@ -1514,14 +1808,54 @@ export function BlueprintWorkbench() {
     }
   };
 
+  const handleOpenFile = useCallback(
+    (filePath: string, revealTarget: ReturnType<typeof getNavigationTarget> = null) => {
+      const nextOpenFiles = openFiles.includes(filePath) ? openFiles : [...openFiles, filePath];
+      setOpenFiles(nextOpenFiles);
+      setActiveFile(filePath);
+      setEditorRevealTarget(revealTarget);
+      setNavigationError(null);
+      setActiveDockTab("terminal");
+      pushActivity("Explorer", `Opened ${filePath}.`, "info");
+    },
+    [openFiles, pushActivity, setActiveFile, setOpenFiles]
+  );
+
+  const handleOpenNodeSource = useCallback(
+    (nodeId: string) => {
+      if (!graph) {
+        return;
+      }
+
+      const node = graph.nodes.find((candidate) => candidate.id === nodeId);
+      if (!node) {
+        return;
+      }
+
+      const navigationTarget = getNavigationTarget(node);
+      if (!isValidNavigationTarget(navigationTarget)) {
+        setEditorRevealTarget(null);
+        setNavigationError(`Missing source navigation metadata for ${node.name}.`);
+        pushActivity("Navigation", `Missing source metadata for ${node.name}.`, "error");
+        return;
+      }
+
+      handleOpenFile(navigationTarget.filePath, navigationTarget);
+    },
+    [graph, handleOpenFile, pushActivity]
+  );
+
   const handleGraphSelect = (nodeId: string) => {
-    setShowInspector(true);
     if (drilldownRootNode) {
       setSelectedDetailNodeId(nodeId);
       return;
     }
 
     setSelectedNodeId(nodeId);
+    setNavigationError(null);
+    if (activeFile) {
+      handleOpenNodeSource(nodeId);
+    }
   };
 
   const handleGraphDoubleClick = (nodeId: string) => {
@@ -1593,6 +1927,8 @@ export function BlueprintWorkbench() {
           nodeId: activeCodeNode.id,
           currentCode: activeCodeDraft,
           instruction: suggestionInstruction.trim() || undefined,
+          retrievalQuery: codeRagQuery.trim() || undefined,
+          retrievalDepth: codeRagDepth,
           nvidiaApiKey: nvidiaApiKey.trim() || undefined
         })
       });
@@ -1622,14 +1958,14 @@ export function BlueprintWorkbench() {
 
     setBusyLabel("Analyzing architecture");
     setError(null);
+    setActiveDockTab("problems");
+    pushActivity("Problems", "Running architecture analysis.", "command");
     // Clear stale results from any prior run so the panel always reflects the
     // current analysis and not leftover data from a failed/partial run.
     setCycleReport(null);
     setSmellReport(null);
     setGraphMetrics(null);
     setMermaidDiagram(null);
-    setShowAnalysisPanel(true);
-
     const guardedJson = async <T,>(r: Response): Promise<T> => {
       if (!r.ok) {
         const body = await r.json().catch(() => ({}));
@@ -1676,7 +2012,17 @@ export function BlueprintWorkbench() {
         `${smellsReport?.totalSmells ?? 0} smells · ${cyclesReport?.totalCycles ?? 0} cycles · Health ${smellsReport?.healthScore ?? 100}/100`
       );
       setStatusTone("success");
+      pushActivity(
+        "Problems",
+        `${smellsReport?.totalSmells ?? 0} smells and ${cyclesReport?.totalCycles ?? 0} cycles detected.`,
+        "success"
+      );
     } catch (caughtError) {
+      pushActivity(
+        "Problems",
+        caughtError instanceof Error ? caughtError.message : "Architecture analysis failed.",
+        "error"
+      );
       setError(caughtError instanceof Error ? caughtError.message : "Architecture analysis failed.");
     } finally {
       setBusyLabel(null);
@@ -1951,6 +2297,8 @@ export function BlueprintWorkbench() {
     setVcrRecording(null);
     setVcrFrameIndex(0);
     setVcrPlaying(false);
+    setActiveDockTab("vcr");
+    pushActivity("VCR", "Loading replay frames from observability data.", "command");
 
     try {
       const response = await fetch(
@@ -1970,8 +2318,14 @@ export function BlueprintWorkbench() {
           `${body.recording.totalSpans} span${body.recording.totalSpans === 1 ? "" : "s"} across ${body.recording.frames.length} frame${body.recording.frames.length === 1 ? "" : "s"}. Use the scrub bar to replay.`
         );
         setStatusTone("success");
+        pushActivity("VCR", `Loaded ${body.recording.frames.length} replay frames.`, "success");
       }
     } catch (caughtError) {
+      pushActivity(
+        "VCR",
+        caughtError instanceof Error ? caughtError.message : "Failed to load VCR recording.",
+        "error"
+      );
       setVcrError(caughtError instanceof Error ? caughtError.message : "Failed to load VCR recording.");
     } finally {
       setBusyLabel(null);
@@ -2187,6 +2541,11 @@ export function BlueprintWorkbench() {
         <p className="status-meta">
           Every runtime run now includes generated happy-path, edge-case, and invalid-input contract tests for directly runnable nodes.
         </p>
+        <p className="status-meta">
+          {codeRagQuery.trim()
+            ? "CodeRAG search is active. Suggest, implement, and Monaco assistance will use this repo query."
+            : `CodeRAG is wired into the coding agent. Without a manual search prompt, the backend derives retrieval context from ${activeCodeNode.name}.`}
+        </p>
         <label className="field">
           <span>Editor instructions</span>
           <textarea
@@ -2259,6 +2618,8 @@ export function BlueprintWorkbench() {
                     enabled: liveCompletionReady,
                     graph,
                     nodeId: activeCodeNode.id,
+                    retrievalQuery: codeRagQuery.trim() || undefined,
+                    retrievalDepth: codeRagDepth,
                     nvidiaApiKey: nvidiaApiKey.trim() || undefined
                   }
                 : undefined
@@ -2359,6 +2720,906 @@ export function BlueprintWorkbench() {
     );
   };
 
+  const renderGraphSurface = (theme: "light" | "dark" = "light") => (
+    <GraphCanvas
+      activeNodeIds={drilldownRootNode || vcrGraph ? undefined : digitalTwinSnapshot?.activeNodeIds}
+      driftedNodeIds={drilldownRootNode ? undefined : refactorReport?.driftedNodeIds}
+      edges={detailFlow?.edges}
+      executionResult={executionResult}
+      ghostNodes={drilldownRootNode ? undefined : ghostSuggestions}
+      graph={vcrGraph ?? digitalTwinGraph ?? graph}
+      heatmapData={drilldownRootNode ? undefined : heatmapData}
+      nodes={detailFlow?.nodes}
+      onGhostNodeClick={handleSolidifyGhostNode}
+      onNodeDoubleClick={handleGraphDoubleClick}
+      onSelect={handleGraphSelect}
+      selectedNodeId={drilldownRootNode ? selectedDetailNodeId : selectedNodeId}
+      theme={theme}
+    />
+  );
+
+  const renderPromptComposer = (placement: "overlay" | "sidebar" = "overlay") => {
+    const isSidebar = placement === "sidebar";
+    const shouldRender = isSidebar ? showPromptPanel : shouldShowPromptComposer;
+
+    return shouldRender ? (
+      <div
+        className={`prompt-dock${!isSidebar && graph ? " prompt-dock-overlay" : ""}${isSidebar ? " prompt-dock-sidebar" : ""}`}
+      >
+        <div className="prompt-dock-header">
+          <div>
+            <p className="brand-eyebrow">Blueprint Input</p>
+            <h3>
+              {isSidebar
+                ? "Drive CodeFlow from the agent rail"
+                : graph
+                  ? "Adjust the plan without leaving the graph"
+                  : "Describe what CodeFlow should build"}
+            </h3>
+            <p className="prompt-dock-note">
+              {isSidebar
+                ? "Build, re-run, and steer the blueprint without leaving the IDE."
+                : "A calm brief in. A clean graph out."}
+            </p>
+          </div>
+          <CodeflowCatLogo className="prompt-dock-logo" size={34} />
+          {graph && !isSidebar ? (
+            <button onClick={() => setShowPromptPanel(false)} type="button">
+              Hide
+            </button>
+          ) : null}
+        </div>
+
+        <fieldset className="field">
+          <span>Input executionMode</span>
+          <div className="choice-row">
+            <label>
+              <input checked={useAI} onChange={() => setUseAI(true)} type="radio" name="dockBuildMode" />
+              AI Prompt
+            </label>
+            <label>
+              <input checked={!useAI} onChange={() => setUseAI(false)} type="radio" name="dockBuildMode" />
+              PRD / Repo
+            </label>
+          </div>
+        </fieldset>
+
+        {useAI ? (
+          <label className="field">
+            <span>Describe your project</span>
+            <textarea
+              onChange={(event) => setAiPrompt(event.target.value)}
+              placeholder="A task management app with a React frontend and Node backend. Or a Rails monolith, a Django app, a Go service, a Swift iOS client, or any other stack you want to visualize."
+              rows={graph ? 5 : 8}
+              value={aiPrompt}
+            />
+          </label>
+        ) : (
+          <div className="prompt-dock-split">
+            <label className="field">
+              <span>Repo path</span>
+              <input
+                onChange={(event) => setRepoPath(event.target.value || null)}
+                placeholder="/absolute/path/to/repo"
+                value={repoPath ?? ""}
+              />
+            </label>
+            <label className="field">
+              <span>PRD markdown</span>
+              <textarea
+                aria-label="PRD markdown"
+                onChange={(event) => setPrdText(event.target.value)}
+                placeholder="# UI&#10;- Screen: Workspace&#10;&#10;# API&#10;- POST /api/blueprint"
+                rows={graph ? 6 : 8}
+                value={prdText}
+              />
+            </label>
+          </div>
+        )}
+
+        <div className="prompt-dock-actions">
+          <button className="toolbar-primary-action" disabled={isBusy} onClick={() => void handleBuild()} type="button">
+            {busyLabel === "Building blueprint" ? "Building..." : "Build blueprint"}
+          </button>
+          <button aria-label="Settings" onClick={() => setShowSettings((current) => !current)} type="button">
+            Advanced settings
+          </button>
+        </div>
+      </div>
+    ) : null;
+  };
+
+  const renderGraphPanel = () => (
+    <section className="graph-panel full-graph">
+      <div className="graph-header">
+        <div>
+          <h2>{drilldownRootNode ? `${drilldownRootNode.name} internals` : "Architecture map"}</h2>
+          <p>
+            {drilldownRootNode && detailFlow
+              ? `${detailFlow.nodes.length} internal nodes, ${detailFlow.edges.length} edges`
+              : graph
+                ? `${graph.nodes.length} nodes, ${graph.edges.length} edges, ${graph.workflows.length} workflows`
+                : "No graph yet"}
+          </p>
+          {drilldownStack.length ? (
+            <p>
+              {["Architecture", ...drilldownStack.map((nodeId) => graph?.nodes.find((node) => node.id === nodeId)?.name ?? nodeId)].join(
+                " / "
+              )}
+            </p>
+          ) : null}
+          {!drilldownRootNode && runPlan ? <p>{`${runPlan.tasks.length} tasks across ${runPlan.batches.length} batches`}</p> : null}
+        </div>
+        <div className="graph-header-actions">
+          {drilldownStack.length ? (
+            <button disabled={isBusy} onClick={handleDrilldownBack} type="button">
+              Back to parent graph
+            </button>
+          ) : null}
+          <button disabled={isBusy || !graph} onClick={handleApplyTraces} type="button">
+            Apply trace overlay
+          </button>
+        </div>
+        {!drilldownRootNode && graph?.warnings.length ? (
+          <div className="warnings">
+            {graph.warnings.map((warning) => (
+              <p key={warning}>{warning}</p>
+            ))}
+          </div>
+        ) : null}
+      </div>
+
+      {renderGraphSurface()}
+    </section>
+  );
+
+  const renderTerminalDock = () => (
+    <div className="ide-dock-section">
+      <div className="ide-dock-toolbar">
+        <div>
+          <p className="panel-kicker">Terminal</p>
+          <h3>CodeFlow session</h3>
+        </div>
+        <div className="button-row">
+          <button disabled={isBusy} onClick={() => void handleBuild()} type="button">
+            Build
+          </button>
+          <button disabled={isBusy || !canRunActiveNode && !canRunIntegration} onClick={() => void handleRunExecution()} type="button">
+            Run
+          </button>
+        </div>
+      </div>
+
+      {busyLabel ? (
+        <div className="ide-terminal-banner">
+          <span className="ide-terminal-dot" />
+          <strong>{busyLabel}</strong>
+        </div>
+      ) : null}
+
+      {executionResult ? (
+        <div className="callout">
+          <h3>Latest execution</h3>
+          <p>
+            {executionResult.success ? "Success" : "Failure"} · {executionResult.durationMs}ms · exit{" "}
+            {executionResult.exitCode ?? "N/A"}
+          </p>
+          {executionSummary ? (
+            <p>
+              {executionSummary.passed} passed · {executionSummary.warning} warning ·{" "}
+              {executionSummary.failed} failed · {executionSummary.blocked} blocked
+            </p>
+          ) : null}
+          {executionResult.stdout ? <pre className="ide-terminal-output">{executionResult.stdout}</pre> : null}
+          {executionResult.stderr ? <pre className="ide-terminal-output is-error">{executionResult.stderr}</pre> : null}
+        </div>
+      ) : null}
+
+      {exportResult ? (
+        <div className="callout">
+          <h3>Latest export</h3>
+          <p>{exportResult.rootDir}</p>
+          {exportResult.artifactSummary ? (
+            <p className="status-meta">
+              {exportResult.artifactSummary.total} artifacts · {exportResult.artifactSummary.validated} validated
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div className="ide-terminal-feed">
+        {activityFeed.length ? (
+          activityFeed
+            .slice()
+            .reverse()
+            .map((entry) => (
+              <div key={entry.id} className={`ide-terminal-line tone-${entry.tone}`}>
+                <span className="ide-terminal-time">
+                  {new Date(entry.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                </span>
+                <span className="ide-terminal-source">{entry.source}</span>
+                <span className="ide-terminal-message">{entry.message}</span>
+                {entry.detail ? <p className="ide-terminal-detail">{entry.detail}</p> : null}
+              </div>
+            ))
+        ) : (
+          <p className="status-meta">No session activity yet. Build a blueprint or open a file to start the feed.</p>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderHeatmapDock = () => (
+    <div className="ide-dock-section">
+      <div className="ide-dock-toolbar">
+        <div>
+          <p className="panel-kicker">Heatmap</p>
+          <h3>Live node pressure</h3>
+        </div>
+        <div className="button-row">
+          <button disabled={isBusy} onClick={() => void handleLoadObservability()} type="button">
+            Refresh
+          </button>
+          <label className="choice-toggle compact-toggle">
+            <input
+              aria-label="Live polling"
+              checked={autoObservability}
+              onChange={(event) => setAutoObservability(event.target.checked)}
+              type="checkbox"
+            />
+            Live polling
+          </label>
+        </div>
+      </div>
+
+      {observabilityLastUpdatedAt ? (
+        <p className="status-meta">Last updated: {new Date(observabilityLastUpdatedAt).toLocaleString()}</p>
+      ) : null}
+      {observabilityPollError ? <p className="error">Polling stale: {observabilityPollError}</p> : null}
+
+      {heatmapData ? (
+        <div className="callout">
+          <h3>Hot paths</h3>
+          <table className="heatmap-table">
+            <thead>
+              <tr>
+                <th>Node</th>
+                <th>Calls</th>
+                <th>Errors</th>
+                <th>Avg ms</th>
+                <th>Heat</th>
+              </tr>
+            </thead>
+            <tbody>
+              {heatmapData.nodes
+                .slice()
+                .sort((a, b) => b.heatIntensity - a.heatIntensity)
+                .map((metric) => (
+                  <tr
+                    key={metric.nodeId}
+                    className={
+                      metric.heatIntensity > 0.66
+                        ? "heat-row-hot"
+                        : metric.heatIntensity > 0.33
+                          ? "heat-row-warm"
+                          : ""
+                    }
+                  >
+                    <td title={metric.nodeId}>{metric.name}</td>
+                    <td>{metric.callCount}</td>
+                    <td>{metric.errorCount}</td>
+                    <td>{metric.avgDurationMs.toFixed(1)}</td>
+                    <td>
+                      <div className="heat-bar-track">
+                        <div
+                          className="heat-bar-fill"
+                          style={{ width: `${Math.round(metric.heatIntensity * 100)}%` }}
+                        />
+                        <span className="heat-bar-label">{Math.round(metric.heatIntensity * 100)}%</span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="callout">
+          <p>Apply trace spans or refresh observability to populate heat.</p>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderVcrDock = () => (
+    <div className="ide-dock-section">
+      <div className="ide-dock-toolbar">
+        <div>
+          <p className="panel-kicker">VCR</p>
+          <h3>Execution replay</h3>
+        </div>
+        <button disabled={isBusy} onClick={() => void handleLoadVcrRecording()} type="button">
+          {busyLabel === "Loading VCR recording" ? "Loading..." : "Load recording"}
+        </button>
+      </div>
+
+      {vcrError ? <p className="error">{vcrError}</p> : null}
+
+      {vcrRecording ? (
+        <>
+          <div className="panel-stat-grid">
+            <div className="panel-stat-card">
+              <span className="panel-stat-label">Frames</span>
+              <strong>{vcrRecording.frames.length}</strong>
+              <span>Replay snapshots</span>
+            </div>
+            <div className="panel-stat-card">
+              <span className="panel-stat-label">Cursor</span>
+              <strong>{vcrFrameIndex + 1}</strong>
+              <span>Current frame</span>
+            </div>
+            <div className="panel-stat-card">
+              <span className="panel-stat-label">Playback</span>
+              <strong>{vcrPlaying ? "Playing" : "Paused"}</strong>
+              <span>{vcrRecording.frames[vcrFrameIndex]?.status ?? "idle"}</span>
+            </div>
+          </div>
+
+          <div className="callout">
+            <h3>Scrub bar</h3>
+            <input
+              aria-label="VCR scrub bar"
+              className="vcr-scrub-bar"
+              max={vcrRecording.frames.length - 1}
+              min={0}
+              onChange={(event) => {
+                const raw = Number(event.target.value);
+                const clamped = Math.min(vcrRecording.frames.length - 1, Math.max(0, raw));
+                setVcrFrameIndex(clamped);
+              }}
+              step={1}
+              type="range"
+              value={vcrFrameIndex}
+            />
+            <div className="button-row vcr-controls">
+              <button disabled={vcrFrameIndex === 0} onClick={() => { setVcrPlaying(false); setVcrFrameIndex(0); }} type="button">⏮</button>
+              <button disabled={vcrFrameIndex === 0} onClick={() => { setVcrPlaying(false); setVcrFrameIndex((prev) => Math.max(0, prev - 1)); }} type="button">◀</button>
+              <button onClick={() => setVcrPlaying((prev) => !prev)} type="button">{vcrPlaying ? "⏸" : "▶"}</button>
+              <button disabled={vcrFrameIndex >= vcrRecording.frames.length - 1} onClick={() => { setVcrPlaying(false); setVcrFrameIndex((prev) => Math.min(vcrRecording.frames.length - 1, prev + 1)); }} type="button">▶|</button>
+              <button disabled={vcrFrameIndex >= vcrRecording.frames.length - 1} onClick={() => { setVcrPlaying(false); setVcrFrameIndex(vcrRecording.frames.length - 1); }} type="button">⏭</button>
+            </div>
+          </div>
+
+          {vcrRecording.frames[vcrFrameIndex] ? (
+            <div className="callout">
+              <h3>Current frame</h3>
+              <p><strong>Span:</strong> {vcrRecording.frames[vcrFrameIndex].label}</p>
+              {vcrRecording.frames[vcrFrameIndex].nodeName ? (
+                <p><strong>Node:</strong> {vcrRecording.frames[vcrFrameIndex].nodeName}</p>
+              ) : null}
+              <p><strong>Duration:</strong> {vcrRecording.frames[vcrFrameIndex].durationMs}ms</p>
+            </div>
+          ) : null}
+        </>
+      ) : (
+        <div className="callout">
+          <p>Load a recording to scrub execution history inside the IDE.</p>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderTracesDock = () => (
+    <div className="ide-dock-section">
+      <div className="ide-dock-toolbar">
+        <div>
+          <p className="panel-kicker">Traces</p>
+          <h3>Spans, logs, and Digital Twin</h3>
+        </div>
+        <div className="button-row">
+          <button disabled={isBusy} onClick={() => void handleLoadDigitalTwin()} type="button">
+            Refresh twin
+          </button>
+          <button disabled={isBusy || !simulateNodeIds.trim()} onClick={() => void handleSimulateAction()} type="button">
+            Simulate
+          </button>
+        </div>
+      </div>
+
+      {latestSpans?.length ? (
+        <div className="callout">
+          <h3>Recent spans</h3>
+          {latestSpans.slice(0, 10).map((span) => (
+            <div key={span.spanId} className={`obs-span-row obs-span-${span.status}`}>
+              <span className="obs-span-status">{span.status.toUpperCase()}</span>
+              <span className="obs-span-name">{span.name}</span>
+              <span className="obs-span-meta">[{span.runtime} · {span.provenance ?? "observed"}]</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {latestLogs.length ? (
+        <div className="callout">
+          <h3>Recent logs</h3>
+          {latestLogs.slice(0, 10).map((log) => (
+            <div key={log.id} className={`obs-log-row obs-log-${log.level}`}>
+              <span className="obs-log-level">{log.level.toUpperCase()}</span>
+              <span className="obs-log-message">{log.message}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="callout">
+        <h3>Digital Twin</h3>
+        <label className="field">
+          <span>Active window (seconds)</span>
+          <input
+            aria-label="Active window seconds"
+            min={1}
+            onChange={(event) => {
+              const rawValue = Number(event.target.value);
+              if (!Number.isFinite(rawValue)) {
+                return;
+              }
+              setDigitalTwinWindowSecs(Math.max(1, Math.floor(rawValue)));
+            }}
+            type="number"
+            value={digitalTwinWindowSecs}
+          />
+        </label>
+        <label className="field">
+          <span>Node IDs</span>
+          <textarea
+            aria-label="Node IDs to simulate"
+            onChange={(event) => setSimulateNodeIds(event.target.value)}
+            placeholder={graph?.nodes.slice(0, 2).map((node) => node.id).join("\n") ?? ""}
+            rows={3}
+            value={simulateNodeIds}
+          />
+        </label>
+        <label className="field">
+          <span>Flow label</span>
+          <input onChange={(event) => setSimulateLabel(event.target.value)} value={simulateLabel} />
+        </label>
+        {digitalTwinSnapshot ? (
+          <>
+            <p className="status-meta">
+              {digitalTwinSnapshot.activeNodeIds.length} active nodes · {digitalTwinSnapshot.observedSpanCount} observed spans · {digitalTwinSnapshot.simulatedSpanCount} simulated spans
+            </p>
+            <p className="status-meta">
+              Last updated: {new Date(digitalTwinLastUpdatedAt ?? digitalTwinSnapshot.computedAt).toLocaleString()}
+            </p>
+          </>
+        ) : (
+          <p className="status-meta">Refresh the Digital Twin to mirror current traffic.</p>
+        )}
+        {digitalTwinError ? <p className="error">{digitalTwinError}</p> : null}
+        {digitalTwinPollError ? <p className="error">Polling stale: {digitalTwinPollError}</p> : null}
+      </div>
+    </div>
+  );
+
+  const renderProblemsDock = () => (
+    <div className="ide-dock-section">
+      <div className="ide-dock-toolbar">
+        <div>
+          <p className="panel-kicker">Problems</p>
+          <h3>Warnings, drift, and health</h3>
+        </div>
+        <div className="button-row">
+          <button disabled={isBusy || !graph} onClick={() => void handleRunAnalysis()} type="button">
+            Analyze
+          </button>
+          <button disabled={isBusy || !graph} onClick={() => void handleDetectDrift()} type="button">
+            Detect drift
+          </button>
+          <button disabled={isBusy || !refactorReport || refactorReport.isHealthy} onClick={() => void handleHealArchitecture()} type="button">
+            Heal
+          </button>
+        </div>
+      </div>
+
+      {error ? (
+        <div className="callout danger-callout">
+          <h3>Current error</h3>
+          <p>{error}</p>
+        </div>
+      ) : null}
+
+      {graph?.warnings.length ? (
+        <div className="callout">
+          <h3>Graph warnings</h3>
+          {graph.warnings.map((warning) => (
+            <p key={warning}>{warning}</p>
+          ))}
+        </div>
+      ) : null}
+
+      {riskReport ? (
+        <div className="callout">
+          <h3>Risk report</h3>
+          <p>{riskReport.level.toUpperCase()} ({riskReport.score})</p>
+          {riskReport.factors.length
+            ? riskReport.factors.map((factor) => <p key={factor.code}>{factor.message}</p>)
+            : <p>No notable export risks detected.</p>}
+        </div>
+      ) : null}
+
+      {conflictReport ? (
+        <div className="callout">
+          <h3>Repo conflicts</h3>
+          <p>{conflictReport.conflicts.length} conflict{conflictReport.conflicts.length === 1 ? "" : "s"}</p>
+          {conflictReport.conflicts.slice(0, 8).map((conflict) => (
+            <p key={`${conflict.kind}:${conflict.message}`}>{conflict.message}</p>
+          ))}
+        </div>
+      ) : null}
+
+      {graphMetrics ? (
+        <div className="callout">
+          <h3>Graph Metrics</h3>
+          <p>{graphMetrics.nodeCount} nodes</p>
+          <p>{graphMetrics.edgeCount} edges</p>
+          <p>Density {graphMetrics.density.toFixed(3)}</p>
+          <p>Avg degree {graphMetrics.avgDegree.toFixed(1)}</p>
+        </div>
+      ) : null}
+
+      {smellReport ? (
+        <div className="callout">
+          <h3>Architecture Health: {smellReport.healthScore}/100</h3>
+          <p>{smellReport.totalSmells} smell{smellReport.totalSmells === 1 ? "" : "s"} detected</p>
+          {smellReport.smells.length
+            ? smellReport.smells.slice(0, 8).map((smell, index) => (
+                <p key={`${smell.code}:${smell.nodeId ?? "global"}:${index}`}>
+                  {smell.severity.toUpperCase()} [{smell.code}] {smell.message}
+                </p>
+              ))
+            : <p>No architecture smells detected.</p>}
+        </div>
+      ) : null}
+
+      {cycleReport ? (
+        <div className="callout">
+          <h3>Dependency cycles</h3>
+          <p>{cycleReport.totalCycles} cycle{cycleReport.totalCycles === 1 ? "" : "s"} detected</p>
+          {cycleReport.cycles.length ? (
+            cycleReport.cycles.slice(0, 5).map((cycle, index) => (
+              <p key={`${cycle.nodeIds.join(":")}:${index}`}>{cycle.nodeIds.join(" → ")}</p>
+            ))
+          ) : (
+            <p>No dependency cycles found. Graph is a clean DAG!</p>
+          )}
+        </div>
+      ) : null}
+
+      {refactorReport ? (
+        <div className="callout">
+          <h3>{refactorReport.isHealthy ? "Architecture healthy" : "Drift report"}</h3>
+          <p className="status-meta">
+            {refactorReport.scope} · {refactorReport.provenance} · {refactorReport.maturity}
+          </p>
+          {!refactorReport.isHealthy
+            ? refactorReport.issues.slice(0, 8).map((issue, index) => (
+                <p key={`${issue.kind}:${issue.nodeId ?? "global"}:${index}`}>{issue.description}</p>
+              ))
+            : <p>No drift issues detected.</p>}
+        </div>
+      ) : null}
+
+      {healResult ? (
+        <div className="callout">
+          <h3>Last heal</h3>
+          <p>{healResult.issuesFixed} issues fixed</p>
+          {healResult.summary.slice(0, 6).map((line) => (
+            <p key={line}>{line}</p>
+          ))}
+        </div>
+      ) : null}
+
+      {mermaidDiagram ? (
+        <div className="callout">
+          <h3>Mermaid</h3>
+          <pre className="mermaid-output">{mermaidDiagram}</pre>
+        </div>
+      ) : null}
+    </div>
+  );
+
+  const renderIdeBottomPanel = () => {
+    const problemCount =
+      (error ? 1 : 0) +
+      (graph?.warnings.length ?? 0) +
+      (conflictReport?.conflicts.length ?? 0) +
+      (smellReport?.totalSmells ?? 0) +
+      (cycleReport?.totalCycles ?? 0) +
+      (refactorReport?.totalIssues ?? 0);
+    const traceCount = (latestSpans?.length ?? 0) + latestLogs.length;
+    const tabs: Array<{ id: IdeDockTab; label: string; badge?: number; content: ReactNode }> = [
+      { id: "terminal", label: "terminal", badge: activityFeed.length || undefined, content: renderTerminalDock() },
+      { id: "heatmap", label: "heatmap", badge: heatmapData?.nodes.length || undefined, content: renderHeatmapDock() },
+      { id: "vcr", label: "vcr", badge: vcrRecording?.frames.length || undefined, content: renderVcrDock() },
+      { id: "traces", label: "traces", badge: traceCount || undefined, content: renderTracesDock() },
+      { id: "problems", label: "problems", badge: problemCount || undefined, content: renderProblemsDock() }
+    ];
+
+    return (
+      <div className="ide-dock-shell">
+        <div className="ide-dock-tabs" role="tablist">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              aria-selected={activeDockTab === tab.id}
+              className={`ide-dock-tab${activeDockTab === tab.id ? " is-active" : ""}`}
+              onClick={() => setActiveDockTab(tab.id)}
+              role="tab"
+              type="button"
+            >
+              <span>{tab.label}</span>
+              {tab.badge ? <span className="ide-dock-tab-badge">{tab.badge}</span> : null}
+            </button>
+          ))}
+        </div>
+        <div className="ide-dock-panel" role="tabpanel">
+          {tabs.find((tab) => tab.id === activeDockTab)?.content}
+        </div>
+      </div>
+    );
+  };
+
+  const renderIdeSidebar = () => {
+    const sidebarNode = selectedNode;
+    const sidebarContract = sidebarNode ? normalizeContract(sidebarNode.contract) : null;
+    const sourceNavigationTarget = sidebarNode ? getNavigationTarget(sidebarNode) : null;
+    const codeRagPrimaryNode = codeRagResult?.context.primaryNode ?? null;
+    const codeRagRelatedNodes = codeRagResult?.context.relatedNodes ?? [];
+    const openCodeRagContext = (node: RetrievedNodeContext) =>
+      handleOpenFile(node.filePath, {
+        filePath: node.filePath,
+        lineNumber: node.startLine,
+        endLineNumber: node.endLine,
+        columnStart: 1,
+        symbolName: node.name
+      });
+
+    return (
+      <div className="ide-agent-slot">
+        <div className="ide-side-section">
+          <p className="panel-kicker">CodeFlow IDE</p>
+          <h2>Agent rail</h2>
+          <p className="status-meta">
+            The graph stays live in the editor while builds, analysis, traces, and runtime controls stay docked here and below.
+          </p>
+          <div className="ide-chip-row">
+            <span className="executionMode-pill">Phase {graph?.phase ?? "spec"}</span>
+            <span className="executionMode-pill">{useAI ? "AI blueprint" : "Repo blueprint"}</span>
+            <span className="executionMode-pill">{executionMode}</span>
+          </div>
+        </div>
+
+        {renderPromptComposer("sidebar")}
+
+        <div className="ide-side-section">
+          <div className="ide-side-section-header">
+            <h3>Controls</h3>
+            <button onClick={() => setShowPromptPanel((current) => !current)} type="button">
+              {showPromptPanel ? "Hide prompt" : "Show prompt"}
+            </button>
+          </div>
+          <p className="status-meta">{apiKeyStatus}</p>
+          <div className="button-row">
+            <button disabled={isBusy} onClick={() => void handleBuild()} type="button">Build</button>
+            <button disabled={isBusy || !graph} onClick={() => void handleRunAnalysis()} type="button">Analyze graph</button>
+            <button disabled={isBusy || !graph} onClick={() => setActiveDockTab("traces")} type="button">Traces</button>
+            <button disabled={isBusy || !graph} onClick={() => setActiveDockTab("problems")} type="button">Problems</button>
+          </div>
+          <div className="button-row">
+            <button disabled={isBusy || !canImplementActiveNode} onClick={() => void handleImplementNode()} type="button">Implement</button>
+            <button disabled={isBusy || !canRunActiveNode && !canRunIntegration} onClick={() => void handleRunExecution()} type="button">Run</button>
+            <button disabled={isBusy || !graph} onClick={() => void handleLoadObservability()} type="button">Heatmap</button>
+            <button disabled={isBusy || !graph} onClick={() => void handleLoadVcrRecording()} type="button">VCR</button>
+          </div>
+        </div>
+
+        <div className="ide-side-section">
+          <div className="ide-side-section-header">
+            <h3>Repo context</h3>
+            <button disabled={codeRagLoading} onClick={() => void refreshCodeRagStatus(true)} type="button">
+              Refresh
+            </button>
+          </div>
+          <p className="status-meta">{codeRagMessage}</p>
+          <p className="status-meta">
+            This search prompt feeds the backend CodeRAG engine. Its retrieved context is injected into Suggest code, Implement node, and Monaco completions.
+          </p>
+          <label className="field">
+            <span>Search prompt</span>
+            <textarea
+              onChange={(event) => setCodeRagQuery(event.target.value)}
+              placeholder="Where is auth validated, what calls it, and which files should the coding agent inspect?"
+              rows={3}
+              value={codeRagQuery}
+            />
+          </label>
+          <label className="field">
+            <span>Traversal depth</span>
+            <input
+              max={6}
+              min={1}
+              onChange={(event) => {
+                const nextDepth = Number(event.target.value);
+                if (!Number.isFinite(nextDepth)) {
+                  return;
+                }
+
+                setCodeRagDepth(Math.max(1, Math.min(6, Math.floor(nextDepth))));
+              }}
+              type="number"
+              value={codeRagDepth}
+            />
+          </label>
+          <div className="button-row">
+            <button
+              disabled={codeRagLoading || codeRagStatus !== "ready" || !codeRagQuery.trim()}
+              onClick={() => void handleRunCodeRagQuery()}
+              type="button"
+            >
+              {codeRagLoading ? "Searching..." : "Search repo"}
+            </button>
+            {sidebarNode ? (
+              <button
+                onClick={() => setCodeRagQuery(`Explain ${sidebarNode.name} and what it touches.`)}
+                type="button"
+              >
+                Use selection
+              </button>
+            ) : null}
+          </div>
+
+          {codeRagError ? (
+            <div className="callout danger-callout">
+              <p>{codeRagError}</p>
+            </div>
+          ) : null}
+
+          {codeRagResult ? (
+            <div className="coderag-results">
+              <div className="callout">
+                <h3>Answer</h3>
+                <p className="coderag-answer">{codeRagResult.answer}</p>
+              </div>
+
+              {codeRagPrimaryNode ? (
+                <div className="callout coderag-node-card">
+                  <div className="coderag-node-meta">
+                    <span className="node-tag">Primary</span>
+                    <span className="status-meta">{codeRagPrimaryNode.kind}</span>
+                  </div>
+                  <p><strong>{codeRagPrimaryNode.name}</strong></p>
+                  <p className="status-meta">
+                    {codeRagPrimaryNode.filePath}:{codeRagPrimaryNode.startLine}-{codeRagPrimaryNode.endLine}
+                  </p>
+                  <p>{codeRagPrimaryNode.doc}</p>
+                  <button onClick={() => openCodeRagContext(codeRagPrimaryNode)} type="button">
+                    Open primary node
+                  </button>
+                </div>
+              ) : null}
+
+              {codeRagRelatedNodes.length ? (
+                <div className="callout">
+                  <h3>Related nodes</h3>
+                  <div className="coderag-related-list">
+                    {codeRagRelatedNodes.slice(0, 4).map((node) => (
+                      <div key={`${node.relationship}:${node.nodeId}`} className="coderag-related-item">
+                        <div>
+                          <p><strong>{node.name}</strong></p>
+                          <p className="status-meta">
+                            {node.relationship} · {node.filePath}:{node.startLine}
+                          </p>
+                        </div>
+                        <button onClick={() => openCodeRagContext(node)} type="button">
+                          Open
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <div className="callout">
+              <p>
+                {codeRagStatus === "ready"
+                  ? "Search the repo to pin retrieval context for the coding agent and editor."
+                  : "Build or export a repo-backed blueprint to initialize CodeRAG for this workspace."}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {navigationError ? (
+          <div className="callout danger-callout">
+            <h3>Navigation</h3>
+            <p>{navigationError}</p>
+          </div>
+        ) : null}
+
+        {editorRevealTarget ? (
+          <div className="callout">
+            <h3>Focused source</h3>
+            <p>{formatNavigationTarget(editorRevealTarget)}</p>
+          </div>
+        ) : null}
+
+        {activeFile ? (
+          <div className="callout">
+            <h3>Editor session</h3>
+            <p>{activeFile}</p>
+            <p>{openFiles.length} open tab{openFiles.length === 1 ? "" : "s"}</p>
+            {activeCodeNode ? <p>Code node: {activeCodeNode.name}</p> : null}
+          </div>
+        ) : (
+          <div className="callout">
+            <h3>Editor session</h3>
+            <p>No file open. The graph owns the main area until you choose a file from the explorer.</p>
+          </div>
+        )}
+
+        {sidebarNode ? (
+          <div className="callout">
+            <h3>Selected node</h3>
+            <p><strong>{sidebarNode.name}</strong></p>
+            <p>{sidebarNode.summary}</p>
+            {sourceNavigationTarget && isValidNavigationTarget(sourceNavigationTarget) ? (
+              <button onClick={() => handleOpenNodeSource(sidebarNode.id)} type="button">
+                Open source
+              </button>
+            ) : null}
+            {sidebarContract?.responsibilities.length ? (
+              <>
+                <h4>Responsibilities</h4>
+                {sidebarContract.responsibilities.slice(0, 4).map((item) => (
+                  <p key={item}>{item}</p>
+                ))}
+              </>
+            ) : null}
+            {sidebarContract?.calls.length ? (
+              <>
+                <h4>Calls</h4>
+                {sidebarContract.calls.slice(0, 4).map((call) => (
+                  <p key={`${call.target}:${call.kind ?? ""}`}>
+                    {call.target}{call.kind ? ` [${call.kind}]` : ""}
+                  </p>
+                ))}
+              </>
+            ) : null}
+          </div>
+        ) : null}
+
+        {drilldownRootNode && selectedDetailItem ? (
+          <div className="callout">
+            <h3>Internal selection</h3>
+            <p><strong>{selectedDetailItem.label}</strong></p>
+            <p>{selectedDetailItem.summary}</p>
+            {selectedDetailItem.sections.map((section) => (
+              <div key={section.title}>
+                <h4>{section.title}</h4>
+                {section.items.map((item) => (
+                  <p key={`${section.title}:${item}`}>{item}</p>
+                ))}
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {!activeFile && activeCodeNode ? renderCodeEditorPanel() : null}
+      </div>
+    );
+  };
+
   return (
     <div className="workbench-shell">
       <header className="workbench-topbar workbench-topbar-refined">
@@ -2385,7 +3646,7 @@ export function BlueprintWorkbench() {
                 <p>Phase: {graph?.phase ?? "spec"}</p>
                 <p>Nodes: {graph?.nodes.length ?? 0}</p>
                 <p>Workflows: {graph?.workflows.length ?? 0}</p>
-                <p>Mode: {mode}</p>
+                <p>Mode: {executionMode}</p>
               </div>
             </div>
           </ToolbarMenu>
@@ -2443,14 +3704,17 @@ export function BlueprintWorkbench() {
                 <button disabled={!graph} onClick={() => runToolbarAction(() => setShowPhasePanel((current) => !current))} type="button">
                   {showPhasePanel ? "Hide phase stats" : "Show phase stats"}
                 </button>
-                <button disabled={!graph} onClick={() => runToolbarAction(() => setShowObservabilityPanel((current) => !current))} type="button">
-                  {showObservabilityPanel ? "Hide heatmap" : "Heatmap"}
+                <button disabled={!graph} onClick={() => runToolbarAction(() => setActiveDockTab("heatmap"))} type="button">
+                  Heatmap
                 </button>
-                <button disabled={!graph} onClick={() => runToolbarAction(() => setShowVcrPanel((current) => !current))} type="button">
-                  {showVcrPanel ? "Hide VCR" : "VCR Replay"}
+                <button disabled={!graph} onClick={() => runToolbarAction(() => setActiveDockTab("vcr"))} type="button">
+                  VCR Replay
                 </button>
-                <button disabled={!graph} onClick={() => runToolbarAction(() => setShowDigitalTwinPanel((current) => !current))} type="button">
-                  {showDigitalTwinPanel ? "Hide twin" : "Digital Twin"}
+                <button disabled={!graph} onClick={() => runToolbarAction(() => setActiveDockTab("traces"))} type="button">
+                  Traces
+                </button>
+                <button disabled={!graph} onClick={() => runToolbarAction(() => setActiveDockTab("problems"))} type="button">
+                  Problems
                 </button>
               </ToolbarMenuSection>
             </ToolbarMenu>
@@ -2470,8 +3734,8 @@ export function BlueprintWorkbench() {
                 <button disabled={!ghostSuggestions.length} onClick={() => runToolbarAction(() => setGhostSuggestions([]))} type="button">
                   Clear ghosts
                 </button>
-                <button disabled={!graph} onClick={() => runToolbarAction(() => setShowRefactorPanel((current) => !current))} type="button">
-                  {showRefactorPanel ? "Hide heal" : "Heal"}
+                <button disabled={!graph} onClick={() => runToolbarAction(() => setActiveDockTab("problems"))} type="button">
+                  Problems / heal
                 </button>
                 <button disabled={!graph} onClick={() => runToolbarAction(() => setShowGeneticPanel((current) => !current))} type="button">
                   {showGeneticPanel ? "Hide evolution" : "Evolution"}
@@ -2480,9 +3744,6 @@ export function BlueprintWorkbench() {
               <ToolbarMenuSection title="Workspace">
                 <button disabled={!graph} onClick={() => runToolbarAction(() => setShowEditPanel((current) => !current))} type="button">
                   {showEditPanel ? "Hide edit graph" : "Edit graph"}
-                </button>
-                <button disabled={!graph} onClick={() => runToolbarAction(() => setShowFilePanel((current) => !current))} type="button">
-                  {showFilePanel ? "Hide file explorer" : "File explorer"}
                 </button>
                 <button
                   disabled={!graph}
@@ -2556,14 +3817,14 @@ export function BlueprintWorkbench() {
             </div>
           </fieldset>
           <fieldset className="field">
-            <span>Execution mode</span>
+            <span>Execution executionMode</span>
             <div className="choice-row">
               <label>
-                <input checked={mode === "essential"} onChange={() => setMode("essential")} type="radio" name="mode" />
+                <input checked={executionMode === "essential"} onChange={() => setExecutionMode("essential")} type="radio" name="executionMode" />
                 Essential
               </label>
               <label>
-                <input checked={mode === "yolo"} onChange={() => setMode("yolo")} type="radio" name="mode" />
+                <input checked={executionMode === "yolo"} onChange={() => setExecutionMode("yolo")} type="radio" name="executionMode" />
                 Yolo
               </label>
             </div>
@@ -2875,338 +4136,68 @@ export function BlueprintWorkbench() {
         </section>
       ) : null}
 
-        <section className="workbench-main">
-        <div className="graph-mode-strip">
-          <span className="mode-pill">Phase {graph?.phase ?? "spec"}</span>
-          <span className="mode-pill">{useAI ? "AI blueprint" : "Repo blueprint"}</span>
-          <span className="mode-pill">{mode}</span>
-          {autoImplementNodes ? <span className="mode-pill accent-pill">Auto implement on</span> : null}
-          <span className="mode-pill subtle-pill">{useAI ? apiKeyStatus : "Legacy PRD / repo mode"}</span>
-        </div>
+        <section className="workbench-main workbench-main-ide">
 
-        {showMascotPanel ? (
-          <CodeflowCatShowcase
-            activeScene={activeMascotScene}
-            graphPhase={graph?.phase ?? null}
-            ghostCount={ghostSuggestions.length}
-            unhealthy={Boolean(refactorReport && !refactorReport.isHealthy)}
-            verifiedAll={allCodeNodesVerified}
-          />
-        ) : null}
+          {showMascotPanel ? (
+            <CodeflowCatShowcase
+              activeScene={activeMascotScene}
+              graphPhase={graph?.phase ?? null}
+              ghostCount={ghostSuggestions.length}
+              unhealthy={Boolean(refactorReport && !refactorReport.isHealthy)}
+              verifiedAll={allCodeNodesVerified}
+            />
+          ) : null}
 
-        {graph && showPhasePanel ? (
-          <div className="callout phase-progress">
-            <h2>Phase progress</h2>
-            <p>Current phase: {graph.phase}</p>
-            <p>Spec-ready nodes: {codeBearingNodeCount}</p>
-            <p>Implemented nodes: {implementedNodeCount}</p>
-            <p>Verified nodes: {verifiedNodeCount}</p>
-          </div>
-        ) : null}
-
-        {pendingApproval ? (
-          <div className="callout danger-callout">
-            <h2>Approval required</h2>
-            <p>{pendingApproval.riskReport.level.toUpperCase()} risk export is waiting for approval.</p>
-            <p>{pendingApproval.outputDir}</p>
-            <button
-              disabled={isBusy}
-              onClick={() => {
-                void handleApproveAndExport();
-              }}
-              type="button"
-            >
-              {busyLabel === "Approving export" ? "Approving..." : "Approve and export"}
-            </button>
-          </div>
-        ) : null}
-
-        <section className="graph-panel full-graph">
-          <div className="graph-header">
-            <div>
-              <h2>{drilldownRootNode ? `${drilldownRootNode.name} internals` : "Architecture map"}</h2>
-              <p>
-                {drilldownRootNode && detailFlow
-                  ? `${detailFlow.nodes.length} internal nodes, ${detailFlow.edges.length} edges`
-                  : graph
-                    ? `${graph.nodes.length} nodes, ${graph.edges.length} edges, ${graph.workflows.length} workflows`
-                    : "No graph yet"}
-              </p>
-              {drilldownStack.length ? (
-                <p>
-                  {["Architecture", ...drilldownStack.map((nodeId) => graph?.nodes.find((node) => node.id === nodeId)?.name ?? nodeId)].join(
-                    " / "
-                  )}
-                </p>
-              ) : null}
-              {!drilldownRootNode && runPlan ? <p>{`${runPlan.tasks.length} tasks across ${runPlan.batches.length} batches`}</p> : null}
+          {graph && showPhasePanel ? (
+            <div className="callout phase-progress">
+              <h2>Phase progress</h2>
+              <p>Current phase: {graph.phase}</p>
+              <p>Spec-ready nodes: {codeBearingNodeCount}</p>
+              <p>Implemented nodes: {implementedNodeCount}</p>
+              <p>Verified nodes: {verifiedNodeCount}</p>
             </div>
-            <div className="graph-header-actions">
-              {drilldownStack.length ? (
-                <button disabled={isBusy} onClick={handleDrilldownBack} type="button">
-                  Back to parent graph
-                </button>
-              ) : null}
-              <button disabled={isBusy || !graph} onClick={handleApplyTraces} type="button">
-                Apply trace overlay
+          ) : null}
+
+          {pendingApproval ? (
+            <div className="callout danger-callout">
+              <h2>Approval required</h2>
+              <p>{pendingApproval.riskReport.level.toUpperCase()} risk export is waiting for approval.</p>
+              <p>{pendingApproval.outputDir}</p>
+              <button
+                disabled={isBusy}
+                onClick={() => {
+                  void handleApproveAndExport();
+                }}
+                type="button"
+              >
+                {busyLabel === "Approving export" ? "Approving..." : "Approve and export"}
               </button>
             </div>
-            {!drilldownRootNode && graph?.warnings.length ? (
-              <div className="warnings">
-                {graph.warnings.map((warning) => (
-                  <p key={warning}>{warning}</p>
-                ))}
-              </div>
-            ) : null}
-          </div>
-
-          {shouldShowPromptComposer ? (
-            <div className={`prompt-dock${graph ? " prompt-dock-overlay" : ""}`}>
-              <div className="prompt-dock-header">
-                <div>
-                  <p className="brand-eyebrow">Blueprint Input</p>
-                  <h3>{graph ? "Adjust the plan without leaving the graph" : "Describe what CodeFlow should build"}</h3>
-                  <p className="prompt-dock-note">A calm brief in. A clean graph out.</p>
-                </div>
-                <CodeflowCatLogo className="prompt-dock-logo" size={34} />
-                {graph ? (
-                  <button onClick={() => setShowPromptPanel(false)} type="button">
-                    Hide
-                  </button>
-                ) : null}
-              </div>
-
-              <fieldset className="field">
-                <span>Input mode</span>
-                <div className="choice-row">
-                  <label>
-                    <input checked={useAI} onChange={() => setUseAI(true)} type="radio" name="dockBuildMode" />
-                    AI Prompt
-                  </label>
-                  <label>
-                    <input checked={!useAI} onChange={() => setUseAI(false)} type="radio" name="dockBuildMode" />
-                    PRD / Repo
-                  </label>
-                </div>
-              </fieldset>
-
-              {useAI ? (
-                <label className="field">
-                  <span>Describe your project</span>
-                  <textarea
-                    value={aiPrompt}
-                    onChange={(event) => setAiPrompt(event.target.value)}
-                    rows={graph ? 5 : 8}
-                    placeholder="A task management app with a React frontend and Node backend. Or a Rails monolith, a Django app, a Go service, a Swift iOS client, or any other stack you want to visualize."
-                  />
-                </label>
-              ) : (
-                <div className="prompt-dock-split">
-                  <label className="field">
-                    <span>Repo path</span>
-                    <input
-                      value={repoPath}
-                      onChange={(event) => setRepoPath(event.target.value)}
-                      placeholder="/absolute/path/to/repo"
-                    />
-                  </label>
-                  <label className="field">
-                    <span>PRD markdown</span>
-                    <textarea
-                      aria-label="PRD markdown"
-                      value={prdText}
-                      onChange={(event) => setPrdText(event.target.value)}
-                      rows={graph ? 6 : 8}
-                      placeholder="# UI&#10;- Screen: Workspace&#10;&#10;# API&#10;- POST /api/blueprint"
-                    />
-                  </label>
-                </div>
-              )}
-
-              <div className="prompt-dock-actions">
-                <button className="toolbar-primary-action" disabled={isBusy} onClick={() => void handleBuild()} type="button">
-                  {busyLabel === "Building blueprint" ? "Building..." : "Build blueprint"}
-                </button>
-                <button aria-label="Settings" onClick={() => setShowSettings((current) => !current)} type="button">
-                  Advanced settings
-                </button>
-              </div>
-            </div>
           ) : null}
 
-          <GraphCanvas
-            graph={vcrGraph ?? graph}
-            selectedNodeId={drilldownRootNode ? selectedDetailNodeId : selectedNodeId}
-            nodes={detailFlow?.nodes}
-            edges={detailFlow?.edges}
-            onNodeDoubleClick={handleGraphDoubleClick}
-            onSelect={handleGraphSelect}
-            ghostNodes={drilldownRootNode ? undefined : ghostSuggestions}
-            onGhostNodeClick={handleSolidifyGhostNode}
-            heatmapData={drilldownRootNode ? undefined : heatmapData}
-            driftedNodeIds={drilldownRootNode ? undefined : (refactorReport?.driftedNodeIds ?? undefined)}
-            executionResult={executionResult}
-          />
-        </section>
-
-        {error ? <p className="error floating-error">{error}</p> : null}
-
-        <div className="floating-lower-stack">
-          {exportResult ? (
-            <div className="callout">
-            <h2>Exported</h2>
-            <p>{exportResult.rootDir}</p>
-            <p>{exportResult.blueprintPath}</p>
-            <p>{exportResult.docsDir}</p>
-            <p>{exportResult.stubsDir}</p>
-            <p>{exportResult.canvasPath}</p>
-            {exportResult.artifactManifestPath ? <p>{exportResult.artifactManifestPath}</p> : null}
-            {exportResult.artifactSummary ? (
-              <p className="status-meta">
-                {exportResult.artifactSummary.total} artifacts · {exportResult.artifactSummary.validated} validated · {exportResult.artifactSummary.draft} draft · {exportResult.artifactSummary.scaffold} scaffold
-              </p>
-            ) : null}
-            {exportResult.artifactSummary?.scaffold ? (
-              <p className="status-meta">
-                Scaffold exports are intentional placeholders. Replace them with validated implementation before treating the export as production-ready code.
-              </p>
-            ) : null}
-            {exportResult.checkpointDir ? <p>{exportResult.checkpointDir}</p> : null}
-            </div>
-          ) : null}
-
-          {riskReport ? (
-            <div className="callout">
-            <h2>Risk report</h2>
-            <p>
-              {riskReport.level.toUpperCase()} ({riskReport.score})
-            </p>
-            {riskReport.factors.length ? (
-              riskReport.factors.map((factor) => <p key={factor.code}>{factor.message}</p>)
-            ) : (
-              <p>No notable export risks detected.</p>
-            )}
-            </div>
-          ) : null}
-
-          {conflictReport ? (
-            <div className="callout">
-            <h2>Drift report</h2>
-            <p>{conflictReport.conflicts.length} conflicts</p>
-            {conflictReport.conflicts.slice(0, 6).map((conflict) => (
-              <p key={`${conflict.kind}:${conflict.message}`}>{conflict.message}</p>
-            ))}
-            </div>
-          ) : null}
-        </div>
-      </section>
-
-      {showAnalysisPanel && graph ? (
-        <aside className="floating-panel analysis-panel">
-          <div className="floating-panel-header">
-            <div className="floating-panel-heading">
-              <p className="panel-kicker">Architecture</p>
-              <h2>Analysis</h2>
-              <p className="floating-panel-copy">Structural health, cycles, and blueprint density in one place.</p>
-            </div>
-            <button onClick={() => setShowAnalysisPanel(false)} type="button">
-              Close
-            </button>
-          </div>
-
-          {graphMetrics ? (
-            <div className="callout">
-              <h3>Graph Metrics</h3>
-              <div className="panel-stat-grid">
-                <div className="panel-stat-card">
-                  <span className="panel-stat-label">Topology</span>
-                  <strong>{graphMetrics.nodeCount} nodes</strong>
-                  <span>{graphMetrics.edgeCount} edges</span>
-                </div>
-                <div className="panel-stat-card">
-                  <span className="panel-stat-label">Density</span>
-                  <strong>{graphMetrics.density.toFixed(3)}</strong>
-                  <span>Avg degree {graphMetrics.avgDegree.toFixed(1)}</span>
-                </div>
-                <div className="panel-stat-card">
-                  <span className="panel-stat-label">Components</span>
-                  <strong>{graphMetrics.connectedComponents}</strong>
-                  <span>{graphMetrics.isolatedNodes} isolated · {graphMetrics.leafNodes} leaf</span>
-                </div>
-                <div className="panel-stat-card">
-                  <span className="panel-stat-label">Contract Load</span>
-                  <strong>{graphMetrics.totalMethods} methods</strong>
-                  <span>{graphMetrics.totalResponsibilities} responsibilities</span>
-                </div>
-              </div>
-              {graphMetrics.maxInDegreeNodeId ? <p>Most depended-on: {graphMetrics.maxInDegreeNodeId} (in-degree {graphMetrics.maxInDegree})</p> : null}
-              {graphMetrics.maxOutDegreeNodeId ? <p>Most dependent: {graphMetrics.maxOutDegreeNodeId} (out-degree {graphMetrics.maxOutDegree})</p> : null}
-              <h4>Nodes by kind</h4>
-              {Object.entries(graphMetrics.nodesByKind).map(([kind, count]) => (
-                <p key={kind}>{kind}: {count}</p>
-              ))}
-              <h4>Edges by kind</h4>
-              {Object.entries(graphMetrics.edgesByKind).map(([kind, count]) => (
-                <p key={kind}>{kind}: {count}</p>
-              ))}
-            </div>
-          ) : null}
-
-          {smellReport ? (
-            <div className="callout">
-              <h3>Architecture Health: {smellReport.healthScore}/100</h3>
-              <p>{smellReport.totalSmells} smell{smellReport.totalSmells === 1 ? "" : "s"} detected</p>
-              {smellReport.smells.map((smell, index) => (
-                <div key={`${smell.code}:${smell.nodeId ?? "global"}:${index}`} className="smell-item">
-                  <p>
-                    <strong>{smell.severity.toUpperCase()}</strong> [{smell.code}]{smell.nodeId ? ` — ${smell.nodeId}` : ""}
-                  </p>
-                  <p>{smell.message}</p>
-                  <p><em>{smell.suggestion}</em></p>
-                </div>
-              ))}
-              {smellReport.totalSmells === 0 ? <p>No architecture smells detected. Clean design!</p> : null}
-            </div>
-          ) : null}
-
-          {cycleReport ? (
-            <div className="callout">
-              <h3>Dependency Cycles</h3>
-              <p>{cycleReport.totalCycles} cycle{cycleReport.totalCycles === 1 ? "" : "s"} detected</p>
-              {cycleReport.totalCycles > 0 ? (
-                <>
-                  <p>Max cycle length: {cycleReport.maxCycleLength}</p>
-                  <p>Affected nodes: {cycleReport.affectedNodeIds.join(", ")}</p>
-                  {cycleReport.cycles.map((cycle, index) => (
-                    <div key={cycle.nodeIds.join(",")} className="cycle-item">
-                      <p><strong>Cycle {index + 1}</strong>: {cycle.nodeIds.join(" → ")}</p>
-                      {cycle.edges.map((edge, edgeIndex) => (
-                        <p key={`${edge.from}→${edge.to}:${edge.kind}:${edgeIndex}`}>  {edge.from} —[{edge.kind}]→ {edge.to}</p>
-                      ))}
+          <IdeLayout
+            bottomPanel={renderIdeBottomPanel()}
+            explorer={<FileTree onFileSelect={(path) => handleOpenFile(path)} selectedPath={activeFile ?? undefined} />}
+            floatingGraphContent={<div className="ide-floating-graph-surface">{renderGraphSurface("dark")}</div>}
+            mainContent={
+              activeFile ? (
+                <div className="ide-editor-surface">
+                  {navigationError ? (
+                    <div className="callout danger-callout ide-navigation-callout">
+                      <p>{navigationError}</p>
                     </div>
-                  ))}
-                </>
+                  ) : null}
+                  <FileTabs revealTarget={editorRevealTarget} />
+                </div>
               ) : (
-                <p>No dependency cycles found. Graph is a clean DAG!</p>
-              )}
-            </div>
-          ) : null}
+                renderGraphPanel()
+              )
+            }
+            rightSidebar={renderIdeSidebar()}
+          />
 
-          {mermaidDiagram ? (
-            <div className="callout">
-              <h3>Mermaid Diagram</h3>
-              <p>Copy the code below into any Mermaid-compatible renderer (GitHub, Obsidian, Notion, etc.)</p>
-              <pre className="mermaid-output">{mermaidDiagram}</pre>
-            </div>
-          ) : null}
-
-          {!graphMetrics && !smellReport && !cycleReport && !mermaidDiagram ? (
-            <div className="callout">
-              <p>Click &quot;Analyze&quot; in the toolbar to run architecture analysis.</p>
-            </div>
-          ) : null}
-        </aside>
-      ) : null}
+          {error ? <p className="error floating-error">{error}</p> : null}
+        </section>
 
       {showMcpPanel ? (
         <aside className="floating-panel mcp-panel">
@@ -3336,7 +4327,7 @@ export function BlueprintWorkbench() {
         </aside>
       ) : null}
 
-      {showObservabilityPanel && graph ? (
+      {legacyFloatingPanelsEnabled && showObservabilityPanel && graph ? (
         <aside className="floating-panel observability-panel">
           <div className="floating-panel-header">
             <h2>Observability Dashboard</h2>
@@ -3453,7 +4444,7 @@ export function BlueprintWorkbench() {
         </aside>
       ) : null}
 
-      {showVcrPanel && graph ? (
+      {legacyFloatingPanelsEnabled && showVcrPanel && graph ? (
         <aside className="floating-panel vcr-panel">
           <div className="floating-panel-header">
             <div className="floating-panel-heading">
@@ -3671,7 +4662,7 @@ export function BlueprintWorkbench() {
         </aside>
       ) : null}
 
-      {showDigitalTwinPanel && graph ? (
+      {legacyFloatingPanelsEnabled && showDigitalTwinPanel && graph ? (
         <aside className="floating-panel digital-twin-panel">
           <div className="floating-panel-header">
             <div className="floating-panel-heading">
@@ -3686,7 +4677,7 @@ export function BlueprintWorkbench() {
 
           <p className="lead">
             Reflect observed trace traffic when it exists, then use simulation to inject synthetic spans
-            without mixing test traffic up with live traffic. This panel stays in preview mode so the
+            without mixing test traffic up with live traffic. This panel stays in preview executionMode so the
             provenance of every flow remains explicit.
           </p>
 
@@ -3869,7 +4860,7 @@ export function BlueprintWorkbench() {
         </aside>
       ) : null}
 
-      {showRefactorPanel && graph ? (
+      {legacyFloatingPanelsEnabled && showRefactorPanel && graph ? (
         <aside className="floating-panel refactor-panel">
           <div className="floating-panel-header">
             <h2>Graph Drift Repair</h2>
@@ -4101,18 +5092,6 @@ export function BlueprintWorkbench() {
         </aside>
       ) : null}
 
-      {showFilePanel && graph ? (
-        <aside className="floating-panel file-explorer-panel">
-          <div className="floating-panel-header">
-            <h2>File Explorer</h2>
-            <button onClick={() => setShowFilePanel(false)} type="button">
-              Close
-            </button>
-          </div>
-          <FileTabs />
-        </aside>
-      ) : null}
-
       {showInspector && (selectedNode || (drilldownRootNode && selectedDetailItem)) ? (
         <aside className="floating-panel inspector-panel">
           <div className="floating-panel-header">
@@ -4327,8 +5306,8 @@ export function BlueprintWorkbench() {
           ) : (
             <p>Select a node in the graph to inspect and edit it.</p>
           )}
-        </aside>
-      ) : null}
+      </aside>
+    ) : null}
     </div>
   );
 }

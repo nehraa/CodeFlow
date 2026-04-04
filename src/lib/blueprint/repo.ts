@@ -165,6 +165,21 @@ const buildScreenName = (relativePath: string): string => {
 const createSymbolKey = (relativePath: string, symbolName: string, ownerName?: string): string =>
   `${relativePath}::${ownerName ? `${ownerName}.` : ""}${symbolName}`;
 
+const createSourceLocation = (declaration: Node, relativePath: string, symbolName?: string) => {
+  const sourceFile = declaration.getSourceFile();
+  const start = sourceFile.getLineAndColumnAtPos(declaration.getStart());
+  const end = sourceFile.getLineAndColumnAtPos(declaration.getEnd());
+
+  return {
+    filePath: relativePath,
+    startLine: start.line,
+    endLine: end.line,
+    startColumn: start.column,
+    endColumn: end.column,
+    symbolName
+  };
+};
+
 const getAliasedSymbol = (node: Node) => {
   const symbol = node.getSymbol();
   return symbol?.getAliasedSymbol() ?? symbol;
@@ -209,10 +224,23 @@ const getDeclarationKey = (
   return null;
 };
 
-const addModuleNode = (nodes: Map<string, BlueprintNode>, relativePath: string) => {
+const addModuleNode = (
+  nodes: Map<string, BlueprintNode>,
+  relativePath: string,
+  sourceFile?: ReturnType<Project["getSourceFiles"]>[number]
+) => {
   const id = createNodeId("module", relativePath, relativePath);
 
   if (nodes.has(id)) {
+    if (sourceFile) {
+      const existingNode = nodes.get(id);
+      if (existingNode && !existingNode.sourceLocation) {
+        nodes.set(id, {
+          ...existingNode,
+          sourceLocation: createSourceLocation(sourceFile, relativePath, relativePath)
+        });
+      }
+    }
     return id;
   }
 
@@ -224,6 +252,7 @@ const addModuleNode = (nodes: Map<string, BlueprintNode>, relativePath: string) 
       name: relativePath,
       path: relativePath,
       summary: `Source module ${relativePath}.`,
+      sourceLocation: sourceFile ? createSourceLocation(sourceFile, relativePath, relativePath) : undefined,
       contract: mergeContracts(emptyContract(), {
         ...emptyContract(),
         summary: `Source module ${relativePath}.`,
@@ -295,7 +324,7 @@ export const analyzeTypeScriptRepo = async (repoPath: string): Promise<RepoGraph
 
   for (const sourceFile of sourceFiles) {
     const relativePath = toRelativePath(repoPath, sourceFile.getFilePath());
-    const moduleId = addModuleNode(nodes, relativePath);
+    const moduleId = addModuleNode(nodes, relativePath, sourceFile);
 
     for (const importDeclaration of sourceFile.getImportDeclarations()) {
       const target = importDeclaration.getModuleSpecifierSourceFile();
@@ -330,6 +359,7 @@ export const analyzeTypeScriptRepo = async (repoPath: string): Promise<RepoGraph
           summary,
           signature: `class ${className}`,
           contract: createClassContract(summary, classDeclaration),
+          sourceLocation: createSourceLocation(classDeclaration, relativePath, className),
           sourceRefs: [
             {
               kind: "repo",
@@ -382,6 +412,7 @@ export const analyzeTypeScriptRepo = async (repoPath: string): Promise<RepoGraph
             summary,
             signature: methodSignature,
             contract: createContractFromCallable(summary, method),
+            sourceLocation: createSourceLocation(method, relativePath, `${className}.${method.getName()}`),
             sourceRefs: [
               {
                 kind: "repo",
@@ -430,6 +461,7 @@ export const analyzeTypeScriptRepo = async (repoPath: string): Promise<RepoGraph
           summary,
           signature,
           contract: createContractFromCallable(summary, functionDeclaration),
+          sourceLocation: createSourceLocation(functionDeclaration, relativePath, functionName),
           sourceRefs: [
             {
               kind: "repo",
@@ -478,6 +510,7 @@ export const analyzeTypeScriptRepo = async (repoPath: string): Promise<RepoGraph
           summary,
           signature,
           contract: createContractFromCallable(summary, variableDeclaration),
+          sourceLocation: createSourceLocation(variableDeclaration, relativePath, symbolName),
           sourceRefs: [
             {
               kind: "repo",

@@ -4,21 +4,11 @@ import { useCallback, useEffect, useRef } from "react";
 
 import dynamic from "next/dynamic";
 import type * as Monaco from "monaco-editor";
-import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
-import tsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker";
 
 import type { BlueprintGraph } from "@/lib/blueprint/schema";
+import type { NavigationTarget } from "@/lib/blueprint/node-navigation";
+import { prepareMonaco, toMonacoPath } from "./monaco-setup";
 import { getTypeScriptLanguageService } from "./ts-language-service";
-
-// Configure Monaco workers before any Monaco initialization
-self.MonacoEnvironment = {
-  getWorker(_: unknown, label: string) {
-    if (label === "typescript" || label === "javascript") {
-      return new tsWorker();
-    }
-    return new editorWorker();
-  }
-};
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   ssr: false,
@@ -34,11 +24,15 @@ type CodeEditorProps = {
   ariaLabel?: string;
   readOnly?: boolean;
   theme?: "light" | "dark";
+  onSave?: () => void | Promise<void>;
+  revealTarget?: NavigationTarget | null;
   completionContext?: {
     enabled: boolean;
     graph: BlueprintGraph;
     nodeId: string;
     nvidiaApiKey?: string;
+    retrievalQuery?: string;
+    retrievalDepth?: number;
   };
 };
 
@@ -108,9 +102,13 @@ export function CodeEditor({
   ariaLabel,
   readOnly = false,
   theme = "dark",
+  onSave,
+  revealTarget,
   completionContext
 }: CodeEditorProps) {
   const monacoRef = useRef<typeof Monaco | null>(null);
+  const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
+  const decorationIdsRef = useRef<string[]>([]);
   const completionContextRef = useRef(completionContext);
   const providerRef = useRef<Monaco.IDisposable | null>(null);
   const cacheRef = useRef(
@@ -180,6 +178,8 @@ export function CodeEditor({
 
           const cacheKey = JSON.stringify([
             activeContext.nodeId,
+            activeContext.retrievalQuery ?? "",
+            activeContext.retrievalDepth ?? 0,
             context.triggerCharacter ?? "manual",
             recentPrefix
           ]);
@@ -214,6 +214,8 @@ export function CodeEditor({
                   linePrefix,
                   lineSuffix,
                   triggerCharacter: context.triggerCharacter ?? undefined,
+                  retrievalQuery: activeContext.retrievalQuery,
+                  retrievalDepth: activeContext.retrievalDepth,
                   nvidiaApiKey: activeContext.nvidiaApiKey
                 })
               });
@@ -273,10 +275,55 @@ export function CodeEditor({
   }, [language, readOnly, registerCompletionProvider]);
 
   useEffect(() => {
+    if (!monacoRef.current || (language !== "typescript" && language !== "javascript")) {
+      return;
+    }
+
+    getTypeScriptLanguageService(monacoRef.current).upsertWorkspaceFile(path, value);
+  }, [language, path, value]);
+
+  useEffect(() => {
+    if (!editorRef.current || !monacoRef.current || !revealTarget) {
+      return;
+    }
+
+    const monaco = monacoRef.current;
+    const editor = editorRef.current;
+    const startColumn = Math.max(1, revealTarget.columnStart ?? 1);
+    const endLineNumber = Math.max(revealTarget.endLineNumber ?? revealTarget.lineNumber, revealTarget.lineNumber);
+    const endColumn = Math.max(
+      revealTarget.columnEnd ?? (endLineNumber === revealTarget.lineNumber ? startColumn + 1 : 1),
+      1
+    );
+    const range = new monaco.Range(
+      revealTarget.lineNumber,
+      startColumn,
+      endLineNumber,
+      endColumn
+    );
+
+    editor.revealRangeInCenter(range);
+    editor.setSelection(range);
+    decorationIdsRef.current = editor.deltaDecorations(decorationIdsRef.current, [
+      {
+        range,
+        options: {
+          className: "code-editor-highlight",
+          inlineClassName: "code-editor-highlight-inline",
+          isWholeLine: revealTarget.lineNumber === endLineNumber && startColumn === 1
+        }
+      }
+    ]);
+  }, [revealTarget]);
+
+  useEffect(() => {
     const debounceState = debounceRef.current;
 
     return () => {
       providerRef.current?.dispose();
+      if (editorRef.current) {
+        decorationIdsRef.current = editorRef.current.deltaDecorations(decorationIdsRef.current, []);
+      }
 
       if (debounceState.timer) {
         window.clearTimeout(debounceState.timer);
@@ -286,13 +333,25 @@ export function CodeEditor({
   }, []);
 
   return (
-    <div className="code-editor-shell">
+    <div
+      className="code-editor-shell"
+      style={{
+        height,
+        minHeight: height === "100%" ? 0 : height
+      }}
+    >
       <MonacoEditor
+        beforeMount={prepareMonaco}
         height={height}
         language={language}
-        onMount={(_, monaco) => {
+        onMount={(editor, monaco) => {
           monacoRef.current = monaco;
+          editorRef.current = editor;
+          getTypeScriptLanguageService(monaco).upsertWorkspaceFile(path, value);
           registerCompletionProvider(monaco);
+          editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+            void onSave?.();
+          });
         }}
         onChange={(nextValue) => onChange(nextValue ?? "")}
         options={{
@@ -310,10 +369,21 @@ export function CodeEditor({
           tabSize: 2,
           wordWrap: "on"
         }}
-        path={path}
+        path={toMonacoPath(path)}
         theme={theme === "dark" ? "vs-dark" : "vs-light"}
         value={value}
       />
+      <style jsx>{`
+        .code-editor-shell :global(.code-editor-highlight) {
+          background: rgba(96, 165, 250, 0.18);
+          border-left: 2px solid rgba(125, 211, 252, 0.8);
+        }
+
+        .code-editor-shell :global(.code-editor-highlight-inline) {
+          background: rgba(96, 165, 250, 0.18);
+          border-radius: 3px;
+        }
+      `}</style>
     </div>
   );
 }
