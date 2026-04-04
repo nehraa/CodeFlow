@@ -16,6 +16,7 @@ import {
   detectProvider,
   buildOpencodeConfig,
 } from "@/lib/opencode/config";
+import { ApiKeyValidator } from "@/lib/opencode/api-key-validator";
 
 const PROVIDERS: { id: OpencodeProvider; label: string }[] = [
   { id: "anthropic", label: "Anthropic (Claude)" },
@@ -310,17 +311,13 @@ export function OpencodeSettings({ onClose, onStatusChange }: Props) {
         </small>
       </label>
 
-      {/* Model Selection */}
-      <label className="field">
-        <span>Model</span>
-        <input
-          type="text"
-          value={model}
-          onChange={(e) => setModel(e.target.value)}
-          placeholder={providerConfig.defaultModel}
-        />
-        <small>Default: {providerConfig.defaultModel}</small>
-      </label>
+      {/* API Key Validation & Model Discovery */}
+      <ApiKeyValidator
+        provider={provider}
+        apiKey={apiKey}
+        selectedModel={model}
+        onModelChange={setModel}
+      />
 
       {/* Base URL (if required) */}
       {providerConfig.baseUrlRequired && (
