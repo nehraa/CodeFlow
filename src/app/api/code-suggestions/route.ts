@@ -10,6 +10,7 @@ import {
 import { withCodeflowGovernance } from "@/lib/blueprint/prompt-governance";
 import { blueprintGraphSchema } from "@/lib/blueprint/schema";
 import { getNvidiaKeySource, requestNvidiaChatCompletion, resolveNvidiaApiKey } from "@/lib/blueprint/nvidia";
+import { isOpencodeAvailable, sendToOpencode } from "@/lib/opencode/agent";
 
 const requestSchema = z.object({
   graph: blueprintGraphSchema,
@@ -18,7 +19,8 @@ const requestSchema = z.object({
   instruction: z.string().trim().optional(),
   retrievalQuery: z.string().trim().min(1).optional(),
   retrievalDepth: z.number().int().min(1).max(6).optional(),
-  nvidiaApiKey: z.string().optional()
+  nvidiaApiKey: z.string().optional(),
+  useOpencode: z.boolean().optional().default(false)
 });
 
 const responseSchema = z.object({
@@ -50,8 +52,9 @@ export async function POST(request: Request) {
 
   try {
     const body = requestSchema.parse(await request.json());
-    const apiKey = resolveNvidiaApiKey(body.nvidiaApiKey);
-    const keySource = getNvidiaKeySource(body.nvidiaApiKey);
+    const useOpencode = body.useOpencode && isOpencodeAvailable();
+    const apiKey = useOpencode ? null : resolveNvidiaApiKey(body.nvidiaApiKey);
+    const keySource = useOpencode ? "opencode" : getNvidiaKeySource(body.nvidiaApiKey);
     const context = getNodeAssistanceContext(body.graph, body.nodeId);
 
     if (!context) {
@@ -67,11 +70,16 @@ export async function POST(request: Request) {
       keySource
     });
 
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "NVIDIA API key is required. Provide it in the UI or set NVIDIA_API_KEY environment variable." },
-        { status: 400 }
-      );
+    if (!useOpencode && !apiKey) {
+      // Check if OpenCode is available as fallback
+      if (isOpencodeAvailable()) {
+        body.useOpencode = true;
+      } else {
+        return NextResponse.json(
+          { error: "No AI backend available. Either start OpenCode server or provide NVIDIA API key." },
+          { status: 400 }
+        );
+      }
     }
 
     const retrievalContext = await resolveAgentRetrievalContext({
@@ -132,16 +140,31 @@ Return the JSON suggestion now.`;
       "implementation"
     );
 
-    const content = await requestNvidiaChatCompletion({
-      apiKey,
-      messages: [
-        { role: "system", content: governedSystemPrompt },
-        { role: "user", content: userPrompt }
-      ],
-      temperature: 0.2,
-      topP: 0.7,
-      maxTokens: 4096
-    });
+    let content: string;
+    
+    if (useOpencode || body.useOpencode) {
+      const result = await sendToOpencode({
+        systemPrompt: governedSystemPrompt,
+        prompt: userPrompt,
+      });
+      
+      if (!result.success) {
+        throw new Error(result.error ?? "OpenCode request failed");
+      }
+      
+      content = result.content ?? "";
+    } else {
+      content = await requestNvidiaChatCompletion({
+        apiKey: apiKey!,
+        messages: [
+          { role: "system", content: governedSystemPrompt },
+          { role: "user", content: userPrompt }
+        ],
+        temperature: 0.2,
+        topP: 0.7,
+        maxTokens: 4096
+      });
+    }
 
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     const jsonString = jsonMatch ? jsonMatch[0] : content;
