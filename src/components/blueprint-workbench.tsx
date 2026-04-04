@@ -14,6 +14,7 @@ import { FileTabs } from "@/components/file-tabs";
 import { FileTree } from "@/components/file-tree";
 import { GraphCanvas } from "@/components/graph-canvas";
 import { IdeLayout } from "@/components/ide-layout";
+import { OpencodeSettings } from "@/components/opencode-settings";
 import { generateNodeCode, getNodeStubPath, isCodeBearingNode } from "@/lib/blueprint/codegen";
 import { addEdgeToGraph, addNodeToGraph, deleteNodeFromGraph } from "@/lib/blueprint/edit";
 import { buildDetailFlow, indexRuntimeExecutionResult } from "@/lib/blueprint/flow-view";
@@ -63,6 +64,7 @@ import type {
   VcrRecording
 } from "@/lib/blueprint/schema";
 import { emptyContract, traceSpanSchema } from "@/lib/blueprint/schema";
+import type { OpencodeServerInfo } from "@/lib/opencode/types";
 
 type BuildResponse = {
   graph?: BlueprintGraph;
@@ -220,7 +222,7 @@ type RefactorHealResponse = {
 };
 
 type StatusTone = "info" | "success" | "danger";
-type IdeDockTab = "terminal" | "heatmap" | "vcr" | "traces" | "problems";
+type IdeDockTab = "terminal" | "repo" | "heatmap" | "vcr" | "traces" | "problems";
 type ActivityEntryTone = "info" | "success" | "error" | "command";
 type ActivityEntry = {
   id: string;
@@ -273,6 +275,11 @@ const normalizeContract = (contract: Partial<BlueprintNode["contract"]>) => ({
   ...emptyContract(),
   ...contract
 });
+
+const formatIndexedNodeCount = (value: number) =>
+  `Indexed ${value} node${value === 1 ? "" : "s"}.`;
+
+const clampCodeRagDepth = (value: number) => Math.max(1, Math.min(6, Math.floor(value)));
 
 type ToolbarMenuKey = "brand" | "build" | "view" | "tools" | null;
 
@@ -371,6 +378,7 @@ export function BlueprintWorkbench() {
   const [activityFeed, setActivityFeed] = useState<ActivityEntry[]>([]);
   const [codeRagStatus, setCodeRagStatus] = useState<"checking" | "ready" | "not_initialized" | "error">("checking");
   const [codeRagMessage, setCodeRagMessage] = useState("Checking CodeRAG status...");
+  const [codeRagDetails, setCodeRagDetails] = useState<Record<string, unknown> | null>(null);
   const [codeRagQuery, setCodeRagQuery] = useState("");
   const [codeRagDepth, setCodeRagDepth] = useState(2);
   const [codeRagResult, setCodeRagResult] = useState<QueryResult | null>(null);
@@ -459,6 +467,11 @@ export function BlueprintWorkbench() {
   const [editorRevealTarget, setEditorRevealTarget] = useState<ReturnType<typeof getNavigationTarget>>(null);
   const [navigationError, setNavigationError] = useState<string | null>(null);
 
+  // ── OpenCode Integration ──────────────────────────────────────────────
+  const [showOpencodePanel, setShowOpencodePanel] = useState(false);
+  const [opencodeStatus, setOpencodeStatus] = useState<OpencodeServerInfo>({ status: "stopped" });
+  const [useOpencodeForAgent, setUseOpencodeForAgent] = useState(false);
+
   const selectedNode = graph?.nodes.find((node) => node.id === selectedNodeId) ?? null;
   const drilldownNodeId = drilldownStack.at(-1) ?? null;
   const drilldownRootNode = graph?.nodes.find((node) => node.id === drilldownNodeId) ?? null;
@@ -514,6 +527,19 @@ export function BlueprintWorkbench() {
   const verifiedNodeCount =
     graph?.nodes.filter((node) => isCodeBearingNode(node) && node.status === "verified").length ?? 0;
   const allCodeNodesVerified = codeBearingNodeCount > 0 && verifiedNodeCount === codeBearingNodeCount;
+  const codeRagIndexedNodeCount =
+    typeof codeRagDetails?.indexedNodeCount === "number" ? codeRagDetails.indexedNodeCount : null;
+  const codeRagStorageRoot =
+    typeof codeRagDetails?.storageRoot === "string" ? codeRagDetails.storageRoot : null;
+  const codeRagRepoTarget = repoPath?.trim() || session?.repoPath?.trim() || null;
+  const codeRagIntegrationSummary =
+    "Search repo, Suggest code, Implement node, and Monaco completions share this retrieval index.";
+  const codeRagIndexSummary =
+    codeRagIndexedNodeCount !== null
+      ? `${formatIndexedNodeCount(codeRagIndexedNodeCount)}${codeRagRepoTarget ? ` Source: ${codeRagRepoTarget}.` : ""}`
+      : codeRagRepoTarget
+        ? `Repo target: ${codeRagRepoTarget}.`
+        : null;
   const activeMascotScene = useMemo(() => {
     if (showGeneticPanel || tournamentResult) {
       return "genetic" as const;
@@ -625,23 +651,37 @@ export function BlueprintWorkbench() {
         const response = await fetch("/api/coderag");
         const body = (await response.json()) as CodeRagStatusResponse;
         const nextStatus = response.ok ? body.status ?? "error" : "error";
-        const nextMessage = body.message ?? body.error ?? "Failed to load CodeRAG status.";
+        const nextIndexedNodeCount =
+          typeof body.details?.indexedNodeCount === "number" ? body.details.indexedNodeCount : null;
+        const nextMessage =
+          nextStatus === "ready"
+            ? nextIndexedNodeCount !== null
+              ? `CodeRAG ready. ${formatIndexedNodeCount(nextIndexedNodeCount)}`
+              : "CodeRAG ready for repo search and coding assistance."
+            : body.message ?? body.error ?? "Failed to load CodeRAG status.";
 
         setCodeRagStatus(nextStatus);
         setCodeRagMessage(nextMessage);
+        setCodeRagDetails(body.details ?? null);
         if (nextStatus !== "ready") {
           setCodeRagResult(null);
         }
         setCodeRagError(null);
 
         if (announce) {
-          pushActivity("CodeRAG", nextMessage, nextStatus === "ready" ? "success" : "info");
+          pushActivity(
+            "CodeRAG",
+            nextMessage,
+            nextStatus === "ready" ? "success" : "info",
+            nextStatus === "ready" ? codeRagIntegrationSummary : undefined
+          );
         }
       } catch (caughtError) {
         const message =
           caughtError instanceof Error ? caughtError.message : "Failed to load CodeRAG status.";
         setCodeRagStatus("error");
         setCodeRagMessage(message);
+        setCodeRagDetails(null);
         setCodeRagError(message);
 
         if (announce) {
@@ -649,7 +689,30 @@ export function BlueprintWorkbench() {
         }
       }
     },
-    [pushActivity]
+    [codeRagIntegrationSummary, pushActivity]
+  );
+  const setCodeRagDepthFromValue = useCallback((value: number) => {
+    if (!Number.isFinite(value)) {
+      return;
+    }
+
+    setCodeRagDepth(clampCodeRagDepth(value));
+  }, []);
+  const handleCodeRagDepthInput = useCallback(
+    (rawValue: string) => {
+      if (!rawValue.trim()) {
+        return;
+      }
+
+      setCodeRagDepthFromValue(Number(rawValue));
+    },
+    [setCodeRagDepthFromValue]
+  );
+  const adjustCodeRagDepth = useCallback(
+    (delta: number) => {
+      setCodeRagDepth((current) => clampCodeRagDepth(current + delta));
+    },
+    []
   );
   const apiKeyStatus = nvidiaApiKey.trim()
     ? `Browser session key active (${maskApiKey(nvidiaApiKey)}).`
@@ -1265,7 +1328,7 @@ export function BlueprintWorkbench() {
       setShowPromptPanel(false);
       setExportResult(null);
       setGhostSuggestions([]);
-      void refreshCodeRagStatus();
+      await refreshCodeRagStatus(Boolean("repoPath" in payload && payload.repoPath));
       pushActivity(
         useAI ? "NVIDIA" : "Blueprint",
         `Blueprint ready with ${body.graph.nodes.length} nodes and ${body.graph.edges.length} edges.`,
@@ -1382,7 +1445,7 @@ export function BlueprintWorkbench() {
       setRunPlan(body.runPlan);
       setSession(body.session);
       setExportResult(body.result);
-      void refreshCodeRagStatus();
+      await refreshCodeRagStatus(Boolean(body.session.repoPath ?? repoPath?.trim()));
       pushActivity("Export", `Artifacts written to ${body.result.rootDir}.`, "success");
     } catch (caughtError) {
       pushActivity(
@@ -1450,7 +1513,8 @@ export function BlueprintWorkbench() {
         currentCode,
         retrievalQuery: codeRagQuery.trim() || undefined,
         retrievalDepth: codeRagDepth,
-        nvidiaApiKey: nvidiaApiKey.trim() || undefined
+        nvidiaApiKey: nvidiaApiKey.trim() || undefined,
+        useOpencode: useOpencodeForAgent || opencodeStatus.status === "running"
       })
     });
     const body = (await response.json()) as ImplementNodeResponse;
@@ -1819,6 +1883,18 @@ export function BlueprintWorkbench() {
       pushActivity("Explorer", `Opened ${filePath}.`, "info");
     },
     [openFiles, pushActivity, setActiveFile, setOpenFiles]
+  );
+
+  const openCodeRagContext = useCallback(
+    (node: RetrievedNodeContext) =>
+      handleOpenFile(node.filePath, {
+        filePath: node.filePath,
+        lineNumber: node.startLine,
+        endLineNumber: node.endLine,
+        columnStart: 1,
+        symbolName: node.name
+      }),
+    [handleOpenFile]
   );
 
   const handleOpenNodeSource = useCallback(
@@ -3201,6 +3277,150 @@ export function BlueprintWorkbench() {
     </div>
   );
 
+  const renderCodeRagWorkspace = (placement: "sidebar" | "dock" = "sidebar") => {
+    const isDock = placement === "dock";
+    const codeRagPrimaryNode = codeRagResult?.context.primaryNode ?? null;
+    const codeRagRelatedNodes = codeRagResult?.context.relatedNodes ?? [];
+
+    return (
+      <div className={isDock ? "ide-dock-section" : "ide-side-section"}>
+        <div className="ide-side-section-header">
+          <div>
+            <p className="panel-kicker">CodeRAG</p>
+            <h3>{isDock ? "Repo retrieval workspace" : "Repo context"}</h3>
+          </div>
+          <button disabled={codeRagLoading} onClick={() => void refreshCodeRagStatus(true)} type="button">
+            Refresh
+          </button>
+        </div>
+        <p className="status-meta">{codeRagMessage}</p>
+        {codeRagIndexSummary ? <p className="status-meta">{codeRagIndexSummary}</p> : null}
+        <p className="status-meta">{codeRagIntegrationSummary}</p>
+        {codeRagStorageRoot ? <p className="status-meta">Index root: {codeRagStorageRoot}</p> : null}
+        <label className="field">
+          <span>Search prompt</span>
+          <textarea
+            onChange={(event) => setCodeRagQuery(event.target.value)}
+            placeholder="Where is auth validated, what calls it, and which files should the coding agent inspect?"
+            rows={isDock ? 4 : 3}
+            value={codeRagQuery}
+          />
+        </label>
+        <label className="field">
+          <span>Traversal depth</span>
+          <div className="numeric-stepper">
+            <button
+              aria-label="Decrease traversal depth"
+              disabled={codeRagDepth <= 1}
+              onClick={() => adjustCodeRagDepth(-1)}
+              type="button"
+            >
+              −
+            </button>
+            <input
+              aria-label="Traversal depth"
+              inputMode="numeric"
+              onChange={(event) => handleCodeRagDepthInput(event.target.value)}
+              type="text"
+              value={String(codeRagDepth)}
+            />
+            <button
+              aria-label="Increase traversal depth"
+              disabled={codeRagDepth >= 6}
+              onClick={() => adjustCodeRagDepth(1)}
+              type="button"
+            >
+              +
+            </button>
+          </div>
+        </label>
+        <div className="button-row">
+          <button
+            disabled={codeRagLoading || codeRagStatus !== "ready" || !codeRagQuery.trim()}
+            onClick={() => void handleRunCodeRagQuery()}
+            type="button"
+          >
+            {codeRagLoading ? "Searching..." : "Search repo"}
+          </button>
+          {selectedNode ? (
+            <button
+              onClick={() => {
+                setCodeRagQuery(`Explain ${selectedNode.name} and what it touches.`);
+                if (isDock) {
+                  setActiveDockTab("repo");
+                }
+              }}
+              type="button"
+            >
+              Use selection
+            </button>
+          ) : null}
+        </div>
+
+        {codeRagError ? (
+          <div className="callout danger-callout">
+            <p>{codeRagError}</p>
+          </div>
+        ) : null}
+
+        {codeRagResult ? (
+          <div className="coderag-results">
+            <div className="callout">
+              <h3>Answer</h3>
+              <p className="coderag-answer">{codeRagResult.answer}</p>
+            </div>
+
+            {codeRagPrimaryNode ? (
+              <div className="callout coderag-node-card">
+                <div className="coderag-node-meta">
+                  <span className="node-tag">Primary</span>
+                  <span className="status-meta">{codeRagPrimaryNode.kind}</span>
+                </div>
+                <p><strong>{codeRagPrimaryNode.name}</strong></p>
+                <p className="status-meta">
+                  {codeRagPrimaryNode.filePath}:{codeRagPrimaryNode.startLine}-{codeRagPrimaryNode.endLine}
+                </p>
+                <p>{codeRagPrimaryNode.doc}</p>
+                <button onClick={() => openCodeRagContext(codeRagPrimaryNode)} type="button">
+                  Open primary node
+                </button>
+              </div>
+            ) : null}
+
+            {codeRagRelatedNodes.length ? (
+              <div className="callout">
+                <h3>Related nodes</h3>
+                <div className="coderag-related-list">
+                  {codeRagRelatedNodes.slice(0, 4).map((node) => (
+                    <div key={`${node.relationship}:${node.nodeId}`} className="coderag-related-item">
+                      <div>
+                        <p><strong>{node.name}</strong></p>
+                        <p className="status-meta">
+                          {node.relationship} · {node.filePath}:{node.startLine}
+                        </p>
+                      </div>
+                      <button onClick={() => openCodeRagContext(node)} type="button">
+                        Open
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <div className="callout">
+            <p>
+              {codeRagStatus === "ready"
+                ? "Search the repo to pin retrieval context for the coding agent and editor."
+                : "Build or export a repo-backed blueprint to initialize CodeRAG for this workspace."}
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderProblemsDock = () => (
     <div className="ide-dock-section">
       <div className="ide-dock-toolbar">
@@ -3339,6 +3559,12 @@ export function BlueprintWorkbench() {
     const traceCount = (latestSpans?.length ?? 0) + latestLogs.length;
     const tabs: Array<{ id: IdeDockTab; label: string; badge?: number; content: ReactNode }> = [
       { id: "terminal", label: "terminal", badge: activityFeed.length || undefined, content: renderTerminalDock() },
+      {
+        id: "repo",
+        label: "repo",
+        badge: codeRagResult?.context.relatedNodes.length || (codeRagStatus === "ready" ? 1 : undefined),
+        content: renderCodeRagWorkspace("dock")
+      },
       { id: "heatmap", label: "heatmap", badge: heatmapData?.nodes.length || undefined, content: renderHeatmapDock() },
       { id: "vcr", label: "vcr", badge: vcrRecording?.frames.length || undefined, content: renderVcrDock() },
       { id: "traces", label: "traces", badge: traceCount || undefined, content: renderTracesDock() },
@@ -3373,16 +3599,6 @@ export function BlueprintWorkbench() {
     const sidebarNode = selectedNode;
     const sidebarContract = sidebarNode ? normalizeContract(sidebarNode.contract) : null;
     const sourceNavigationTarget = sidebarNode ? getNavigationTarget(sidebarNode) : null;
-    const codeRagPrimaryNode = codeRagResult?.context.primaryNode ?? null;
-    const codeRagRelatedNodes = codeRagResult?.context.relatedNodes ?? [];
-    const openCodeRagContext = (node: RetrievedNodeContext) =>
-      handleOpenFile(node.filePath, {
-        filePath: node.filePath,
-        lineNumber: node.startLine,
-        endLineNumber: node.endLine,
-        columnStart: 1,
-        symbolName: node.name
-      });
 
     return (
       <div className="ide-agent-slot">
@@ -3412,6 +3628,7 @@ export function BlueprintWorkbench() {
           <div className="button-row">
             <button disabled={isBusy} onClick={() => void handleBuild()} type="button">Build</button>
             <button disabled={isBusy || !graph} onClick={() => void handleRunAnalysis()} type="button">Analyze graph</button>
+            <button disabled={isBusy} onClick={() => setActiveDockTab("repo")} type="button">Repo</button>
             <button disabled={isBusy || !graph} onClick={() => setActiveDockTab("traces")} type="button">Traces</button>
             <button disabled={isBusy || !graph} onClick={() => setActiveDockTab("problems")} type="button">Problems</button>
           </div>
@@ -3423,122 +3640,7 @@ export function BlueprintWorkbench() {
           </div>
         </div>
 
-        <div className="ide-side-section">
-          <div className="ide-side-section-header">
-            <h3>Repo context</h3>
-            <button disabled={codeRagLoading} onClick={() => void refreshCodeRagStatus(true)} type="button">
-              Refresh
-            </button>
-          </div>
-          <p className="status-meta">{codeRagMessage}</p>
-          <p className="status-meta">
-            This search prompt feeds the backend CodeRAG engine. Its retrieved context is injected into Suggest code, Implement node, and Monaco completions.
-          </p>
-          <label className="field">
-            <span>Search prompt</span>
-            <textarea
-              onChange={(event) => setCodeRagQuery(event.target.value)}
-              placeholder="Where is auth validated, what calls it, and which files should the coding agent inspect?"
-              rows={3}
-              value={codeRagQuery}
-            />
-          </label>
-          <label className="field">
-            <span>Traversal depth</span>
-            <input
-              max={6}
-              min={1}
-              onChange={(event) => {
-                const nextDepth = Number(event.target.value);
-                if (!Number.isFinite(nextDepth)) {
-                  return;
-                }
-
-                setCodeRagDepth(Math.max(1, Math.min(6, Math.floor(nextDepth))));
-              }}
-              type="number"
-              value={codeRagDepth}
-            />
-          </label>
-          <div className="button-row">
-            <button
-              disabled={codeRagLoading || codeRagStatus !== "ready" || !codeRagQuery.trim()}
-              onClick={() => void handleRunCodeRagQuery()}
-              type="button"
-            >
-              {codeRagLoading ? "Searching..." : "Search repo"}
-            </button>
-            {sidebarNode ? (
-              <button
-                onClick={() => setCodeRagQuery(`Explain ${sidebarNode.name} and what it touches.`)}
-                type="button"
-              >
-                Use selection
-              </button>
-            ) : null}
-          </div>
-
-          {codeRagError ? (
-            <div className="callout danger-callout">
-              <p>{codeRagError}</p>
-            </div>
-          ) : null}
-
-          {codeRagResult ? (
-            <div className="coderag-results">
-              <div className="callout">
-                <h3>Answer</h3>
-                <p className="coderag-answer">{codeRagResult.answer}</p>
-              </div>
-
-              {codeRagPrimaryNode ? (
-                <div className="callout coderag-node-card">
-                  <div className="coderag-node-meta">
-                    <span className="node-tag">Primary</span>
-                    <span className="status-meta">{codeRagPrimaryNode.kind}</span>
-                  </div>
-                  <p><strong>{codeRagPrimaryNode.name}</strong></p>
-                  <p className="status-meta">
-                    {codeRagPrimaryNode.filePath}:{codeRagPrimaryNode.startLine}-{codeRagPrimaryNode.endLine}
-                  </p>
-                  <p>{codeRagPrimaryNode.doc}</p>
-                  <button onClick={() => openCodeRagContext(codeRagPrimaryNode)} type="button">
-                    Open primary node
-                  </button>
-                </div>
-              ) : null}
-
-              {codeRagRelatedNodes.length ? (
-                <div className="callout">
-                  <h3>Related nodes</h3>
-                  <div className="coderag-related-list">
-                    {codeRagRelatedNodes.slice(0, 4).map((node) => (
-                      <div key={`${node.relationship}:${node.nodeId}`} className="coderag-related-item">
-                        <div>
-                          <p><strong>{node.name}</strong></p>
-                          <p className="status-meta">
-                            {node.relationship} · {node.filePath}:{node.startLine}
-                          </p>
-                        </div>
-                        <button onClick={() => openCodeRagContext(node)} type="button">
-                          Open
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          ) : (
-            <div className="callout">
-              <p>
-                {codeRagStatus === "ready"
-                  ? "Search the repo to pin retrieval context for the coding agent and editor."
-                  : "Build or export a repo-backed blueprint to initialize CodeRAG for this workspace."}
-              </p>
-            </div>
-          )}
-        </div>
+        {renderCodeRagWorkspace("sidebar")}
 
         {navigationError ? (
           <div className="callout danger-callout">
@@ -3924,6 +4026,44 @@ export function BlueprintWorkbench() {
               Analyze drift
             </button>
           </div>
+          
+          {/* OpenCode Integration Section */}
+          <div className="callout">
+            <h3>OpenCode Agent</h3>
+            <div className="opencode-status-mini">
+              <span className={`status-dot status-${opencodeStatus.status}`} />
+              <span>
+                {opencodeStatus.status === "running"
+                  ? "Connected"
+                  : opencodeStatus.status === "starting"
+                  ? "Starting..."
+                  : opencodeStatus.status === "error"
+                  ? "Error"
+                  : "Not connected"}
+              </span>
+            </div>
+            <label style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "8px" }}>
+              <input
+                checked={useOpencodeForAgent}
+                onChange={(e) => setUseOpencodeForAgent(e.target.checked)}
+                type="checkbox"
+              />
+              <span>Use OpenCode for code generation</span>
+            </label>
+            <button onClick={() => setShowOpencodePanel(true)} type="button">
+              Configure OpenCode
+            </button>
+          </div>
+        </aside>
+      ) : null}
+
+      {/* OpenCode Settings Panel */}
+      {showOpencodePanel ? (
+        <aside className="floating-panel opencode-panel">
+          <OpencodeSettings
+            onClose={() => setShowOpencodePanel(false)}
+            onStatusChange={setOpencodeStatus}
+          />
         </aside>
       ) : null}
 
