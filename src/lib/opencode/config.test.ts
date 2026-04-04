@@ -40,9 +40,32 @@ describe("OpenCode Config", () => {
       expect(detectProvider("sk-ant-api03-test")).toBe("anthropic");
     });
 
-    test("detects OpenAI from API key prefix", () => {
-      expect(detectProvider("sk-test-key")).toBe("openai");
-      expect(detectProvider("sk-proj-test")).toBe("openai");
+    test("detects OpenAI from longer sk- prefix", () => {
+      // OpenAI keys require 20+ chars after "sk-" (only alphanumeric, no hyphens)
+      expect(detectProvider("sk-" + "a".repeat(20))).toBe("openai");
+      expect(detectProvider("sk-proj1234567890ABCDEFgh")).toBe("openai");
+    });
+
+    test("detects OpenRouter from sk-or- prefix", () => {
+      expect(detectProvider("sk-or-test-key-123")).toBe("openrouter");
+    });
+
+    test("detects Groq from gsk_ prefix", () => {
+      expect(detectProvider("gsk_test-key-123")).toBe("groq");
+    });
+
+    test("detects Cohere from co_ prefix", () => {
+      expect(detectProvider("co_test-key-123")).toBe("cohere");
+    });
+
+    test("detects Perplexity from pplx prefix", () => {
+      expect(detectProvider("pplx_test-key-123")).toBe("perplexity");
+    });
+
+    test("does not match OpenAI for short sk- keys (prevents OpenRouter override)", () => {
+      // Short keys should not match OpenAI (requires 20+ chars)
+      expect(detectProvider("sk-or-test")).toBe("openrouter");
+      expect(detectProvider("sk-test")).toBeNull(); // too short
     });
 
     test("returns null for unknown key format", () => {
