@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getNodeAssistanceContext } from "@/lib/blueprint/code-assist";
+import {
+  formatAgentRetrievalNote,
+  formatAgentRetrievalPrompt,
+  resolveAgentRetrievalContext
+} from "@/lib/coderag-agent";
 import { withCodeflowGovernance } from "@/lib/blueprint/prompt-governance";
 import { blueprintGraphSchema } from "@/lib/blueprint/schema";
 import { getNvidiaKeySource, requestNvidiaChatCompletion, resolveNvidiaApiKey } from "@/lib/blueprint/nvidia";
@@ -11,6 +16,8 @@ const requestSchema = z.object({
   nodeId: z.string().min(1),
   currentCode: z.string(),
   instruction: z.string().trim().optional(),
+  retrievalQuery: z.string().trim().min(1).optional(),
+  retrievalDepth: z.number().int().min(1).max(6).optional(),
   nvidiaApiKey: z.string().optional()
 });
 
@@ -67,6 +74,13 @@ export async function POST(request: Request) {
       );
     }
 
+    const retrievalContext = await resolveAgentRetrievalContext({
+      node,
+      relatedNodes,
+      instruction: body.instruction,
+      retrievalQuery: body.retrievalQuery,
+      retrievalDepth: body.retrievalDepth
+    });
     const userPrompt = `Suggest implementation code for this blueprint node.
 
 Project: ${body.graph.projectName}
@@ -97,6 +111,13 @@ ${JSON.stringify(
 Relevant edges:
 ${JSON.stringify(relatedEdges, null, 2)}
 
+${retrievalContext.used && retrievalContext.result
+  ? `CodeRAG context:
+${formatAgentRetrievalPrompt(retrievalContext.result)}
+
+`
+  : ""}
+
 Current code:
 \`\`\`
 ${body.currentCode}
@@ -125,13 +146,17 @@ Return the JSON suggestion now.`;
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     const jsonString = jsonMatch ? jsonMatch[0] : content;
     const parsed = responseSchema.parse(JSON.parse(jsonString));
+    const retrievalNote = formatAgentRetrievalNote(retrievalContext);
 
     console.info("[CodeFlow] Code suggestion generated", {
       nodeId: body.nodeId,
       durationMs: Date.now() - startedAt
     });
 
-    return NextResponse.json(parsed);
+    return NextResponse.json({
+      ...parsed,
+      notes: retrievalNote ? [...parsed.notes, retrievalNote] : parsed.notes
+    });
   } catch (error) {
     console.error("[CodeFlow] Failed to generate code suggestion", {
       durationMs: Date.now() - startedAt,

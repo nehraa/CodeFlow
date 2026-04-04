@@ -74,8 +74,12 @@ export const useBlueprintStore = create<BlueprintStore>((set) => ({
       openFiles: paths
     })),
   setActiveFile: (path) =>
-    set(() => ({
-      activeFile: path
+    set((state) => ({
+      activeFile: path,
+      floatingGraph: {
+        ...state.floatingGraph,
+        visible: path !== null
+      }
     })),
   closeFile: (path) =>
     set((state) => {
@@ -88,18 +92,22 @@ export const useBlueprintStore = create<BlueprintStore>((set) => ({
       return {
         openFiles: nextOpenFiles,
         activeFile: nextActiveFile,
+        floatingGraph: {
+          ...state.floatingGraph,
+          visible: nextActiveFile !== null
+        },
         dirtyFiles: { ...state.dirtyFiles, [path]: false }
       };
     }),
   repoPath: null,
   setRepoPath: (path) => set(() => ({ repoPath: path })),
-  mode: "graph",
+  mode: "ide",
   setMode: (mode) =>
     set((state) => ({
       mode,
       floatingGraph: {
         ...state.floatingGraph,
-        visible: mode === "ide" && state.activeFile !== null
+        visible: state.activeFile !== null
       }
     })),
   floatingGraph: {

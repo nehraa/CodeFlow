@@ -5,6 +5,8 @@ const config = [
   {
     ignores: [
       ".next/**",
+      ".playwright-mcp/**",
+      "Codeflow_IDE/**",
       "artifacts/**",
       "coverage/**",
       "node_modules/**"

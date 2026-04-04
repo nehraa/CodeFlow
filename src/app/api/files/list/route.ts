@@ -4,7 +4,7 @@ import path from "node:path";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-const DEFAULT_REPO_ROOT = process.env.CODEFLOW_REPO_ROOT ?? process.cwd();
+const DEFAULT_REPO_ROOT = process.env.CODEFLOW_REPO_ROOT ?? /* turbopackIgnore: true */ process.cwd();
 const REPO_PATH_HEADER = "x-codeflow-repo-path";
 
 const listFilesRequestSchema = z.object({
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     const payload = listFilesRequestSchema.parse(await request.json());
     const repoPathHeader = request.headers.get(REPO_PATH_HEADER);
     const rootDir = repoPathHeader || DEFAULT_REPO_ROOT;
-    const dirPath = path.resolve(rootDir, payload.path);
+    const dirPath = path.resolve(/* turbopackIgnore: true */ rootDir, payload.path);
 
     const rel = path.relative(rootDir, dirPath);
     if (rel.startsWith("..") || path.isAbsolute(rel)) {
@@ -85,7 +85,7 @@ export async function POST(request: Request) {
           return null;
         }
 
-        const entryPath = path.join(dirPath, entry.name);
+        const entryPath = path.join(/* turbopackIgnore: true */ dirPath, entry.name);
 
         return {
           path: path.relative(rootDir, entryPath),

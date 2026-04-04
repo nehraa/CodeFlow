@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getNodeAssistanceContext } from "@/lib/blueprint/code-assist";
+import { formatAgentRetrievalPrompt, resolveAgentRetrievalContext } from "@/lib/coderag-agent";
 import { withCodeflowGovernance } from "@/lib/blueprint/prompt-governance";
 import { blueprintGraphSchema } from "@/lib/blueprint/schema";
 import { getNvidiaKeySource, requestNvidiaChatCompletion, resolveNvidiaApiKey } from "@/lib/blueprint/nvidia";
@@ -14,6 +15,8 @@ const requestSchema = z.object({
   linePrefix: z.string(),
   lineSuffix: z.string(),
   triggerCharacter: z.string().optional(),
+  retrievalQuery: z.string().trim().min(1).optional(),
+  retrievalDepth: z.number().int().min(1).max(6).optional(),
   nvidiaApiKey: z.string().optional()
 });
 
@@ -95,6 +98,14 @@ export async function POST(request: Request) {
     }
 
     const { node, relatedNodes, relatedEdges } = context;
+    const retrievalContext = await resolveAgentRetrievalContext({
+      node,
+      relatedNodes,
+      instruction: body.linePrefix.trim(),
+      retrievalQuery: body.retrievalQuery,
+      retrievalDepth: body.retrievalDepth,
+      allowAutoQuery: false
+    });
 
     console.info("[CodeFlow] Code completion request received", {
       nodeId: body.nodeId,
@@ -137,6 +148,13 @@ ${JSON.stringify(
 
 Relevant edges:
 ${JSON.stringify(relatedEdges, null, 2)}
+
+${retrievalContext.used && retrievalContext.result
+  ? `CodeRAG context:
+${formatAgentRetrievalPrompt(retrievalContext.result)}
+
+`
+  : ""}
 
 Cursor line prefix:
 ${body.linePrefix}

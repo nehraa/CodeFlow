@@ -1,0 +1,84 @@
+- generic:
+  - generic [active]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - navigation [ref=e6]:
+            - button "previous" [disabled] [ref=e7]:
+              - img "previous" [ref=e8]
+            - generic [ref=e10]:
+              - generic [ref=e11]: 1/
+              - text: "1"
+            - button "next" [disabled] [ref=e12]:
+              - img "next" [ref=e13]
+          - img
+        - generic [ref=e15]:
+          - link "Next.js 16.2.1 (stale) Turbopack" [ref=e16] [cursor=pointer]:
+            - /url: https://nextjs.org/docs/messages/version-staleness
+            - img [ref=e17]
+            - generic "There is a newer version (16.2.2) available, upgrade recommended!" [ref=e19]: Next.js 16.2.1 (stale)
+            - generic [ref=e20]: Turbopack
+          - img
+      - dialog "Build Error" [ref=e22]:
+        - generic [ref=e25]:
+          - generic [ref=e26]:
+            - generic [ref=e27]:
+              - generic [ref=e29]: Build Error
+              - generic [ref=e30]:
+                - button "Copy Error Info" [ref=e31] [cursor=pointer]:
+                  - img [ref=e32]
+                - button "No related documentation found" [disabled] [ref=e34]:
+                  - img [ref=e35]
+                - button "Attach Node.js inspector" [ref=e37] [cursor=pointer]:
+                  - img [ref=e38]
+            - generic [ref=e47]: Export default doesn't exist in target module
+          - generic [ref=e49]:
+            - generic [ref=e51]:
+              - img [ref=e53]
+              - generic [ref=e56]: ./src/components/code-editor.tsx (7:1)
+              - button "Open in editor" [ref=e57] [cursor=pointer]:
+                - img [ref=e59]
+            - generic [ref=e62]:
+              - generic [ref=e63]: Export default doesn't exist in target module
+              - generic [ref=e64]: 5 |
+              - text: import
+              - generic [ref=e65]: dynamic
+              - text: from "next/dynamic"
+              - generic [ref=e66]: ;
+              - generic [ref=e67]: 6 |
+              - text: import type
+              - generic [ref=e68]: "*"
+              - text: as Monaco from "monaco-editor"
+              - generic [ref=e69]: ;
+              - text: ">"
+              - generic [ref=e70]: 7 |
+              - text: import
+              - generic [ref=e71]: editorWorker
+              - text: from "monaco-editor/esm/vs/editor/editor.worker?worker"
+              - generic [ref=e72]: ;
+              - generic [ref=e73]: "|"
+              - text: ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+              - generic [ref=e74]: 8 |
+              - text: import
+              - generic [ref=e75]: tsWorker
+              - text: from "monaco-editor/esm/vs/language/typescript/ts.worker?worker"
+              - generic [ref=e76]: ;
+              - generic [ref=e77]: 9 |
+              - generic [ref=e78]: 10 |
+              - text: import type
+              - generic [ref=e79]: "{"
+              - text: BlueprintGraph
+              - generic [ref=e80]: "}"
+              - text: from "@/lib/blueprint/schema"
+              - generic [ref=e81]: "; The export default was not found in module [project]/node_modules/monaco-editor/esm/vs/editor/editor.worker.js?worker [app-client] (ecmascript). Did you mean to import initialize? All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist. Import traces: Client Component Browser: ./src/components/code-editor.tsx [Client Component Browser] ./src/components/blueprint-workbench.tsx [Client Component Browser] ./src/components/blueprint-workbench.tsx [Server Component] ./src/app/page.tsx [Server Component] Client Component SSR: ./src/components/code-editor.tsx [Client Component SSR] ./src/components/blueprint-workbench.tsx [Client Component SSR] ./src/components/blueprint-workbench.tsx [Server Component] ./src/app/page.tsx [Server Component]"
+        - generic [ref=e82]: "1"
+        - generic [ref=e83]: "2"
+    - generic [ref=e88] [cursor=pointer]:
+      - button "Open Next.js Dev Tools" [ref=e89]:
+        - img [ref=e90]
+      - button "Open issues overlay" [ref=e94]:
+        - generic [ref=e95]:
+          - generic [ref=e96]: "0"
+          - generic [ref=e97]: "1"
+        - generic [ref=e98]: Issue
+  - alert [ref=e99]

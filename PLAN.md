@@ -1,607 +1,334 @@
 # CodeFlow IDE Integration Plan
 
-## Overview
-Integrate Monaco Editor as primary IDE surface alongside the graph. Graph and code coexist - graph becomes a navigation layer rather than the sole interface.
+This file only tracks remaining work. Existing repo pieces such as the current Monaco wrapper, file APIs, file tree, file tabs shell, and graph-side feature panels are intentionally omitted as completed foundations.
 
-## Already Implemented (in PRs #21, #22)
-- File tree component (`src/components/file-tree.tsx`)
-- File tabs component (`src/components/file-tabs.tsx`)
-- File tree API (`src/app/api/files/list/route.ts`)
-- File read/write APIs (`src/app/api/files/get/route.ts`, `post/route.ts`)
-- Path security validation (`src/lib/file-security.ts`)
+The remaining goal is not "add Monaco somewhere". The goal is to make IDE mode a full CodeFlow surface with Monaco as the primary editing window while keeping the graph live and fully connected.
 
-## Dependencies to Add
+## Required IDE Layout
+
+When IDE mode is active, the layout must be:
+- Left sidebar: file explorer, VS Code-like in behavior, opening files into Monaco tabs.
+- Main area with no file open: full graph view, same as today's main CodeFlow experience.
+- Main area with a file open: Monaco becomes the primary surface.
+- Floating graph panel in the bottom-right when Monaco is open:
+  - default size about `30%` width and `35%` height
+  - draggable
+  - resizable
+  - large enough to read node names and see edges/status
+- Right sidebar: reserved panel slot for the future agent window. Do not build the agent itself yet, but the slot must exist in the layout.
+
+## Non-Negotiable Behavior
+
+- The graph-first workbench remains the default mode.
+- IDE mode is not a reduced shell. It must carry the same live CodeFlow state.
+- The minimized graph must stay live with heatmap, VCR, trace overlays, execution highlights, and node status updates.
+- Clicking a node in the minimized graph must open the matching file in Monaco and scroll to the exact source location for that node.
+- Graph state in graph mode and IDE mode must be the same shared Zustand state, not separate copies.
+- Existing CodeFlow capabilities must be integrated into IDE mode, not merely left available in graph mode.
+
+## Remaining Work
+
+### P1. IDE State, Mode, And Layout
+- Extend `src/store/blueprint-store.ts` instead of creating a parallel IDE store.
+- Finish migrating graph ownership needed for IDE mode so graph mode and IDE mode read/write the same shared state instead of separate local copies.
+- Move `repoPath` into shared app state so Monaco, graph navigation, and file APIs all point at the same repository root.
+- Add `mode: "graph" | "ide"` plus floating graph panel state.
+- Keep graph-first as the default mode.
+- Use the app's existing file tree for the VS Code-like explorer surface; `@monaco-editor/react` does not provide a built-in explorer UI.
+- In IDE mode:
+  - left sidebar stays the file explorer
+  - main area shows full graph when no file is open
+  - main area switches to Monaco when a file is open
+  - graph becomes a live floating panel at roughly `30% x 35%`
+  - right sidebar is an empty reserved slot for the future agent window
+- Create `src/components/ide-layout.tsx` to own this layout.
+- Add a draggable/resizable floating graph panel with `react-rnd`.
+- Persist layout state through the existing browser storage helpers in `src/lib/browser/storage.ts`.
+
+### P2. Repo-Scoped File APIs And Explorer Flow
+- Update `src/app/api/files/list/route.ts`, `src/app/api/files/get/route.ts`, and `src/app/api/files/post/route.ts` to resolve paths from the active project/session `repoPath`, not `process.cwd()` or a global env default.
+- Keep the file API security boundary strict: reads and writes must stay inside the active repo root.
+- Start from `src/components/file-tabs.tsx`; do not rebuild tabs or the file tree from scratch.
+- Fix file loading to match the current `/api/files/get` route contract.
+- Add dirty indicators for modified files.
+- Add save wiring through the existing `/api/files/post` route.
+- Keep open/close/switch behavior in `src/store/blueprint-store.ts`.
+
+### P3. Monaco Setup And Editor Behavior
+- Keep Monaco lazy-loaded via `next/dynamic(..., { ssr: false })`.
+- Add `beforeMount` Monaco initialization so worker configuration happens before editor startup.
+- Configure Monaco TypeScript/JavaScript workers so they do not conflict with the app runtime.
+- Make dark theme the default editor theme and align it with the existing CodeFlow UI theme.
+- Keep `src/components/code-editor.tsx` focused on the Monaco wrapper rather than tab management.
+- Add `src/components/code-diff-editor.tsx` for refactor and drift review flows.
+
+### P4. Graph To Editor Navigation
+- Add exact source location metadata to blueprint nodes in `src/lib/blueprint/schema.ts`.
+- Populate that metadata during repo analysis in `src/lib/blueprint/repo.ts` using ts-morph source positions.
+- Create `src/lib/blueprint/node-navigation.ts`.
+- Wire graph selection to:
+  - open the correct file
+  - activate the correct tab
+  - scroll Monaco to the exact function/class start line
+  - highlight the relevant line or range
+- Surface missing navigation metadata explicitly instead of failing silently.
+
+### P5. Editor Intelligence
+- Keep the existing Monaco integration, but upgrade editor intelligence so repo-aware TypeScript data comes from the analyzed codebase rather than only the current AI completion path.
+- Use the existing ts-morph workspace/context to improve symbol-aware completions and navigation fidelity.
+- Preserve the current completion feature where useful, but do not treat the current AI-only completion path as sufficient for the prompt requirement.
+
+### P6. Workbench IDE Mode Integration
+- Add IDE mode rendering to `src/components/blueprint-workbench.tsx`.
+- Add a Graph / IDE mode toggle in the toolbar.
+- Add `Cmd/Ctrl+Shift+E` as the mode-switch shortcut.
+- Preserve graph and IDE panel state across mode switches.
+- Ensure the minimized graph is the same live graph state, not a duplicate copy.
+
+### P7. Full CodeFlow Feature Parity Inside IDE Mode
+- IDE mode must expose the same CodeFlow capabilities that currently exist in the graph-first workbench.
+- Reuse existing workbench logic; do not reimplement feature backends.
+- Integrate these existing features into IDE mode UI and flows:
+  - VCR / replay
+  - heatmap / observability
+  - digital twin
+  - refactor / drift
+  - branches / diff
+  - MCP
+  - ghost nodes
+  - execution status and run feedback
+  - export / approval
+  - settings and editor-related controls
+  - cat mascot / brand elements where already present
+- Ensure those signals still update in the minimized graph while Monaco is open.
+- Ensure node activity in those flows still lights up the minimized graph in IDE mode.
+- Ensure refactor / drift and branch comparison use Monaco diff view where appropriate.
+- The right sidebar and IDE toolbar/status areas should become the integration surfaces for these features instead of leaving them graph-mode-only.
+- Acceptance bar: a developer should not have to leave IDE mode to use core CodeFlow capabilities.
+
+### P8. Optional Large-File Follow-Up
+- `/api/files/get` already streams large files.
+- Only add range or partial-read support if IDE profiling shows the current route is insufficient.
+
+## Acceptance Criteria
+
+- Graph mode remains the default unchanged workbench.
+- IDE mode matches the required layout above.
+- Opening a file moves Monaco into the main area and keeps a live floating graph visible.
+- Clicking any graph node opens the correct file and jumps to the correct line or range.
+- Core CodeFlow features remain usable in IDE mode without switching back to graph mode.
+- Drift and diff flows use Monaco diff editor instead of plain text diff output where applicable.
+
+## Dependencies To Add
 ```json
 {
-  "react-rnd": "^10.4.13",
-  "lucide-react": "^0.x"
+  "react-rnd": "^10.4.13"
 }
 ```
 
----
-
-## Task Prompts (Sequential Execution)
-
----
-
-### P1.1: Add Monaco Fork as Submodule
-**Agent:** `backend-developer`  
-**MCP:** Bash  
-**Skill:** None  
-
-**Prompt:**
-```
-Add the Monaco fork as a git submodule at /tmp/codeflow_ide to the CodeFlow project.
-
-1. Check if /tmp/codeflow_ide exists and is a valid git repo
-2. Create vendor/ directory if not exists
-3. Run: git submodule add git@github.com:nehraa/Codeflow_IDE.git vendor/monaco-source
-4. Commit the .gitmodules changes
-
-Working directory: /Users/abhinavnehra/git/CodeFlow
-```
-
----
-
-### P1.2: Build Monaco
-**Agent:** `backend-developer`  
-**MCP:** Bash  
-**Skill:** None  
-
-**Prompt:**
-```
-Build Monaco from the vendor/monaco-source and output to vendor/monaco/.
-
-1. cd to vendor/monaco-source
-2. Run npm install (if needed)
-3. Run npm run build
-4. Copy the built files: cp -r build/vs/ ../vendor/monaco/
-5. Verify vendor/monaco/ contains the Monaco worker files
-
-Working directory: /Users/abhinavnehra/git/CodeFlow
-```
-
----
-
-### P1.3: Update Imports to Local Monaco
-**Agent:** `refactoring-specialist`  
-**MCP:** Grep, Edit  
-**Skill:** None  
-
-**Prompt:**
-```
-Update CodeFlow imports to use local Monaco build instead of @monaco-editor/react.
-
-1. Grep for "@monaco-editor/react" in src/ to find all imports
-2. Modify src/components/code-editor.tsx to use the local Monaco:
-   - Change import to use dynamic import from vendor/monaco/
-   - Or configure Monaco to load workers from vendor/monaco/
-3. Update any webpack/next.config.js if needed for Monaco workers
-
-Files to modify:
-- src/components/code-editor.tsx
-- next.config.js (if needed)
-
-Working directory: /Users/abhinavnehra/git/CodeFlow
-```
-
----
-
-### P1.4: Create ide-store.ts
-**Agent:** `frontend-developer`  
-**MCP:** Write  
-**Skill:** None  
-
-**Prompt:**
-```
-Create src/store/ide-store.ts for IDE state management.
-
-Based on existing patterns in src/store/blueprint-store.ts, create:
-1. Zustand store with:
-   - IDE mode: 'graph' | 'ide'
-   - Open files array: { path, content, modified }
-   - Active file index
-   - Floating panel: { visible, position: {x,y}, size: {width,height} }
-2. Actions:
-   - setMode(mode)
-   - openFile(path, content)
-   - closeFile(index)
-   - setActiveFile(index)
-   - updateFloatingPanel(config)
-3. Export typed hooks: useIdeStore
-
-Reference: src/store/blueprint-store.ts for Zustand patterns
-
-Working directory: /Users/abhinavnehra/git/CodeFlow
-```
-
----
-
-### P1.5: Create ide-layout.tsx
-**Agent:** `frontend-developer`  
-**MCP:** Write  
-**Skill:** `frontend-design`  
-
-**Prompt:**
-```
-Create src/components/ide-layout.tsx - Three-panel IDE layout.
-
-Use Skill: frontend-design to create:
-1. Three-panel layout: File Explorer (left) | Monaco Editor (center) | Inspector (right)
-2. File Explorer: Use existing src/components/file-tree.tsx
-3. Monaco Editor: Use existing code-editor.tsx
-4. Inspector: Placeholder panel for node details, execution status
-5. Floating graph panel in bottom-right corner (30% x 35%)
-6. Resizable panels using CSS/flex
-
-Reference the layout diagram in PLAN.md:
-┌─────────────┬─────────────────────────┬───────────────┐
-│ File Explorer │ Monaco Editor          │ Inspector     │
-│ (left)        │ (main)                 │ (right)       │
-│               │ ┌─────────────────┐   │               │
-│               │ │ Floating Graph  │   │               │
-│               │ │ (30% x 35%)     │   │               │
-│               │ └─────────────────┘   │               │
-└───────────────┴───────────────────────┴───────────────┘
-
-Working directory: /Users/abhinavnehra/git/CodeFlow
-```
-
----
-
-### P3.1: Enhance code-editor.tsx with Tabs
-**Agent:** `frontend-developer`  
-**MCP:** Read, Edit  
-**Skill:** None  
-
-**Prompt:**
-```
-Enhance src/components/code-editor.tsx with tab support.
-
-1. Read current code-editor.tsx implementation
-2. Modify to support multiple open files:
-   - Add tab bar at top showing open files
-   - Click tab to switch files
-   - Show modified indicator (*) on unsaved files
-   - Close button (x) on each tab
-3. Integrate with ide-store.ts for file state
-4. Preserve existing Monaco features (completion, theme, etc.)
-
-Dependencies: P1.4 (ide-store.ts must exist first)
-
-Working directory: /Users/abhinavnehra/git/CodeFlow
-```
-
----
-
-### P3.2: Create code-diff-editor.tsx
-**Agent:** `frontend-developer`  
-**MCP:** Write  
-**Skill:** None  
-
-**Prompt:**
-```
-Create src/components/code-diff-editor.tsx for diff viewing.
-
-1. Use Monaco's diff editor: import type * as Monaco from 'monaco-editor'
-2. Create component with props:
-   - original: string
-   - modified: string
-   - language: string
-   - theme: 'light' | 'dark'
-3. Render Monaco diff editor in readOnly mode
-4. Handle theme switching
-5. Add proper TypeScript types
-
-Reference: Monaco editor diff examples
-
-Working directory: /Users/abhinavnehra/git/CodeFlow
-```
-
----
-
-### P3.3: TypeScript Worker Config
-**Agent:** `frontend-developer`  
-**MCP:** Write  
-**Skill:** None  
-
-**Prompt:**
-```
-Configure TypeScript worker for local Monaco build.
-
-1. Create src/lib/monaco-workers.ts
-2. Configure TypeScript/JavaScript language workers
-3. Set up worker paths pointing to vendor/monaco/
-4. Register workers with Monaco environment
-
-Reference: Monaco worker configuration patterns
-
-Working directory: /Users/abhinavnehra/git/CodeFlow
-```
-
----
-
-### P4.3: Large File Streaming
-**Agent:** `backend-developer`  
-**MCP:** Read, Edit  
-**Skill:** None  
-
-**Prompt:**
-```
-Implement large file streaming in src/app/api/files/get/route.ts.
-
-1. Read current implementation at src/app/api/files/get/route.ts
-2. Add streaming for files > 500KB:
-   - Use ReadableStream for incremental response
-   - Stream in chunks of ~50KB
-   - Add Content-Length and Content-Range headers
-3. Handle range requests for partial file access
-4. Keep security validation from src/lib/file-security.ts
-
-Working directory: /Users/abhinavnehra/git/CodeFlow
-```
-
----
-
-### P5.1: Create floating-graph-panel.tsx
-**Agent:** `frontend-developer`  
-**MCP:** Write  
-**Skill:** `frontend-design`  
-
-**Prompt:**
-```
-Create src/components/floating-graph-panel.tsx - Draggable/resizable graph panel.
-
-Use Skill: frontend-design and:
-1. Use react-rnd for drag and resize
-2. Default: 30% width, 35% height, bottom-right position
-3. Show the graph canvas inside
-4. Connect to ide-store for state (floating panel config)
-5. Add toggle button to show/hide
-6. Add resize handle and drag handle (header bar)
-
-Dependencies: P1.4 (ide-store.ts), react-rnd package installed
-
-Working directory: /Users/abhinavnehra/git/CodeFlow
-```
-
----
-
-### P5.2: React-rnd Integration
-**Agent:** `frontend-developer`  
-**MCP:** Grep, Edit  
-**Skill:** None  
-
-**Prompt:**
-```
-Integrate react-rnd in floating-graph-panel.tsx.
-
-1. Install react-rnd: npm install react-rnd
-2. Modify floating-graph-panel.tsx:
-   - Wrap content in <Rnd> component
-   - Enable resize: default, minWidth, maxWidth, minHeight, maxHeight
-   - Enable drag: default, handle the drag handle
-3. Add visual feedback during drag/resize
-
-Working directory: /Users/abhinavnehra/git/CodeFlow
-```
-
----
-
-### P5.3: Default Position/Size
-**Agent:** `frontend-developer`  
-**MCP:** Edit  
-**Skill:** None  
-
-**Prompt:**
-```
-Set default position and size for floating graph panel.
-
-In floating-graph-panel.tsx:
-- Default position: bottom: 20px, right: 20px
-- Default size: width: 30%, height: 35%
-- Initial position stored in ide-store
-
-Working directory: /Users/abhinavnehra/git/CodeFlow
-```
-
----
-
-### P5.4: LocalStorage Persistence
-**Agent:** `frontend-developer`  
-**MCP:** Grep, Edit  
-**Skill:** None  
-
-**Prompt:**
-```
-Persist floating panel position/size to localStorage.
-
-In floating-graph-panel.tsx:
-1. On mount: load position/size from localStorage
-2. On change: save to localStorage (debounced)
-3. Key: 'codeflow-floating-panel-config'
-4. JSON structure: { x, y, width, height }
-
-Working directory: /Users/abhinavnehra/git/CodeFlow
-```
-
----
-
-### P6.1: Add Line Numbers to Schema
-**Agent:** `refactoring-specialist`  
-**MCP:** Grep, Edit  
-**Skill:** None  
-
-**Prompt:**
-```
-Add line numbers to BlueprintNode in src/lib/blueprint/schema.ts.
-
-1. Find BlueprintNode type definition
-2. Add optional properties:
-   - lineNumber?: number (1-based)
-   - startLine?: number
-   - endLine?: number
-   - filePath?: string
-3. Ensure backward compatibility (all optional)
-
-Working directory: /Users/abhinavnehra/git/CodeFlow
-```
-
----
-
-### P6.2: Create node-navigation.ts
-**Agent:** `frontend-developer`  
-**MCP:** Write  
-**Skill:** None  
-
-**Prompt:**
-```
-Create src/lib/blueprint/node-navigation.ts for graph-to-editor navigation.
-
-Create functions:
-1. getNodeFilePath(node: BlueprintNode): string | null
-   - Extract file path from node metadata
-   
-2. getNodeLineNumber(node: BlueprintNode): number | null
-   - Get line number from node (P6.1 added this)
-   
-3. navigateToNode(nodeId: string, editorRef: MonacoEditor)
-   - Open file at correct line in Monaco
-   - Use editor.revealLineInCenter() for scrolling
-
-Reference: existing blueprint utilities in src/lib/blueprint/
-
-Working directory: /Users/abhinavnehra/git/CodeFlow
-```
-
----
-
-### P6.3: Modify graph-canvas onNodeClick
-**Agent:** `frontend-developer`  
-**MCP:** Grep, Edit  
-**Skill:** None  
-
-**Prompt:**
-```
-Modify src/components/graph-canvas.tsx to enable navigation on node click.
-
-1. Find existing handleNodeClick function
-2. Modify to:
-   - Get node's file path (from node-navigation.ts)
-   - Get node's line number
-   - Call openFile in ide-store with path
-   - Trigger scroll to line in editor (P6.4)
-
-Dependencies: P6.1 (line numbers in schema), P6.2 (node-navigation.ts)
-
-Working directory: /Users/abhinavnehra/git/CodeFlow
-```
-
----
-
-### P6.4: Click Node → Scroll to Line
-**Agent:** `frontend-developer`  
-**MCP:** Grep, Edit  
-**Skill:** None  
-
-**Prompt:**
-```
-Implement scroll-to-line in Monaco when node is clicked.
-
-In code-editor.tsx (or new useEffect):
-1. Watch ide-store.activeFile
-2. When active file changes, get line number from node
-3. Call editorRef.current?.revealLineInCenter(lineNumber)
-4. Add cursor position decorator
-
-Dependencies: P6.3 (node click triggers this)
-
-Working directory: /Users/abhinavnehra/git/CodeFlow
-```
-
----
-
-### P7.1: Modify blueprint-workbench.tsx
-**Agent:** `frontend-developer`  
-**MCP:** Read, Edit  
-**Skill:** None  
-
-**Prompt:**
-```
-Modify src/components/blueprint-workbench.tsx forIDE mode support.
-
-1. Read current blueprint-workbench.tsx
-2. Add condition: if ide-store.mode === 'ide', render ide-layout
-3. If mode === 'graph', render existing graph view
-4. Full replacement of main content area
-
-Dependencies: P1.4 (ide-store.ts), P1.5 (ide-layout.tsx)
-
-Working directory: /Users/abhinavnehra/git/CodeFlow
-```
-
----
-
-### P7.2: Mode Toggle UI
-**Agent:** `frontend-developer`  
-**MCP:** Grep, Edit  
-**Skill:** None  
-
-**Prompt:**
-```
-Add mode toggle button to switch between Graph View and IDE View.
-
-In blueprint-workbench.tsx:
-1. Add toggle button in header/toolbar
-2. Icon: graph icon vs code icon
-3. Click calls ide-store.setMode()
-4. Visual indicator of current mode
-
-Working directory: /Users/abhinavnehra/git/CodeFlow
-```
-
----
-
-### P7.3: Keyboard Shortcut
-**Agent:** `frontend-developer`  
-**MCP:** Grep, Edit  
-**Skill:** None  
-
-**Prompt:**
-```
-Add keyboard shortcut Cmd/Ctrl+Shift+E for mode toggle.
-
-In blueprint-workbench.tsx:
-1. Add useEffect with keydown listener
-2. Check for Cmd+Shift+E (Mac) or Ctrl+Shift+E (Windows)
-3. Toggle ide-store.mode on trigger
-4. Handle focus properly (only when editor not focused)
-
-Working directory: /Users/abhinavnehra/git/CodeFlow
-```
-
----
-
-### P7.4: Preserve Panel States
-**Agent:** `frontend-developer`  
-**MCP:** Grep, Edit  
-**Skill:** None  
-
-**Prompt:**
-```
-Preserve panel states across mode switches.
-
-In ide-store.ts and blueprint-workbench.tsx:
-1. Store panel states (open files, scroll position, panel sizes)
-2. When switching from graph → ide: restore IDE state
-3. When switching from ide → graph: restore graph state
-4. Use localStorage for persistence across page reloads
-
-Working directory: /Users/abhinavnehra/git/CodeFlow
-```
-
----
-
-### P8.1: VCR / Time-Travel
-**Agent:** `frontend-developer`  
-**MCP:** Grep, Edit  
-**Skill:** `frontend-design`  
-
-**Prompt:**
-```
-Integrate VCR/Time-Travel with IDE mode.
-
-1. Find existing VCR component in src/components/
-2. Make it work in both graph and IDE modes
-3. Compact widget that fits in IDE toolbar/sidebar
-4. Updates live as graph state changes
-
-Working directory: /Users/abhinavnehra/git/CodeFlow
-```
-
----
-
-### P8.2: Observability / Heatmap
-**Agent:** `frontend-developer`  
-**MCP:** Grep, Edit  
-**Skill:** None  
-
-**Prompt:**
-```
-Integrate Heatmap with Monaco decorations.
-
-1. Find existing Heatmap component
-2. In IDE mode:
-   - Show Monaco decorations (colored underlines) for hot paths
-   - Add status bar indicator showing heatmap active
-   - Live updates when traces come in
-
-Working directory: /Users/abhinavnehra/git/CodeFlow
-```
-
----
-
-### P8.3-P8.12: Feature Integrations
-**Agent:** `frontend-developer`  
-**MCP:** Grep, Edit  
-**Skill:** `frontend-design` (per task)  
-
-**Prompt:**
-```
-Integrate [FEATURE_NAME] with IDE mode.
-
-1. Find existing [FEATURE_NAME] component in src/
-2. Make it work in both graph and IDE modes
-3. Add appropriate UI in IDE layout (toolbar, sidebar, status bar)
-4. Test in both modes
-
-Features:
-- P8.3: Digital Twin - status bar indicator, graph highlighting
-- P8.4: Refactor/Drift - use diff-editor from P3.2
-- P8.5: Genetic - sidebar panel, status bar progress
-- P8.6: Branches - branch switcher in title bar
-- P8.7: MCP - toolbar, output panel bottom
-- P8.8: Ghost Nodes - click to solidify, create file
-- P8.9: Execution - status bar progress, Monaco decorations
-- P8.10: Export/Approval - toolbar buttons, modal dialogs
-- P8.11: Settings - gear icon, Monaco keybindings
-- P8.12: Cat Mascot - works in both modes (check existing)
-
-Working directory: /Users/abhinavnehra/git/CodeFlow
-```
-
----
+## Critical Files
+- `src/components/code-editor.tsx`
+- `src/components/file-tabs.tsx`
+- `src/components/file-tree.tsx`
+- `src/components/graph-canvas.tsx`
+- `src/components/blueprint-workbench.tsx`
+- `src/store/blueprint-store.ts`
+- `src/lib/browser/storage.ts`
+- `src/lib/blueprint/schema.ts`
+- `src/app/api/files/get/route.ts`
+- `src/app/api/files/post/route.ts`
+- `package.json`
 
 ## Execution Order
-1. **P1** (Infrastructure) → enables everything else
-2. **P3** (Monaco enhancements)
-3. **P5** (Floating panel) → needs P1.4/P1.5
-4. **P6** (Navigation) → needs P5
-5. **P7** (Workbench) → integrates all
-6. **P8** (Features) → final integration
-7. **P4.3** (streaming) - can do anytime after P4.1-P4.2
+1. `P1` IDE state, shared repo state, and layout shell
+2. `P2` repo-scoped file APIs and existing explorer/tab flow fixes
+3. `P3` Monaco worker/theme/diff behavior
+4. `P4` graph-to-editor source navigation
+5. `P5` repo-aware editor intelligence
+6. `P6` workbench IDE mode toggle and state preservation
+7. `P7` feature parity integration across IDE mode
+8. `P8` only if large-file profiling proves current streaming is insufficient
 
----
+## Task Prompts
 
-## Critical Files
-- `src/components/code-editor.tsx` - Monaco setup (existing)
-- `src/components/graph-canvas.tsx` - node click handling
-- `src/store/blueprint-store.ts` - existing state
-- `src/lib/blueprint/schema.ts` - add line numbers
-- `src/components/blueprint-workbench.tsx` - mode toggle
-- `package.json` - add react-rnd, lucide-react
+### P1. IDE State, Mode, And Layout
+**Agent:** `frontend-developer`  
+**MCP / Tools:** `exec_command`, `apply_patch`  
+**Skills:** `build-web-apps:frontend-skill`, `build-web-apps:react-best-practices`  
 
----
+**Prompt**
+```text
+Integrate IDE mode into CodeFlow without creating a second source of truth.
+
+Requirements:
+1. Extend src/store/blueprint-store.ts so graph mode and IDE mode share the same live state.
+2. Move repoPath into shared app state.
+3. Add mode: "graph" | "ide".
+4. Add floating graph panel state: visible, x, y, width, height.
+5. Create src/components/ide-layout.tsx.
+6. IDE mode layout must be:
+   - left sidebar: existing file explorer
+   - main area: full graph when no file is open
+   - main area: Monaco when a file is open
+   - floating graph panel bottom-right, default about 30% x 35%
+   - right sidebar: reserved empty slot for future OpenCode agent window
+7. Use react-rnd for the floating graph panel.
+8. Persist IDE layout state with existing browser storage helpers.
+
+Do not duplicate graph state. Reuse existing components wherever possible.
+```
+
+### P2. Repo-Scoped File APIs And Explorer Flow
+**Agent:** `full-stack-developer`  
+**MCP / Tools:** `exec_command`, `apply_patch`  
+**Skills:** `build-web-apps:react-best-practices`  
+
+**Prompt**
+```text
+Finish the existing file explorer and editor flow so it works against the active repoPath.
+
+Requirements:
+1. Update src/app/api/files/list/route.ts, src/app/api/files/get/route.ts, and src/app/api/files/post/route.ts to resolve files from the active project/session repoPath.
+2. Keep the security boundary strict: never allow reads or writes outside repoPath.
+3. Reuse src/components/file-tabs.tsx and src/components/file-tree.tsx.
+4. Fix the current file read flow to match the actual GET /api/files/get contract.
+5. Add dirty file indicators in tabs.
+6. Add save wiring through POST /api/files/post.
+7. Keep existing multi-file open/close/switch behavior in the shared store.
+8. Preserve or add direct tests for the file API routes.
+
+Do not rebuild the explorer from scratch.
+```
+
+### P3. Monaco Setup And Editor Behavior
+**Agent:** `frontend-developer`  
+**MCP / Tools:** `exec_command`, `apply_patch`  
+**Skills:** `build-web-apps:react-best-practices`  
+
+**Prompt**
+```text
+Upgrade the Monaco integration in CodeFlow while keeping the current lazy-loaded wrapper.
+
+Requirements:
+1. Keep @monaco-editor/react loaded via next/dynamic with ssr: false.
+2. Add beforeMount configuration in src/components/code-editor.tsx.
+3. Configure Monaco TS/JS workers so they do not conflict with Next.js runtime behavior.
+4. Default Monaco to dark theme and align it with the current CodeFlow theme.
+5. Keep code-editor.tsx focused on the editor wrapper, not tab state.
+6. Create src/components/code-diff-editor.tsx using Monaco's diff editor.
+7. Prepare the diff editor for branch/refactor/drift integration.
+
+Do not replace Monaco with a local fork unless there is a proved blocker.
+```
+
+### P4. Graph To Editor Navigation
+**Agent:** `refactoring-specialist`  
+**MCP / Tools:** `exec_command`, `apply_patch`  
+**Skills:** None  
+
+**Prompt**
+```text
+Implement the critical graph-node -> Monaco location navigation path.
+
+Requirements:
+1. Extend src/lib/blueprint/schema.ts with exact source location metadata needed for editor navigation.
+2. Populate that metadata during ts-morph repo analysis in src/lib/blueprint/repo.ts.
+3. Create src/lib/blueprint/node-navigation.ts.
+4. When a developer clicks a graph node in IDE mode:
+   - open the correct file
+   - activate the correct editor tab
+   - scroll Monaco to the exact line where the function/class starts
+   - highlight the relevant line or range
+5. If navigation metadata is missing, surface that explicitly instead of failing silently.
+
+This is the most important graph/IDE integration behavior.
+```
+
+### P5. Editor Intelligence
+**Agent:** `full-stack-developer`  
+**MCP / Tools:** `exec_command`, `apply_patch`  
+**Skills:** `build-web-apps:react-best-practices`  
+
+**Prompt**
+```text
+Upgrade CodeFlow editor intelligence so Monaco uses repo-aware TypeScript context instead of relying only on the current AI completion path.
+
+Requirements:
+1. Reuse the existing ts-morph analysis/workspace context already in the repo.
+2. Improve symbol-aware completions and navigation fidelity inside Monaco.
+3. Keep the existing completion path where useful, but do not rely on AI-only completions to satisfy the IDE requirement.
+4. Preserve current editor behavior for users who do not enable advanced completions.
+5. Add tests where the repo already has coverage patterns for this path.
+```
+
+### P6. Workbench IDE Mode Integration
+**Agent:** `frontend-developer`  
+**MCP / Tools:** `exec_command`, `apply_patch`  
+**Skills:** `build-web-apps:frontend-skill`, `build-web-apps:react-best-practices`  
+
+**Prompt**
+```text
+Integrate IDE mode into src/components/blueprint-workbench.tsx without removing the existing graph-first experience.
+
+Requirements:
+1. Keep graph mode as the default unchanged workbench.
+2. Add IDE mode rendering using the new ide-layout.
+3. Add a Graph / IDE mode toggle in the toolbar.
+4. Add Cmd/Ctrl+Shift+E as the mode-switch shortcut.
+5. Preserve graph and IDE panel state across mode switches.
+6. Ensure the minimized graph in IDE mode is the same live graph state, not a duplicate.
+```
+
+### P7. Full CodeFlow Feature Parity Inside IDE Mode
+**Agent:** `frontend-developer`  
+**MCP / Tools:** `exec_command`, `apply_patch`  
+**Skills:** `build-web-apps:frontend-skill`, `build-web-apps:react-best-practices`  
+
+**Prompt**
+```text
+Integrate existing CodeFlow features into IDE mode so developers do not have to leave IDE mode to use core functionality.
+
+Requirements:
+1. Reuse existing workbench logic and state. Do not rebuild feature backends.
+2. Integrate these existing CodeFlow features into IDE-mode UI surfaces:
+   - VCR / replay
+   - heatmap / observability
+   - digital twin
+   - refactor / drift
+   - branches / diff
+   - MCP
+   - ghost nodes
+   - execution status and run feedback
+   - export / approval
+   - settings / editor controls
+   - cat mascot / brand elements where already present
+3. Ensure those features still update the minimized floating graph in real time.
+4. Ensure node activity still lights up in the minimized graph while Monaco is open.
+5. Use Monaco diff editor for refactor/drift and branch comparison where appropriate.
+6. Use the IDE toolbar, status areas, floating graph, and reserved right sidebar as the integration surfaces.
+
+Acceptance bar:
+A developer should not need to leave IDE mode to use core CodeFlow capabilities.
+```
+
+### P8. Optional Large-File Follow-Up
+**Agent:** `backend-developer`  
+**MCP / Tools:** `exec_command`, `apply_patch`  
+**Skills:** None  
+
+**Prompt**
+```text
+Profile large-file behavior in IDE mode and only extend the API if current streaming is not sufficient.
+
+Requirements:
+1. Start from the existing streaming implementation in src/app/api/files/get/route.ts.
+2. Test IDE behavior on large files over ~500KB.
+3. Only if needed, add partial-read/range support without weakening repoPath validation or security boundaries.
+4. Add direct route tests for any new large-file behavior.
+```
 
 ## Verification
-- Build: `npm run build`
-- Type check: `npm run type-check`
-- Dev server: `npm run dev`
-
----
-
-## Execution Strategy
-- **All tasks sequential** - one agent at a time
-- **Specialized agents** per task (frontend-developer, backend-developer, etc.)
-- **Skills:** frontend-design, simplify, etc. as needed
-- **MCP tools:** context-mode for file analysis, Context7 for docs
+- `npm run lint`
+- `npm run check`
+- `npm test`
+- `npm run build`

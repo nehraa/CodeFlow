@@ -17,7 +17,7 @@ function CatBody({ sceneId, reducedMotion }: { sceneId: string; reducedMotion: b
   const [isBlinking, setIsBlinking] = useState(false);
   const [isBooping, setIsBooping] = useState(false);
   const [isJumping, setIsJumping] = useState(false);
-  const mouse = useRef({ x: 0, y: 0 });
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
   // Colors based on scene
   const getAccentColor = () => {
@@ -40,10 +40,10 @@ function CatBody({ sceneId, reducedMotion }: { sceneId: string; reducedMotion: b
   useEffect(() => {
     if (reducedMotion) return;
     const handleMouseMove = (e: MouseEvent) => {
-      mouse.current = {
+      setMousePosition({
         x: (e.clientX / window.innerWidth - 0.5) * 2,
         y: (e.clientY / window.innerHeight - 0.5) * 2
-      };
+      });
     };
     window.addEventListener("mousemove", handleMouseMove);
     return () => window.removeEventListener("mousemove", handleMouseMove);
@@ -98,8 +98,8 @@ function CatBody({ sceneId, reducedMotion }: { sceneId: string; reducedMotion: b
 
     // Head follows mouse slightly
     if (headRef.current) {
-      headRef.current.rotation.y = THREE.MathUtils.lerp(headRef.current.rotation.y, mouse.current.x * 0.3, 0.1);
-      headRef.current.rotation.x = THREE.MathUtils.lerp(headRef.current.rotation.x, -mouse.current.y * 0.2, 0.1);
+      headRef.current.rotation.y = THREE.MathUtils.lerp(headRef.current.rotation.y, mousePosition.x * 0.3, 0.1);
+      headRef.current.rotation.x = THREE.MathUtils.lerp(headRef.current.rotation.x, -mousePosition.y * 0.2, 0.1);
     }
 
     // Jump animation
@@ -207,14 +207,14 @@ function CatBody({ sceneId, reducedMotion }: { sceneId: string; reducedMotion: b
 
           {/* Pupils - follow mouse */}
           <mesh
-            position={[-0.35 + mouse.current.x * 0.08, 0.15 - mouse.current.y * 0.06, 1.05]}
+            position={[-0.35 + mousePosition.x * 0.08, 0.15 - mousePosition.y * 0.06, 1.05]}
             scale={isBlinking ? [1, 0.1, 1] : [1, 1, 1]}
           >
             <sphereGeometry args={[0.14, 24, 24]} />
             <meshStandardMaterial color="#facc15" emissive="#facc15" emissiveIntensity={0.2} />
           </mesh>
           <mesh
-            position={[0.35 + mouse.current.x * 0.08, 0.15 - mouse.current.y * 0.06, 1.05]}
+            position={[0.35 + mousePosition.x * 0.08, 0.15 - mousePosition.y * 0.06, 1.05]}
             scale={isBlinking ? [1, 0.1, 1] : [1, 1, 1]}
           >
             <sphereGeometry args={[0.14, 24, 24]} />
@@ -388,12 +388,18 @@ function Lighting() {
 // Camera controller
 function CameraController({ reducedMotion }: { reducedMotion: boolean }) {
   const { camera } = useThree();
+  const cameraRef = useRef(camera);
+
+  useEffect(() => {
+    cameraRef.current = camera;
+  }, [camera]);
 
   useFrame(() => {
     if (!reducedMotion) {
-      camera.position.x = THREE.MathUtils.lerp(camera.position.x, 0, 0.05);
-      camera.position.y = THREE.MathUtils.lerp(camera.position.y, 0.5, 0.05);
-      camera.lookAt(0, 0, 0);
+      const activeCamera = cameraRef.current;
+      activeCamera.position.x = THREE.MathUtils.lerp(activeCamera.position.x, 0, 0.05);
+      activeCamera.position.y = THREE.MathUtils.lerp(activeCamera.position.y, 0.5, 0.05);
+      activeCamera.lookAt(0, 0, 0);
     }
   });
 

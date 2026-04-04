@@ -4,6 +4,15 @@ import path from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const { codeRagQueryMock, getCodeRagMock } = vi.hoisted(() => ({
+  codeRagQueryMock: vi.fn(),
+  getCodeRagMock: vi.fn()
+}));
+
+vi.mock("@/lib/coderag", () => ({
+  getCodeRag: getCodeRagMock
+}));
+
 import { POST } from "@/app/api/implement-node/route";
 import type { BlueprintGraph } from "@/lib/blueprint/schema";
 import { emptyContract } from "@/lib/blueprint/schema";
@@ -14,6 +23,8 @@ afterEach(async () => {
   delete process.env.NVIDIA_API_KEY;
   delete process.env.CODEFLOW_STORE_ROOT;
   vi.unstubAllGlobals();
+  codeRagQueryMock.mockReset();
+  getCodeRagMock.mockReset();
 
   await Promise.all(
     createdStoreRoots.map((dir) =>
@@ -76,6 +87,31 @@ describe("POST /api/implement-node", () => {
   it("updates only the selected node draft and leaves other nodes untouched", async () => {
     process.env.NVIDIA_API_KEY = "nvapi-test";
     await assignStoreRoot();
+    codeRagQueryMock.mockResolvedValue({
+      question: "Where is task persistence handled?",
+      answerMode: "context-only",
+      answer: "persistTask is the primary persistence helper for saveTask.",
+      context: {
+        graphSummary: "saveTask calls persistTask",
+        warnings: [],
+        primaryNode: {
+          nodeId: "function:persist-task",
+          name: "persistTask",
+          kind: "function",
+          filePath: "src/tasks.ts",
+          fullFileContent: "export function persistTask(input: string) {\n  return input.trim();\n}\n",
+          startLine: 1,
+          endLine: 3,
+          callSiteLines: [1],
+          doc: "Writes the task payload.",
+          relationship: "primary"
+        },
+        relatedNodes: []
+      }
+    });
+    getCodeRagMock.mockReturnValue({
+      query: codeRagQueryMock
+    });
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -100,23 +136,31 @@ describe("POST /api/implement-node", () => {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           graph,
-          nodeId: "function:save-task"
+          nodeId: "function:save-task",
+          retrievalQuery: "Where is task persistence handled?"
         })
       })
     );
 
     expect(response.status).toBe(200);
-    const body = (await response.json()) as { graph: BlueprintGraph };
+    const body = (await response.json()) as {
+      graph: BlueprintGraph;
+      implementation?: { notes: string[] };
+    };
     expect(body.graph.phase).toBe("implementation");
     expect(body.graph.nodes[0]?.status).toBe("implemented");
     expect(body.graph.nodes[0]?.implementationDraft).toContain("return input.trim()");
     expect(body.graph.nodes[1]?.implementationDraft).toBeUndefined();
+    expect(body.implementation?.notes.some((note) => note.includes("CodeRAG context attached"))).toBe(true);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(codeRagQueryMock).toHaveBeenCalledWith("Where is task persistence handled?", { depth: 2 });
     const payload = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string) as {
       messages: Array<{ role: string; content: string }>;
     };
     expect(payload.messages[0]?.content).toContain("Green means observed pass, not optimism.");
     expect(payload.messages[0]?.content).toContain("No fake-pass tests.");
+    expect(payload.messages[1]?.content).toContain("CodeRAG retrieval context");
+    expect(payload.messages[1]?.content).toContain("Primary node: persistTask");
   });
 
   it("retries once when the first implementation fails local TypeScript validation", async () => {

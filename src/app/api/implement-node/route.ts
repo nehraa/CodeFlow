@@ -4,6 +4,11 @@ import { z } from "zod";
 import { getNodeAssistanceContext } from "@/lib/blueprint/code-assist";
 import { validateNodeImplementation } from "@/lib/blueprint/compile-validation";
 import { generateNodeCode, getNodeStubPath, isCodeBearingNode } from "@/lib/blueprint/codegen";
+import {
+  formatAgentRetrievalNote,
+  formatAgentRetrievalPrompt,
+  resolveAgentRetrievalContext
+} from "@/lib/coderag-agent";
 import { markNodeImplemented } from "@/lib/blueprint/phases";
 import { withCodeflowGovernance } from "@/lib/blueprint/prompt-governance";
 import type { BlueprintGraph } from "@/lib/blueprint/schema";
@@ -16,6 +21,8 @@ const requestSchema = z.object({
   graph: blueprintGraphSchema,
   nodeId: z.string().min(1),
   currentCode: z.string().optional(),
+  retrievalQuery: z.string().trim().min(1).optional(),
+  retrievalDepth: z.number().int().min(1).max(6).optional(),
   nvidiaApiKey: z.string().optional()
 });
 
@@ -83,6 +90,12 @@ export async function POST(request: Request) {
     }
 
     const currentCode = rawBody.currentCode ?? node.implementationDraft ?? generateNodeCode(node, graph) ?? "";
+    const retrievalContext = await resolveAgentRetrievalContext({
+      node,
+      relatedNodes,
+      retrievalQuery: rawBody.retrievalQuery,
+      retrievalDepth: rawBody.retrievalDepth
+    });
     const fileMap = graph.nodes
       .map((candidate) => ({
         nodeId: candidate.id,
@@ -141,6 +154,13 @@ ${JSON.stringify(
 Relevant edges:
 ${JSON.stringify(relatedEdges, null, 2)}
 
+${retrievalContext.used && retrievalContext.result
+  ? `CodeRAG context:
+${formatAgentRetrievalPrompt(retrievalContext.result)}
+
+`
+  : ""}
+
 Current code:
 \`\`\`
 ${currentCode}
@@ -193,9 +213,14 @@ Return ONLY valid JSON with "summary", "code", and "notes". Do not include markd
       });
 
       if (validation.success) {
+        const retrievalNote = formatAgentRetrievalNote(retrievalContext);
         parsed = {
           ...parsed,
-          notes: [...parsed.notes, "Local TypeScript validation passed before acceptance."]
+          notes: [
+            ...parsed.notes,
+            "Local TypeScript validation passed before acceptance.",
+            ...(retrievalNote ? [retrievalNote] : [])
+          ]
         };
         break;
       }

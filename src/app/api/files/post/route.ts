@@ -8,7 +8,7 @@ import {
   ensureFileIsWithinRepo,
 } from "@/lib/file-security";
 
-const DEFAULT_REPO_ROOT = process.env.CODEFLOW_REPO_ROOT ?? process.cwd();
+const DEFAULT_REPO_ROOT = process.env.CODEFLOW_REPO_ROOT ?? /* turbopackIgnore: true */ process.cwd();
 const REPO_PATH_HEADER = "x-codeflow-repo-path";
 
 const fileWriteSchema = z.object({

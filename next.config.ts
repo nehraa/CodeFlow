@@ -1,14 +1,9 @@
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-
 import type { NextConfig } from "next";
-
-const repoRoot = path.dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
   typedRoutes: true,
   turbopack: {
-    root: repoRoot
+    root: new URL(".", import.meta.url).pathname
   },
   serverExternalPackages: ["@lancedb/lancedb"]
 };

@@ -1,16 +1,53 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const { codeRagQueryMock, getCodeRagMock } = vi.hoisted(() => ({
+  codeRagQueryMock: vi.fn(),
+  getCodeRagMock: vi.fn()
+}));
+
+vi.mock("@/lib/coderag", () => ({
+  getCodeRag: getCodeRagMock
+}));
+
 import { POST } from "@/app/api/code-suggestions/route";
 import { emptyContract } from "@/lib/blueprint/schema";
 
 afterEach(() => {
   delete process.env.NVIDIA_API_KEY;
   vi.unstubAllGlobals();
+  codeRagQueryMock.mockReset();
+  getCodeRagMock.mockReset();
 });
 
 describe("POST /api/code-suggestions", () => {
   it("returns a parsed AI code suggestion for a blueprint node", async () => {
     process.env.NVIDIA_API_KEY = "nvapi-test";
+    codeRagQueryMock.mockResolvedValue({
+      question: "Where is task validation enforced?",
+      answerMode: "context-only",
+      answer: "saveTask validates titles before persisting.",
+      context: {
+        graphSummary: "saveTask handles validation",
+        warnings: [],
+        primaryNode: {
+          nodeId: "function:save-task",
+          name: "saveTask",
+          kind: "function",
+          filePath: "src/tasks.ts",
+          fullFileContent:
+            "export function saveTask(input: TaskInput): Task {\n  if (!input.title) {\n    throw new Error(\"Task title is required\");\n  }\n}\n",
+          startLine: 1,
+          endLine: 5,
+          callSiteLines: [1],
+          doc: "Validates and persists a task.",
+          relationship: "primary"
+        },
+        relatedNodes: []
+      }
+    });
+    getCodeRagMock.mockReturnValue({
+      query: codeRagQueryMock
+    });
 
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -67,7 +104,8 @@ describe("POST /api/code-suggestions", () => {
           },
           nodeId: "function:save-task",
           currentCode: "export function saveTask(input: TaskInput): Task {\n  throw new Error(\"todo\");\n}\n",
-          instruction: "Add validation for missing titles."
+          instruction: "Add validation for missing titles.",
+          retrievalQuery: "Where is task validation enforced?"
         })
       })
     );
@@ -82,7 +120,14 @@ describe("POST /api/code-suggestions", () => {
 
     expect(body.summary).toContain("validation");
     expect(body.code).toContain("export function saveTask");
-    expect(body.notes).toEqual(["Covers the missing title edge case."]);
+    expect(body.notes).toContain("Covers the missing title edge case.");
+    expect(body.notes.some((note) => note.includes("CodeRAG context attached"))).toBe(true);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(codeRagQueryMock).toHaveBeenCalledWith("Where is task validation enforced?", { depth: 2 });
+    const payload = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string) as {
+      messages: Array<{ role: string; content: string }>;
+    };
+    expect(payload.messages[1]?.content).toContain("CodeRAG retrieval context");
+    expect(payload.messages[1]?.content).toContain("Primary node: saveTask");
   });
 });
