@@ -16,6 +16,7 @@ import { blueprintGraphSchema } from "@/lib/blueprint/schema";
 import { getNvidiaKeySource, requestNvidiaChatCompletion, resolveNvidiaApiKey } from "@/lib/blueprint/nvidia";
 import { createRunPlan } from "@/lib/blueprint/plan";
 import { upsertSession } from "@/lib/blueprint/session-store";
+import { isOpencodeAvailable, sendToOpencode, extractJsonFromResponse } from "@/lib/opencode/agent";
 
 const requestSchema = z.object({
   graph: blueprintGraphSchema,
@@ -23,7 +24,8 @@ const requestSchema = z.object({
   currentCode: z.string().optional(),
   retrievalQuery: z.string().trim().min(1).optional(),
   retrievalDepth: z.number().int().min(1).max(6).optional(),
-  nvidiaApiKey: z.string().optional()
+  nvidiaApiKey: z.string().optional(),
+  useOpencode: z.boolean().optional().default(false)
 });
 
 const responseSchema = z.object({
@@ -66,8 +68,9 @@ export async function POST(request: Request) {
   try {
     const rawBody = requestSchema.parse(await request.json());
     const graph: BlueprintGraph = rawBody.graph;
-    const apiKey = resolveNvidiaApiKey(rawBody.nvidiaApiKey);
-    const keySource = getNvidiaKeySource(rawBody.nvidiaApiKey);
+    const useOpencode = rawBody.useOpencode && isOpencodeAvailable();
+    const apiKey = useOpencode ? null : resolveNvidiaApiKey(rawBody.nvidiaApiKey);
+    const keySource = useOpencode ? "opencode" : getNvidiaKeySource(rawBody.nvidiaApiKey);
     const context = getNodeAssistanceContext(graph, rawBody.nodeId);
 
     if (!context) {
@@ -82,11 +85,17 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "NVIDIA API key is required. Provide it in the UI or set NVIDIA_API_KEY environment variable." },
-        { status: 400 }
-      );
+    if (!useOpencode && !apiKey) {
+      // Check if OpenCode is available as fallback
+      if (isOpencodeAvailable()) {
+        // Redirect to use OpenCode
+        rawBody.useOpencode = true;
+      } else {
+        return NextResponse.json(
+          { error: "No AI backend available. Either start OpenCode server or provide NVIDIA API key." },
+          { status: 400 }
+        );
+      }
     }
 
     const currentCode = rawBody.currentCode ?? node.implementationDraft ?? generateNodeCode(node, graph) ?? "";
@@ -173,14 +182,39 @@ Implement only this node. Preserve compatibility with the blueprint contract and
     let parsed: z.infer<typeof responseSchema> | null = null;
     let lastFailure = "Implementation validation did not complete.";
 
-    for (let attempt = 1; attempt <= IMPLEMENTATION_ATTEMPT_LIMIT; attempt++) {
-      const content = await requestNvidiaChatCompletion({
-        apiKey,
-        messages,
+    // Helper to get completion from either OpenCode or NVIDIA
+    const getCompletion = async (msgs: typeof messages): Promise<string> => {
+      if (useOpencode || rawBody.useOpencode) {
+        // Build full prompt from messages for OpenCode
+        const systemMsg = msgs.find(m => m.role === "system")?.content ?? "";
+        const userMsgs = msgs.filter(m => m.role !== "system")
+          .map(m => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
+          .join("\n\n");
+        
+        const result = await sendToOpencode({
+          systemPrompt: systemMsg,
+          prompt: userMsgs,
+        });
+        
+        if (!result.success) {
+          throw new Error(result.error ?? "OpenCode request failed");
+        }
+        
+        return result.content ?? "";
+      }
+      
+      // Use NVIDIA
+      return requestNvidiaChatCompletion({
+        apiKey: apiKey!,
+        messages: msgs,
         temperature: 0.2,
         topP: 0.7,
         maxTokens: 4096
       });
+    };
+
+    for (let attempt = 1; attempt <= IMPLEMENTATION_ATTEMPT_LIMIT; attempt++) {
+      const content = await getCompletion(messages);
 
       try {
         parsed = responseSchema.parse(JSON.parse(extractJsonPayload(content)));

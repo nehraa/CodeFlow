@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { BlueprintWorkbench } from "@/components/blueprint-workbench";
@@ -284,6 +284,17 @@ describe("BlueprintWorkbench", () => {
             return;
           }
 
+          if (input === "/api/coderag" && (!init?.method || init.method === "GET")) {
+            resolve({
+              ok: true,
+              json: async () => ({
+                status: "not_initialized",
+                message: "Build or export a repo-backed blueprint to initialize CodeRAG for this workspace."
+              })
+            });
+            return;
+          }
+
           resolveBuild = resolve;
         })
     );
@@ -370,6 +381,143 @@ describe("BlueprintWorkbench", () => {
 
     expect(await screen.findByText("Blueprint ready")).toBeInTheDocument();
     expect(screen.getByText(/Built 1 nodes, 0 edges, and 0 workflows/)).toBeInTheDocument();
+  });
+
+  it("surfaces CodeRAG as a repo dock after a repo-backed build", async () => {
+    const repoPath = "/tmp/sample-repo";
+    let codeRagReady = false;
+
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (input === "/api/generate-blueprint" && (!init?.method || init.method === "GET")) {
+        return {
+          ok: true,
+          json: async () => ({
+            serverApiKeyConfigured: false
+          })
+        };
+      }
+
+      if (input === "/api/files/list") {
+        return {
+          ok: true,
+          json: async () => []
+        };
+      }
+
+      if (input === "/api/coderag" && (!init?.method || init.method === "GET")) {
+        return {
+          ok: true,
+          json: async () =>
+            codeRagReady
+              ? {
+                  status: "ready",
+                  details: {
+                    indexedNodeCount: 12,
+                    storageRoot: "/tmp/coderag"
+                  }
+                }
+              : {
+                  status: "not_initialized",
+                  message: "Build or export a repo-backed blueprint to initialize CodeRAG for this workspace."
+                }
+        };
+      }
+
+      if (input === "/api/blueprint") {
+        codeRagReady = true;
+
+        return {
+          ok: true,
+          json: async () => ({
+            graph: {
+              projectName: "Workbench",
+              mode: "essential",
+              generatedAt: "2026-03-13T00:00:00.000Z",
+              warnings: [],
+              workflows: [],
+              edges: [],
+              nodes: [
+                {
+                  id: "function:verify-token",
+                  kind: "function",
+                  name: "verifyToken",
+                  summary: "Verify and decode a JWT.",
+                  contract: {
+                    summary: "Verify and decode a JWT.",
+                    inputs: [],
+                    outputs: [],
+                    sideEffects: [],
+                    errors: [],
+                    dependencies: [],
+                    uiAccess: [],
+                    backendAccess: [],
+                    notes: []
+                  },
+                  sourceRefs: [],
+                  generatedRefs: [],
+                  traceRefs: []
+                }
+              ]
+            },
+            runPlan: {
+              generatedAt: "2026-03-13T00:00:00.000Z",
+              tasks: [],
+              batches: [],
+              warnings: []
+            },
+            session: {
+              sessionId: "session-coderag",
+              projectName: "Workbench",
+              updatedAt: "2026-03-13T00:00:00.000Z",
+              repoPath,
+              graph: {
+                projectName: "Workbench",
+                mode: "essential",
+                generatedAt: "2026-03-13T00:00:00.000Z",
+                warnings: [],
+                workflows: [],
+                edges: [],
+                nodes: []
+              },
+              runPlan: {
+                generatedAt: "2026-03-13T00:00:00.000Z",
+                tasks: [],
+                batches: [],
+                warnings: []
+              },
+              approvalIds: []
+            }
+          })
+        };
+      }
+
+      return {
+        ok: true,
+        json: async () => ({})
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BlueprintWorkbench />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    fireEvent.click(screen.getByLabelText("PRD / Repo (JS/TS)"));
+    fireEvent.change(screen.getByPlaceholderText("/absolute/path/to/repo"), {
+      target: { value: repoPath }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Build blueprint" }));
+
+    expect(await screen.findByRole("button", { name: "verifyToken" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: /repo/i }));
+    const repoDock = screen.getByRole("tabpanel");
+
+    expect(within(repoDock).getByRole("button", { name: "Search repo" })).toBeInTheDocument();
+    expect(within(repoDock).getAllByText(/Indexed 12 nodes/).length).toBeGreaterThan(0);
+    expect(
+      within(repoDock).getByText(/Suggest code, Implement node, and Monaco completions share this retrieval index/)
+    ).toBeInTheDocument();
+    expect(within(repoDock).getByText(/\/tmp\/sample-repo/)).toBeInTheDocument();
   });
 
   it("shows an actionable message when the local server is unreachable during blueprint build", async () => {
