@@ -283,6 +283,8 @@ export function OpencodeSettings({ onClose, onStatusChange }: Props) {
             const newProvider = e.target.value as OpencodeProvider;
             setProvider(newProvider);
             setModel(PROVIDER_CONFIGS[newProvider].defaultModel);
+            setIsManuallySelected(true); // Mark as user's explicit choice
+          }}
           }}
         >
           {PROVIDERS.map((p) => (
