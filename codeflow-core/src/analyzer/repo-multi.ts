@@ -124,7 +124,7 @@ export const analyzeRepo = async (
 
   for (const imp of allImportEdges) {
     const targetModule = [...nodeMap.values()].find(
-      n => n.kind === "module" && (n.path.endsWith(imp.importPath) || n.path.includes(imp.importPath))
+      n => n.kind === "module" && n.path != null && (n.path.endsWith(imp.importPath) || n.path.includes(imp.importPath))
     );
     if (targetModule) {
       edges.push({
