@@ -210,14 +210,20 @@ export const extractNodesFromFile = async (filePath, relativePath) => {
         const direct = findChild(node, "identifier");
         if (direct)
             return direct;
+        // C/C++: function_declarator -> identifier (no pointer)
+        const fnDecl = findChild(node, "function_declarator");
+        if (fnDecl) {
+            const id = findChild(fnDecl, "identifier", "field_identifier");
+            if (id)
+                return id;
+        }
         // C/C++: pointer_declarator -> function_declarator -> identifier
         const ptrDecl = findChild(node, "pointer_declarator", "array_declarator", "fn_pointer");
         if (ptrDecl) {
-            const fnDecl = findChild(ptrDecl, "function_declarator") || findChild(ptrDecl, "declarator");
-            if (fnDecl) {
-                return findChild(fnDecl, "identifier") || findChild(fnDecl, "field_identifier");
+            const innerFnDecl = findChild(ptrDecl, "function_declarator") || findChild(ptrDecl, "declarator");
+            if (innerFnDecl) {
+                return findChild(innerFnDecl, "identifier") || findChild(innerFnDecl, "field_identifier");
             }
-            // Fallback: find identifier anywhere inside
             for (const c of namedChildren(ptrDecl)) {
                 if (c.type === "function_declarator")
                     return findChild(c, "identifier");
@@ -269,14 +275,23 @@ export const extractNodesFromFile = async (filePath, relativePath) => {
         }
         return { returnTypeNode, bodyNode };
     };
-    const walkFunctions = (node, ownerName, ownerId) => {
+    const walkFunctions = (node, parentOwnerName, parentOwnerId) => {
         for (const child of namedChildren(node)) {
             let funcName = "";
             let paramsNode = null;
             let returnTypeNode = null;
             let bodyNode = null;
             let isMethod = false;
-            if (child.type === "function_declaration") {
+            let currentOwnerName = parentOwnerName;
+            let currentOwnerId = parentOwnerId;
+            // Skip functions inside class bodies when at root level (handled by walkClasses instead)
+            // But process them when walkClasses passes owner context
+            const grandParent = child.parent?.parent;
+            const greatGrandParent = child.parent?.parent?.parent;
+            const isInsideClassBody = !parentOwnerName && (grandParent?.type === "class_definition" || grandParent?.type === "class_declaration" ||
+                grandParent?.type === "class_specifier" || grandParent?.type === "struct_specifier" ||
+                greatGrandParent?.type === "impl_item");
+            if (child.type === "function_declaration" && !isInsideClassBody) {
                 const nameNode = findChild(child, "identifier");
                 if (nameNode) {
                     funcName = nameNode.text;
@@ -285,8 +300,12 @@ export const extractNodesFromFile = async (filePath, relativePath) => {
                     returnTypeNode = rt;
                     bodyNode = bd;
                 }
+                else {
+                    walkFunctions(child, currentOwnerName, currentOwnerId);
+                    continue;
+                }
             }
-            else if (child.type === "function_definition") {
+            else if (child.type === "function_definition" && !isInsideClassBody) {
                 const nameNode = findFuncName(child);
                 if (nameNode) {
                     funcName = nameNode.text;
@@ -294,8 +313,12 @@ export const extractNodesFromFile = async (filePath, relativePath) => {
                     const { returnTypeNode: rt, bodyNode: bd } = findReturnTypeInfo(child);
                     returnTypeNode = rt;
                     bodyNode = bd;
-                    if (ownerName)
+                    if (currentOwnerName)
                         isMethod = true;
+                }
+                else {
+                    walkFunctions(child, currentOwnerName, currentOwnerId);
+                    continue;
                 }
             }
             else if (child.type === "method_declaration") {
@@ -307,8 +330,26 @@ export const extractNodesFromFile = async (filePath, relativePath) => {
                 }
                 bodyNode = findChild(child, "block");
                 isMethod = true;
+                // Go: extract receiver type from first parameter_list (the receiver)
+                const recvParam = child.namedChildren[0];
+                if (recvParam && recvParam.type === "parameter_list") {
+                    const recvDecl = recvParam.namedChildren[0];
+                    if (recvDecl) {
+                        const recvTypeNode = recvDecl.childForFieldName("type");
+                        if (recvTypeNode) {
+                            // Handle *Type -> Type
+                            let typeName = recvTypeNode.text;
+                            if (typeName.startsWith("*"))
+                                typeName = typeName.substring(1);
+                            currentOwnerName = typeName;
+                            // Find the matching class node id
+                            const classKey = `${relativePath}::${typeName}`;
+                            currentOwnerId = symbolIndex.get(classKey);
+                        }
+                    }
+                }
             }
-            else if (child.type === "method_definition") {
+            else if (child.type === "method_definition" && !isInsideClassBody) {
                 const nameNode = findChild(child, "identifier", "property_identifier");
                 if (nameNode) {
                     funcName = nameNode.text;
@@ -317,9 +358,11 @@ export const extractNodesFromFile = async (filePath, relativePath) => {
                     returnTypeNode = rt;
                     bodyNode = bd;
                     isMethod = true;
+                    currentOwnerName = parentOwnerName;
+                    currentOwnerId = parentOwnerId;
                 }
             }
-            else if (child.type === "function_item") {
+            else if (child.type === "function_item" && !isInsideClassBody) {
                 const nameNode = findChild(child, "identifier");
                 if (nameNode) {
                     funcName = nameNode.text;
@@ -327,6 +370,10 @@ export const extractNodesFromFile = async (filePath, relativePath) => {
                     const { returnTypeNode: rt, bodyNode: bd } = findReturnTypeInfo(child);
                     returnTypeNode = rt;
                     bodyNode = bd;
+                }
+                else {
+                    walkFunctions(child, currentOwnerName, currentOwnerId);
+                    continue;
                 }
             }
             else if (child.type === "arrow_function" || child.type === "function_expression") {
@@ -337,16 +384,16 @@ export const extractNodesFromFile = async (filePath, relativePath) => {
                         funcName = nameN.text;
                 }
                 if (!funcName) {
-                    walkFunctions(child, ownerName, ownerId);
+                    walkFunctions(child, currentOwnerName, currentOwnerId);
                     continue;
                 }
                 paramsNode = findChild(child, "formal_parameters", "parameters");
                 bodyNode = findChild(child, "statement_block", "block", "expression");
             }
             if (funcName) {
-                recordFunc(funcName, child, paramsNode, returnTypeNode, bodyNode, ownerName, ownerId);
+                recordFunc(funcName, child, paramsNode, returnTypeNode, bodyNode, currentOwnerName, currentOwnerId);
             }
-            walkFunctions(child, ownerName, ownerId);
+            walkFunctions(child, currentOwnerName, currentOwnerId);
         }
     };
     const walkClasses = (node) => {
@@ -403,20 +450,13 @@ export const extractNodesFromFile = async (filePath, relativePath) => {
                     continue;
                 }
                 className = nameNode.text;
-                // Python inheritance: superclasses -> argument_list -> identifier
-                const superclasses = findChild(child, "superclasses");
-                if (superclasses) {
-                    const argList = findChild(superclasses, "argument_list");
-                    if (argList) {
-                        const parentId = findChild(argList, "identifier", "type_identifier");
-                        if (parentId)
-                            parentClass = parentId.text;
-                    }
-                    else {
-                        const parentId = findChild(superclasses, "identifier", "type_identifier");
-                        if (parentId)
-                            parentClass = parentId.text;
-                    }
+                // Python inheritance: argument_list directly under class_definition
+                // (some grammars wrap in superclasses, others don't)
+                const argList = findChild(child, "argument_list", "superclasses");
+                if (argList) {
+                    const parentId = findChild(argList, "identifier", "type_identifier");
+                    if (parentId)
+                        parentClass = parentId.text;
                 }
                 const classId = createNodeId("class", `${relativePath}:${className}`, `${relativePath}:${className}`);
                 nodes.push({
