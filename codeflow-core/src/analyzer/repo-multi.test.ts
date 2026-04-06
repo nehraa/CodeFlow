@@ -191,6 +191,37 @@ describe("analyzeRepo", () => {
     });
   });
 
+  describe("JavaScript", () => {
+    it("extracts classes, inheritance, methods, and calls from JS repo", async () => {
+      const result = await analyzeRepo(path.join(FIXTURES_DIR, "sample-js"));
+
+      // Module nodes
+      expect(result.nodes.some(n => n.kind === "module" && n.name === "service.js")).toBe(true);
+
+      // Functions
+      expect(result.nodes.some(n => n.kind === "function" && n.name === "processData")).toBe(true);
+      expect(result.nodes.some(n => n.kind === "function" && n.name === "calculateSum")).toBe(true);
+
+      // Classes
+      expect(result.nodes.some(n => n.kind === "class" && n.name === "UserService")).toBe(true);
+      expect(result.nodes.some(n => n.kind === "class" && n.name === "BaseService")).toBe(true);
+      expect(result.nodes.some(n => n.kind === "class" && n.name === "TaskService")).toBe(true);
+
+      // Methods
+      expect(result.nodes.some(n => n.kind === "function" && n.name === "UserService.getUser")).toBe(true);
+      expect(result.nodes.some(n => n.kind === "function" && n.name === "UserService.saveUser")).toBe(true);
+      expect(result.nodes.some(n => n.kind === "function" && n.name === "TaskService.createTask")).toBe(true);
+
+      // Inheritance edges
+      const inheritEdges = result.edges.filter(e => e.kind === "inherits");
+      expect(inheritEdges.length).toBeGreaterThan(0);
+
+      // Calls edges
+      const callEdges = result.edges.filter(e => e.kind === "calls");
+      expect(callEdges.length).toBeGreaterThan(0);
+    });
+  });
+
   describe("edge cases", () => {
     it("throws for invalid path", async () => {
       await expect(analyzeRepo("/nonexistent/path")).rejects.toThrow();

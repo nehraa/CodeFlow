@@ -185,13 +185,14 @@ export const extractNodesFromFile = async (
     return { nodes: [], edges: [], symbolIndex: new Map(), callEdges: [], importEdges: [], inheritEdges: [] };
   }
 
-  const root = tree.rootNode;
-  const nodes: ExtractedNode[] = [];
-  const edges: BlueprintEdge[] = [];
-  const symbolIndex = new Map<string, string>();
-  const callEdges: Array<{ fromId: string; toName: string; callText: string }> = [];
-  const importEdges: Array<{ fromModuleId: string; importPath: string }> = [];
-  const inheritEdges: Array<{ fromId: string; toName: string }> = [];
+  try {
+    const root = tree.rootNode;
+    const nodes: ExtractedNode[] = [];
+    const edges: BlueprintEdge[] = [];
+    const symbolIndex = new Map<string, string>();
+    const callEdges: Array<{ fromId: string; toName: string; callText: string }> = [];
+    const importEdges: Array<{ fromModuleId: string; importPath: string }> = [];
+    const inheritEdges: Array<{ fromId: string; toName: string }> = [];
 
   const moduleId = createNodeId("module", relativePath, relativePath);
   nodes.push({
@@ -555,7 +556,7 @@ export const extractNodesFromFile = async (
         }
       }
       // Rust: struct_item, impl_item
-      else if (child.type === "struct_item" || child.type === "impl_item") {
+      else if (child.type === "struct_item") {
         const nameNode = findChild(child, "type_identifier");
         if (!nameNode) { walkClasses(child); continue; }
         className = nameNode.text;
@@ -566,11 +567,37 @@ export const extractNodesFromFile = async (
           name: className,
           summary: buildSummary(className, child, null, [], ""),
           path: relativePath,
-          signature: child.type === "impl_item" ? `impl ${className}` : `struct ${className}`,
+          signature: `struct ${className}`,
           sourceRefs: [{ kind: "repo", path: relativePath, symbol: className }]
         });
         symbolIndex.set(`${relativePath}::${className}`, classId);
         walkFunctions(child, className, classId);
+      }
+      else if (child.type === "impl_item") {
+        const nameNode = findChild(child, "type_identifier");
+        if (!nameNode) { walkClasses(child); continue; }
+        className = nameNode.text;
+
+        // Check if struct node already exists
+        const existingId = symbolIndex.get(`${relativePath}::${className}`);
+        if (existingId) {
+          // Use existing node ID and just walk functions
+          walkFunctions(child, className, existingId);
+        } else {
+          // Create new node if struct doesn't exist
+          const classId = createNodeId("class", `${relativePath}:${className}`, `${relativePath}:${className}`);
+          nodes.push({
+            nodeId: classId,
+            kind: "class",
+            name: className,
+            summary: buildSummary(className, child, null, [], ""),
+            path: relativePath,
+            signature: `impl ${className}`,
+            sourceRefs: [{ kind: "repo", path: relativePath, symbol: className }]
+          });
+          symbolIndex.set(`${relativePath}::${className}`, classId);
+          walkFunctions(child, className, classId);
+        }
       }
 
       walkClasses(child);
@@ -619,9 +646,13 @@ export const extractNodesFromFile = async (
     }
   };
 
-  walkFunctions(root);
   walkClasses(root);
+  walkFunctions(root);
   walkImports(root);
 
   return { nodes, edges, symbolIndex, callEdges, importEdges, inheritEdges };
+  } finally {
+    // Clean up syntax tree
+    tree.delete();
+  }
 };
