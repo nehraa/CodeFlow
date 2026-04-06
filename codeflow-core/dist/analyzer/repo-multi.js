@@ -88,8 +88,23 @@ export const analyzeRepo = async (repoPath, options) => {
         }));
     }
     const edges = [];
+    // Match import edges to module nodes
     for (const imp of allImportEdges) {
-        const targetModule = [...nodeMap.values()].find(n => n.kind === "module" && n.path != null && (n.path.endsWith(imp.importPath) || n.path.includes(imp.importPath)));
+        // Normalize import path: remove ./ prefix, try both .js and .ts extensions
+        const normalizedImport = imp.importPath.replace(/^\.\//, "").replace(/\.js$/, "");
+        const targetModule = [...nodeMap.values()].find(n => n.kind === "module" && n.path != null && (n.path === normalizedImport + ".ts" ||
+            n.path === normalizedImport + ".tsx" ||
+            n.path === normalizedImport + ".py" ||
+            n.path === normalizedImport + ".go" ||
+            n.path === normalizedImport + ".rs" ||
+            n.path === normalizedImport + ".c" ||
+            n.path === normalizedImport + ".cpp" ||
+            n.path.endsWith("/" + normalizedImport + ".ts") ||
+            n.path.endsWith("/" + normalizedImport + ".tsx") ||
+            n.path.endsWith("/" + normalizedImport + ".py") ||
+            n.path.endsWith("/" + normalizedImport + ".go") ||
+            n.path.endsWith("/" + normalizedImport + ".rs") ||
+            n.path.includes(normalizedImport)));
         if (targetModule) {
             edges.push({
                 from: imp.fromModuleId,
@@ -142,28 +157,39 @@ export const analyzeRepo = async (repoPath, options) => {
             }
         }
     }
+    // Post-process: link Go methods (extracted as standalone functions) to their struct types
     for (const node of nodeMap.values()) {
-        if (node.kind === "class" && node.ownerId) {
-            const classNode = nodeMap.get(node.ownerId);
+        if (node.kind === "function" && node.name.includes(".") && !node.ownerId) {
+            const [ownerName] = node.name.split(".");
+            const classNode = [...nodeMap.values()].find(c => c.kind === "class" && c.name === ownerName);
             if (classNode) {
-                const methodSpec = {
-                    name: node.name.split(".").pop() || node.name,
-                    signature: node.signature,
-                    summary: node.summary,
-                    inputs: node.contract.inputs,
-                    outputs: node.contract.outputs,
-                    sideEffects: node.contract.sideEffects,
-                    calls: node.contract.calls
-                };
-                nodeMap.set(node.ownerId, {
-                    ...classNode,
-                    contract: {
-                        ...classNode.contract,
-                        methods: [...classNode.contract.methods, methodSpec]
-                    }
-                });
+                nodeMap.set(node.id, { ...node, ownerId: classNode.id });
             }
         }
+    }
+    // Post-process: aggregate methods into their owner class's contract
+    for (const node of nodeMap.values()) {
+        if (node.kind !== "function" || !node.ownerId)
+            continue;
+        const ownerNode = nodeMap.get(node.ownerId);
+        if (!ownerNode || ownerNode.kind !== "class")
+            continue;
+        const methodSpec = {
+            name: node.name.split(".").pop() || node.name,
+            signature: node.signature || undefined,
+            summary: node.summary,
+            inputs: node.contract.inputs,
+            outputs: node.contract.outputs,
+            sideEffects: node.contract.sideEffects,
+            calls: node.contract.calls
+        };
+        nodeMap.set(ownerNode.id, {
+            ...ownerNode,
+            contract: {
+                ...ownerNode.contract,
+                methods: [...ownerNode.contract.methods, methodSpec]
+            }
+        });
     }
     return {
         nodes: [...nodeMap.values()],
