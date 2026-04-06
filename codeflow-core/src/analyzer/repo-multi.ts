@@ -122,9 +122,27 @@ export const analyzeRepo = async (
 
   const edges: BlueprintEdge[] = [];
 
+  // Match import edges to module nodes
   for (const imp of allImportEdges) {
+    // Normalize import path: remove ./ prefix, try both .js and .ts extensions
+    const normalizedImport = imp.importPath.replace(/^\.\//, "").replace(/\.js$/, "");
+
     const targetModule = [...nodeMap.values()].find(
-      n => n.kind === "module" && n.path != null && (n.path.endsWith(imp.importPath) || n.path.includes(imp.importPath))
+      n => n.kind === "module" && n.path != null && (
+        n.path === normalizedImport + ".ts" ||
+        n.path === normalizedImport + ".tsx" ||
+        n.path === normalizedImport + ".py" ||
+        n.path === normalizedImport + ".go" ||
+        n.path === normalizedImport + ".rs" ||
+        n.path === normalizedImport + ".c" ||
+        n.path === normalizedImport + ".cpp" ||
+        n.path.endsWith("/" + normalizedImport + ".ts") ||
+        n.path.endsWith("/" + normalizedImport + ".tsx") ||
+        n.path.endsWith("/" + normalizedImport + ".py") ||
+        n.path.endsWith("/" + normalizedImport + ".go") ||
+        n.path.endsWith("/" + normalizedImport + ".rs") ||
+        n.path.includes(normalizedImport)
+      )
     );
     if (targetModule) {
       edges.push({
