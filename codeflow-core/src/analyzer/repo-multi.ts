@@ -139,9 +139,17 @@ export const analyzeRepo = async (
   }
 
   for (const inh of allInheritEdges) {
-    const parentNodeId = [...allSymbolIndex.entries()].find(
-      ([key]) => key.endsWith(`::${inh.toName}`)
+    // Try exact match first, then suffix match (for cross-file refs)
+    let parentNodeId = [...allSymbolIndex.entries()].find(
+      ([key]) => key === `${inh.fromId.split("::")[0].split(":").slice(0, -1).join(":")}::${inh.toName}`
     )?.[1];
+
+    if (!parentNodeId) {
+      parentNodeId = [...allSymbolIndex.entries()].find(
+        ([key]) => key.endsWith(`::${inh.toName}`)
+      )?.[1];
+    }
+
     if (parentNodeId) {
       edges.push({
         from: inh.fromId,
@@ -182,28 +190,43 @@ export const analyzeRepo = async (
     }
   }
 
+  // Post-process: link Go methods (extracted as standalone functions) to their struct types
   for (const node of nodeMap.values()) {
-    if (node.kind === "class" && node.ownerId) {
-      const classNode = nodeMap.get(node.ownerId);
+    if (node.kind === "function" && node.name.includes(".") && !node.ownerId) {
+      const [ownerName] = node.name.split(".");
+      const classNode = [...nodeMap.values()].find(
+        c => c.kind === "class" && c.name === ownerName
+      );
       if (classNode) {
-        const methodSpec = {
-          name: node.name.split(".").pop() || node.name,
-          signature: node.signature,
-          summary: node.summary,
-          inputs: node.contract.inputs,
-          outputs: node.contract.outputs,
-          sideEffects: node.contract.sideEffects,
-          calls: node.contract.calls
-        };
-        nodeMap.set(node.ownerId, {
-          ...classNode,
-          contract: {
-            ...classNode.contract,
-            methods: [...classNode.contract.methods, methodSpec]
-          }
-        });
+        nodeMap.set(node.id, { ...node, ownerId: classNode.id });
       }
     }
+  }
+
+  // Post-process: aggregate methods into their owner class's contract
+  for (const node of nodeMap.values()) {
+    if (node.kind !== "function" || !node.ownerId) continue;
+
+    const ownerNode = nodeMap.get(node.ownerId);
+    if (!ownerNode || ownerNode.kind !== "class") continue;
+
+    const methodSpec = {
+      name: node.name.split(".").pop() || node.name,
+      signature: node.signature || undefined,
+      summary: node.summary,
+      inputs: node.contract.inputs,
+      outputs: node.contract.outputs,
+      sideEffects: node.contract.sideEffects,
+      calls: node.contract.calls
+    };
+
+    nodeMap.set(ownerNode.id, {
+      ...ownerNode,
+      contract: {
+        ...ownerNode.contract,
+        methods: [...ownerNode.contract.methods, methodSpec]
+      }
+    });
   }
 
   return {
