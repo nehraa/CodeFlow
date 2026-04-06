@@ -348,7 +348,17 @@ export const extractNodesFromFile = async (
       let currentOwnerName: string | undefined = parentOwnerName;
       let currentOwnerId: string | undefined = parentOwnerId;
 
-      if (child.type === "function_declaration") {
+      // Skip functions inside class bodies when at root level (handled by walkClasses instead)
+      // But process them when walkClasses passes owner context
+      const grandParent = child.parent?.parent;
+      const greatGrandParent = child.parent?.parent?.parent;
+      const isInsideClassBody = !parentOwnerName && (
+        grandParent?.type === "class_definition" || grandParent?.type === "class_declaration" ||
+        grandParent?.type === "class_specifier" || grandParent?.type === "struct_specifier" ||
+        greatGrandParent?.type === "impl_item"
+      );
+
+      if (child.type === "function_declaration" && !isInsideClassBody) {
         const nameNode = findChild(child, "identifier");
         if (nameNode) {
           funcName = nameNode.text;
@@ -360,7 +370,7 @@ export const extractNodesFromFile = async (
           walkFunctions(child, currentOwnerName, currentOwnerId);
           continue;
         }
-      } else if (child.type === "function_definition") {
+      } else if (child.type === "function_definition" && !isInsideClassBody) {
         const nameNode = findFuncName(child);
         if (nameNode) {
           funcName = nameNode.text;
@@ -401,7 +411,7 @@ export const extractNodesFromFile = async (
             }
           }
         }
-      } else if (child.type === "method_definition") {
+      } else if (child.type === "method_definition" && !isInsideClassBody) {
         const nameNode = findChild(child, "identifier", "property_identifier");
         if (nameNode) {
           funcName = nameNode.text;
@@ -413,7 +423,7 @@ export const extractNodesFromFile = async (
           currentOwnerName = parentOwnerName;
           currentOwnerId = parentOwnerId;
         }
-      } else if (child.type === "function_item") {
+      } else if (child.type === "function_item" && !isInsideClassBody) {
         const nameNode = findChild(child, "identifier");
         if (nameNode) {
           funcName = nameNode.text;
@@ -491,17 +501,12 @@ export const extractNodesFromFile = async (
         if (!nameNode) { walkClasses(child); continue; }
         className = nameNode.text;
 
-        // Python inheritance: superclasses -> argument_list -> identifier
-        const superclasses = findChild(child, "superclasses");
-        if (superclasses) {
-          const argList = findChild(superclasses, "argument_list");
-          if (argList) {
-            const parentId = findChild(argList, "identifier", "type_identifier");
-            if (parentId) parentClass = parentId.text;
-          } else {
-            const parentId = findChild(superclasses, "identifier", "type_identifier");
-            if (parentId) parentClass = parentId.text;
-          }
+        // Python inheritance: argument_list directly under class_definition
+        // (some grammars wrap in superclasses, others don't)
+        const argList = findChild(child, "argument_list", "superclasses");
+        if (argList) {
+          const parentId = findChild(argList, "identifier", "type_identifier");
+          if (parentId) parentClass = parentId.text;
         }
 
         const classId = createNodeId("class", `${relativePath}:${className}`, `${relativePath}:${className}`);
