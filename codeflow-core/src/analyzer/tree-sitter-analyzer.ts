@@ -9,7 +9,7 @@ import { emptyContract } from "../schema/index.js";
 import { createNode, createNodeId, dedupeEdges, mergeContracts, toPosixPath } from "../internal/utils.js";
 
 import type { SupportedLanguage } from "./tree-sitter-loader.js";
-import { getLanguageFromPath, setParserLanguage } from "./tree-sitter-loader.js";
+import { getLanguageFromPath, createParser } from "./tree-sitter-loader.js";
 
 const HTTP_METHODS = new Set(["GET", "POST", "PUT", "PATCH", "DELETE"]);
 
@@ -173,10 +173,14 @@ export const extractNodesFromFile = async (
     return { nodes: [], edges: [], symbolIndex: new Map(), callEdges: [], importEdges: [], inheritEdges: [] };
   }
 
-  const parser = await setParserLanguage(language);
+  const parser = await createParser(language);
   const fs = await import("node:fs/promises");
   const source = await fs.readFile(filePath, "utf-8");
   const tree = parser.parse(source);
+
+  // Clean up parser instance after use
+  parser.delete();
+
   if (!tree) {
     return { nodes: [], edges: [], symbolIndex: new Map(), callEdges: [], importEdges: [], inheritEdges: [] };
   }
@@ -230,8 +234,11 @@ export const extractNodesFromFile = async (
       ownerId: isMethod ? ownerId : (kind === "function" ? moduleId : undefined)
     });
 
-    symbolIndex.set(`${relativePath}::${ownerName ? `${ownerName}.` : ""}${funcName}`, nodeId);
-    symbolIndex.set(`${relativePath}::${funcName}`, nodeId);
+    // Only store fully-qualified keys for methods to avoid collisions
+    symbolIndex.set(`${relativePath}::${displayName}`, nodeId);
+    if (!isMethod) {
+      symbolIndex.set(`${relativePath}::${funcName}`, nodeId);
+    }
 
     collectCalls(funcNode, nodeId);
   };

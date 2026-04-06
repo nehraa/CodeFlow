@@ -39,6 +39,8 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
     "prepare": "npm run build"
   },
   "dependencies": {

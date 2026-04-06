@@ -11,6 +11,7 @@ artifacts
 .env*.local
 # CodeRag index files
 .coderag-*
+.coderag/
 
 # Claude Code working directories
 claude-code/
