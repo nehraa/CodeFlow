@@ -1,4 +1,5 @@
 {
+  "$version": 3,
   "permissions": {
     "allow": [
       "WebFetch(github.com)",
@@ -7,6 +8,5 @@
       "WebFetch(medium.com)",
       "WebFetch(www.npmjs.com)"
     ]
-  },
-  "$version": 3
+  }
 }
