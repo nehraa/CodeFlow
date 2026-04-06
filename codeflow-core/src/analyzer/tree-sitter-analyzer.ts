@@ -263,24 +263,116 @@ export const extractNodesFromFile = async (
     }
   };
 
-  const walkFunctions = (node: TSNode, ownerName?: string, ownerId?: string) => {
+  const findFuncName = (node: TSNode): TSNode | null => {
+    // Direct identifier child
+    const direct = findChild(node, "identifier");
+    if (direct) return direct;
+
+    // C/C++: function_declarator -> identifier (no pointer)
+    const fnDecl = findChild(node, "function_declarator");
+    if (fnDecl) {
+      const id = findChild(fnDecl, "identifier", "field_identifier");
+      if (id) return id;
+    }
+
+    // C/C++: pointer_declarator -> function_declarator -> identifier
+    const ptrDecl = findChild(node, "pointer_declarator", "array_declarator", "fn_pointer");
+    if (ptrDecl) {
+      const innerFnDecl = findChild(ptrDecl, "function_declarator") || findChild(ptrDecl, "declarator");
+      if (innerFnDecl) {
+        return findChild(innerFnDecl, "identifier") || findChild(innerFnDecl, "field_identifier");
+      }
+      for (const c of namedChildren(ptrDecl)) {
+        if (c.type === "function_declarator") return findChild(c, "identifier");
+        if (c.type === "identifier") return c;
+      }
+    }
+
+    return null;
+  };
+
+  const findParamsNode = (node: TSNode): TSNode | null => {
+    const direct = findChild(node, "parameter_list", "parameters", "formal_parameters");
+    if (direct) return direct;
+    // C/C++: inside function_declarator
+    const fnDecl = findChild(node, "function_declarator");
+    if (fnDecl) return findChild(fnDecl, "parameter_list");
+    return null;
+  };
+
+  const findReturnTypeInfo = (node: TSNode): { returnTypeNode: TSNode | null; bodyNode: TSNode | null } => {
+    let returnTypeNode: TSNode | null = null;
+    let bodyNode: TSNode | null = null;
+
+    bodyNode = findChild(node, "block", "statement_block", "compound_statement");
+
+    // Go: result node
+    const resultNode = findChild(node, "result");
+    if (resultNode) {
+      returnTypeNode = findChild(resultNode, "type_identifier", "primitive_type", "sized_type_specifier", "tuple_type", "generic_type", "pointer_type", "array_type");
+    }
+
+    // C/C++: primitive_type is a direct child (return type before function name)
+    const primType = findChild(node, "primitive_type", "sized_type_specifier");
+    if (primType) returnTypeNode = primType;
+
+    // TS: type_annotation child
+    if (!returnTypeNode) {
+      const retNode = findChild(node, "type_annotation");
+      if (retNode) {
+        returnTypeNode = findChild(retNode, "type_identifier", "primitive_type", "predefined_type") || retNode;
+      }
+    }
+
+    // Rust: look for -> pattern
+    if (!returnTypeNode) {
+      for (let i = 0; i < node.namedChildren.length - 1; i++) {
+        const n = node.namedChildren[i];
+        if (n && n.type === "->" && node.namedChildren[i + 1]) {
+          returnTypeNode = node.namedChildren[i + 1];
+          break;
+        }
+      }
+    }
+
+    return { returnTypeNode, bodyNode };
+  };
+
+  const walkFunctions = (node: TSNode, parentOwnerName?: string, parentOwnerId?: string) => {
     for (const child of namedChildren(node)) {
       let funcName = "";
       let paramsNode: TSNode | null = null;
       let returnTypeNode: TSNode | null = null;
       let bodyNode: TSNode | null = null;
       let isMethod = false;
+      let currentOwnerName: string | undefined = parentOwnerName;
+      let currentOwnerId: string | undefined = parentOwnerId;
 
-      if (child.type === "function_declaration" || child.type === "function_definition") {
+      if (child.type === "function_declaration") {
         const nameNode = findChild(child, "identifier");
-        if (!nameNode) { walkFunctions(child, ownerName, ownerId); continue; }
-        funcName = nameNode.text;
-        paramsNode = findChild(child, "parameter_list", "parameters", "formal_parameters");
-        const resultNode = findChild(child, "result");
-        returnTypeNode = resultNode
-          ? findChild(resultNode, "type_identifier", "primitive_type", "sized_type_specifier", "tuple_type", "generic_type", "pointer_type", "array_type")
-          : findChild(child, "type_identifier", "type_annotation");
-        bodyNode = findChild(child, "block", "statement_block", "compound_statement");
+        if (nameNode) {
+          funcName = nameNode.text;
+          paramsNode = findChild(child, "parameter_list", "formal_parameters");
+          const { returnTypeNode: rt, bodyNode: bd } = findReturnTypeInfo(child);
+          returnTypeNode = rt;
+          bodyNode = bd;
+        } else {
+          walkFunctions(child, currentOwnerName, currentOwnerId);
+          continue;
+        }
+      } else if (child.type === "function_definition") {
+        const nameNode = findFuncName(child);
+        if (nameNode) {
+          funcName = nameNode.text;
+          paramsNode = findParamsNode(child);
+          const { returnTypeNode: rt, bodyNode: bd } = findReturnTypeInfo(child);
+          returnTypeNode = rt;
+          bodyNode = bd;
+          if (currentOwnerName) isMethod = true;
+        } else {
+          walkFunctions(child, currentOwnerName, currentOwnerId);
+          continue;
+        }
       } else if (child.type === "method_declaration") {
         funcName = findChild(child, "field_identifier")?.text || "";
         paramsNode = findChild(child, "parameter_list", "parameters");
@@ -290,48 +382,65 @@ export const extractNodesFromFile = async (
         }
         bodyNode = findChild(child, "block");
         isMethod = true;
-      } else if ((child.type === "method_definition") || (child.type === "function_definition" && ownerName)) {
-        const nameNode = findChild(child, "identifier", "property_identifier");
-        if (!nameNode) { walkFunctions(child, ownerName, ownerId); continue; }
-        funcName = nameNode.text;
-        paramsNode = findChild(child, "parameters", "formal_parameters");
-        const retNode = findChild(child, "type_annotation");
-        if (retNode) {
-          returnTypeNode = findChild(retNode, "type_identifier", "primitive_type", "predefined_type") || retNode;
-        }
-        bodyNode = findChild(child, "statement_block", "block");
-        isMethod = true;
-      } else if (child.type === "function_item") {
-        const nameNode = findChild(child, "identifier");
-        if (!nameNode) { walkFunctions(child); continue; }
-        funcName = nameNode.text;
-        paramsNode = findChild(child, "parameters");
-        for (const n of namedChildren(child)) {
-          if (n.type === "->") {
-            const idx = child.namedChildren.indexOf(n);
-            if (idx >= 0 && child.namedChildren[idx + 1]) {
-              returnTypeNode = child.namedChildren[idx + 1];
+
+        // Go: extract receiver type from first parameter_list (the receiver)
+        const recvParam = child.namedChildren[0];
+        if (recvParam && recvParam.type === "parameter_list") {
+          const recvDecl = recvParam.namedChildren[0];
+          if (recvDecl) {
+            const recvTypeNode = recvDecl.childForFieldName("type");
+            if (recvTypeNode) {
+              // Handle *Type -> Type
+              let typeName = recvTypeNode.text;
+              if (typeName.startsWith("*")) typeName = typeName.substring(1);
+              currentOwnerName = typeName;
+
+              // Find the matching class node id
+              const classKey = `${relativePath}::${typeName}`;
+              currentOwnerId = symbolIndex.get(classKey);
             }
-            break;
           }
         }
-        bodyNode = findChild(child, "block");
+      } else if (child.type === "method_definition") {
+        const nameNode = findChild(child, "identifier", "property_identifier");
+        if (nameNode) {
+          funcName = nameNode.text;
+          paramsNode = findChild(child, "parameters", "formal_parameters");
+          const { returnTypeNode: rt, bodyNode: bd } = findReturnTypeInfo(child);
+          returnTypeNode = rt;
+          bodyNode = bd;
+          isMethod = true;
+          currentOwnerName = parentOwnerName;
+          currentOwnerId = parentOwnerId;
+        }
+      } else if (child.type === "function_item") {
+        const nameNode = findChild(child, "identifier");
+        if (nameNode) {
+          funcName = nameNode.text;
+          paramsNode = findChild(child, "parameters");
+          const { returnTypeNode: rt, bodyNode: bd } = findReturnTypeInfo(child);
+          returnTypeNode = rt;
+          bodyNode = bd;
+        } else {
+          walkFunctions(child, currentOwnerName, currentOwnerId);
+          continue;
+        }
       } else if (child.type === "arrow_function" || child.type === "function_expression") {
         const parent = child.parent;
         if (parent?.type === "variable_declarator") {
           const nameN = findChild(parent, "identifier");
           if (nameN) funcName = nameN.text;
         }
-        if (!funcName) { walkFunctions(child, ownerName, ownerId); continue; }
+        if (!funcName) { walkFunctions(child, currentOwnerName, currentOwnerId); continue; }
         paramsNode = findChild(child, "formal_parameters", "parameters");
         bodyNode = findChild(child, "statement_block", "block", "expression");
       }
 
       if (funcName) {
-        recordFunc(funcName, child, paramsNode, returnTypeNode, bodyNode, ownerName, ownerId);
+        recordFunc(funcName, child, paramsNode, returnTypeNode, bodyNode, currentOwnerName, currentOwnerId);
       }
 
-      walkFunctions(child, ownerName, ownerId);
+      walkFunctions(child, currentOwnerName, currentOwnerId);
     }
   };
 
@@ -340,6 +449,7 @@ export const extractNodesFromFile = async (
       let className = "";
       let parentClass = "";
 
+      // TS/JS: class_declaration, C++: class_specifier/struct_specifier
       if (child.type === "class_declaration" || child.type === "class_specifier" || child.type === "struct_specifier") {
         const nameNode = findChild(child, "type_identifier", "identifier");
         if (!nameNode) { walkClasses(child); continue; }
@@ -347,46 +457,93 @@ export const extractNodesFromFile = async (
 
         const heritage = findChild(child, "class_heritage", "base_class_clause");
         if (heritage) {
+          // TS: class_heritage -> extends_clause -> identifier
           const parentNode = findChild(heritage, "type_identifier", "identifier");
-          if (parentNode) parentClass = parentNode.text;
+          if (parentNode) {
+            parentClass = parentNode.text;
+          } else {
+            // Deeper search
+            for (const h of namedChildren(heritage)) {
+              const p = findChild(h, "type_identifier", "identifier");
+              if (p) { parentClass = p.text; break; }
+            }
+          }
         }
 
-        const summary = buildSummary(className, child, null, [], "");
         const classId = createNodeId("class", `${relativePath}:${className}`, `${relativePath}:${className}`);
-
         nodes.push({
           nodeId: classId,
           kind: "class",
           name: className,
-          summary,
+          summary: buildSummary(className, child, null, [], ""),
           path: relativePath,
           signature: `class ${className}`,
           sourceRefs: [{ kind: "repo", path: relativePath, symbol: className }],
           ownerId: moduleId
         });
-
         symbolIndex.set(`${relativePath}::${className}`, classId);
         if (parentClass) inheritEdges.push({ fromId: classId, toName: parentClass });
         walkFunctions(child, className, classId);
-      } else if (child.type === "type_declaration") {
-        const declarator = findChild(child, "type_identifier");
-        const structType = findChild(child, "struct_type");
-        if (declarator && structType) {
-          className = declarator.text;
-          const classId = createNodeId("class", `${relativePath}:${className}`, `${relativePath}:${className}`);
-          nodes.push({
-            nodeId: classId,
-            kind: "class",
-            name: className,
-            summary: buildSummary(className, child, null, [], ""),
-            path: relativePath,
-            signature: `type ${className} struct`,
-            sourceRefs: [{ kind: "repo", path: relativePath, symbol: className }]
-          });
-          symbolIndex.set(`${relativePath}::${className}`, classId);
-          walkFunctions(child, className, classId);
+      }
+      // Python: class_definition
+      else if (child.type === "class_definition") {
+        const nameNode = findChild(child, "identifier");
+        if (!nameNode) { walkClasses(child); continue; }
+        className = nameNode.text;
+
+        // Python inheritance: superclasses -> argument_list -> identifier
+        const superclasses = findChild(child, "superclasses");
+        if (superclasses) {
+          const argList = findChild(superclasses, "argument_list");
+          if (argList) {
+            const parentId = findChild(argList, "identifier", "type_identifier");
+            if (parentId) parentClass = parentId.text;
+          } else {
+            const parentId = findChild(superclasses, "identifier", "type_identifier");
+            if (parentId) parentClass = parentId.text;
+          }
         }
-      } else if (child.type === "struct_item" || child.type === "impl_item") {
+
+        const classId = createNodeId("class", `${relativePath}:${className}`, `${relativePath}:${className}`);
+        nodes.push({
+          nodeId: classId,
+          kind: "class",
+          name: className,
+          summary: buildSummary(className, child, null, [], ""),
+          path: relativePath,
+          signature: `class ${className}`,
+          sourceRefs: [{ kind: "repo", path: relativePath, symbol: className }],
+          ownerId: moduleId
+        });
+        symbolIndex.set(`${relativePath}::${className}`, classId);
+        if (parentClass) inheritEdges.push({ fromId: classId, toName: parentClass });
+        walkFunctions(child, className, classId);
+      }
+      // Go: type_declaration -> type_spec -> type_identifier + struct_type
+      else if (child.type === "type_declaration") {
+        const typeSpec = findChild(child, "type_spec");
+        if (typeSpec) {
+          const structType = findChild(typeSpec, "struct_type");
+          const nameNode = findChild(typeSpec, "type_identifier");
+          if (nameNode && structType) {
+            className = nameNode.text;
+            const classId = createNodeId("class", `${relativePath}:${className}`, `${relativePath}:${className}`);
+            nodes.push({
+              nodeId: classId,
+              kind: "class",
+              name: className,
+              summary: buildSummary(className, child, null, [], ""),
+              path: relativePath,
+              signature: `type ${className} struct`,
+              sourceRefs: [{ kind: "repo", path: relativePath, symbol: className }]
+            });
+            symbolIndex.set(`${relativePath}::${className}`, classId);
+            walkFunctions(child, className, classId);
+          }
+        }
+      }
+      // Rust: struct_item, impl_item
+      else if (child.type === "struct_item" || child.type === "impl_item") {
         const nameNode = findChild(child, "type_identifier");
         if (!nameNode) { walkClasses(child); continue; }
         className = nameNode.text;
