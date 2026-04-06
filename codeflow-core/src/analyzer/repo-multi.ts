@@ -122,28 +122,76 @@ export const analyzeRepo = async (
 
   const edges: BlueprintEdge[] = [];
 
-  // Match import edges to module nodes
-  for (const imp of allImportEdges) {
-    // Normalize import path: remove ./ prefix, try both .js and .ts extensions
-    const normalizedImport = imp.importPath.replace(/^\.\//, "").replace(/\.js$/, "");
+  // Build module lookup map for O(1) import resolution
+  const moduleLookup = new Map<string, BlueprintNode>();
 
-    const targetModule = [...nodeMap.values()].find(
-      n => n.kind === "module" && n.path != null && (
-        n.path === normalizedImport + ".ts" ||
-        n.path === normalizedImport + ".tsx" ||
-        n.path === normalizedImport + ".py" ||
-        n.path === normalizedImport + ".go" ||
-        n.path === normalizedImport + ".rs" ||
-        n.path === normalizedImport + ".c" ||
-        n.path === normalizedImport + ".cpp" ||
-        n.path.endsWith("/" + normalizedImport + ".ts") ||
-        n.path.endsWith("/" + normalizedImport + ".tsx") ||
-        n.path.endsWith("/" + normalizedImport + ".py") ||
-        n.path.endsWith("/" + normalizedImport + ".go") ||
-        n.path.endsWith("/" + normalizedImport + ".rs") ||
-        n.path.includes(normalizedImport)
-      )
+  for (const node of nodeMap.values()) {
+    if (node.kind !== "module" || node.path == null) continue;
+
+    const normalizedPath = toPosixPath(node.path);
+    const pathWithoutExtension = normalizedPath.slice(0, normalizedPath.length - path.extname(normalizedPath).length);
+    const basenameWithoutExtension = path.posix.basename(pathWithoutExtension);
+
+    // Map exact path
+    if (!moduleLookup.has(normalizedPath)) {
+      moduleLookup.set(normalizedPath, node);
+    }
+    // Map path without extension
+    if (!moduleLookup.has(pathWithoutExtension)) {
+      moduleLookup.set(pathWithoutExtension, node);
+    }
+    // Map basename without extension
+    if (!moduleLookup.has(basenameWithoutExtension)) {
+      moduleLookup.set(basenameWithoutExtension, node);
+    }
+  }
+
+  // Helper to build deterministic import candidate paths
+  const buildImportCandidatePaths = (fromModulePath: string, importPath: string): Set<string> => {
+    const normalizedImportPath = toPosixPath(importPath);
+    const importerDir = path.posix.dirname(toPosixPath(fromModulePath));
+    const isRelativeImport = normalizedImportPath.startsWith("./") || normalizedImportPath.startsWith("../");
+
+    const basePath = isRelativeImport
+      ? path.posix.normalize(path.posix.join(importerDir, normalizedImportPath))
+      : path.posix.normalize(normalizedImportPath.replace(/^\/+/, ""));
+
+    const candidates = new Set<string>();
+    const importExt = path.posix.extname(basePath);
+
+    // If import already has extension, use it directly
+    if (importExt) {
+      candidates.add(basePath);
+      return candidates;
+    }
+
+    // Try all supported extensions
+    for (const ext of SUPPORTED_EXTENSIONS) {
+      candidates.add(`${basePath}${ext}`);
+      candidates.add(path.posix.join(basePath, `index${ext}`));
+    }
+
+    return candidates;
+  };
+
+  // Match import edges to module nodes using deterministic path resolution
+  for (const imp of allImportEdges) {
+    const sourceModule = nodeMap.get(imp.fromModuleId);
+    if (sourceModule?.kind !== "module" || sourceModule.path == null) {
+      continue;
+    }
+
+    const candidatePaths = buildImportCandidatePaths(sourceModule.path, imp.importPath);
+    let targetModule = [...nodeMap.values()].find(
+      n => n.kind === "module" && n.path != null && candidatePaths.has(toPosixPath(n.path))
     );
+
+    // Fallback: try module lookup map
+    if (!targetModule) {
+      const normalizedImport = imp.importPath.replace(/^\.\//, "").replace(/\.js$/, "");
+      targetModule = moduleLookup.get(normalizedImport);
+    }
+
     if (targetModule) {
       edges.push({
         from: imp.fromModuleId,
@@ -157,11 +205,16 @@ export const analyzeRepo = async (
   }
 
   for (const inh of allInheritEdges) {
-    // Try exact match first, then suffix match (for cross-file refs)
-    let parentNodeId = [...allSymbolIndex.entries()].find(
-      ([key]) => key === `${inh.fromId.split("::")[0].split(":").slice(0, -1).join(":")}::${inh.toName}`
-    )?.[1];
+    // Get child node to extract its path
+    const childNode = nodeMap.get(inh.fromId);
+    if (!childNode || childNode.path == null) {
+      continue;
+    }
 
+    // Try exact match in same file first
+    let parentNodeId = allSymbolIndex.get(`${childNode.path}::${inh.toName}`);
+
+    // Fallback: search across all files
     if (!parentNodeId) {
       parentNodeId = [...allSymbolIndex.entries()].find(
         ([key]) => key.endsWith(`::${inh.toName}`)

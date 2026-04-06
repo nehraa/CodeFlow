@@ -1,5 +1,6 @@
+import { createRequire } from "node:module";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { Language, Parser } from "web-tree-sitter";
 
 export type SupportedLanguage =
@@ -48,7 +49,6 @@ const WASM_FILE_NAMES: Record<SupportedLanguage, string> = {
   javascript: "tree-sitter-javascript.wasm"
 };
 
-let parserInstance: Parser | null = null;
 let parserInitialized = false;
 
 const initParser = async (): Promise<void> => {
@@ -57,7 +57,6 @@ const initParser = async (): Promise<void> => {
   }
 
   await Parser.init();
-  parserInstance = new Parser();
   parserInitialized = true;
 };
 
@@ -68,19 +67,24 @@ const resolveWasmPath = (lang: SupportedLanguage): string => {
   const wasmFileName = WASM_FILE_NAMES[lang];
 
   try {
+    // Use createRequire for ESM compatibility
+    const require = createRequire(import.meta.url);
     const packagePath = require.resolve(`${packageName}/package.json`);
     const packageDir = path.dirname(packagePath);
     return path.join(packageDir, wasmFileName);
   } catch {
-    const packagePath = import.meta.resolve?.(`${packageName}/package.json`);
-    if (packagePath) {
-      const packageDir = path.dirname(new URL(packagePath).pathname);
+    // Fallback to import.meta.resolve if available (Node 20.6+)
+    try {
+      const packageUrl = import.meta.resolve(`${packageName}/package.json`);
+      const packagePath = fileURLToPath(packageUrl);
+      const packageDir = path.dirname(packagePath);
       return path.join(packageDir, wasmFileName);
+    } catch {
+      throw new Error(
+        `Cannot resolve WASM file for language "${lang}". ` +
+        `Ensure "${packageName}" is installed.`
+      );
     }
-    throw new Error(
-      `Cannot resolve WASM file for language "${lang}". ` +
-      `Ensure "${packageName}" is installed.`
-    );
   }
 };
 
@@ -98,13 +102,9 @@ export const loadLanguage = async (lang: SupportedLanguage): Promise<Language> =
   return language;
 };
 
-export const getParser = async (): Promise<Parser> => {
+export const createParser = async (lang: SupportedLanguage): Promise<Parser> => {
   await initParser();
-  return parserInstance!;
-};
-
-export const setParserLanguage = async (lang: SupportedLanguage): Promise<Parser> => {
-  const parser = await getParser();
+  const parser = new Parser();
   const language = await loadLanguage(lang);
   parser.setLanguage(language);
   return parser;
@@ -121,8 +121,6 @@ export const getLanguageFromPath = (filePath: string): SupportedLanguage | null 
 };
 
 export const resetLoader = (): void => {
-  parserInstance?.delete();
-  parserInstance = null;
   parserInitialized = false;
   loadedGrammars.clear();
 };
