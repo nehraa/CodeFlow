@@ -43,6 +43,9 @@ interface JsonRpcResponse {
         message: string;
     };
 }
+declare function jsonRpcError(id: unknown, code: number, message: string): JsonRpcResponse;
+declare function jsonRpcResult(id: unknown, result: unknown): JsonRpcResponse;
+declare function handleJsonRpc(req: JsonRpcRequest): Promise<JsonRpcResponse>;
 /**
  * MCP over stdio — the standard MCP transport for local tools and AI IDEs.
  *
@@ -62,6 +65,6 @@ export declare function startStdioServer(): Promise<void>;
  *   GET  /sse — SSE stream for streaming responses (Claude Desktop, Cursor)
  */
 export declare function createHttpServer(port?: number, host?: string): Server;
-export { TOOLS };
+export { TOOLS, handleJsonRpc, jsonRpcError, jsonRpcResult };
 export type { Tool, ToolResult, JsonRpcRequest, JsonRpcResponse };
 //# sourceMappingURL=index.d.ts.map

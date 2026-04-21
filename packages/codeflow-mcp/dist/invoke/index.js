@@ -241,5 +241,5 @@ export function createHttpServer(port = 3100, host = "localhost") {
     return server;
 }
 // ─── Exports ─────────────────────────────────────────────────────────────────
-export { TOOLS };
+export { TOOLS, handleJsonRpc, jsonRpcError, jsonRpcResult };
 //# sourceMappingURL=index.js.map

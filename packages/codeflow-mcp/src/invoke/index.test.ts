@@ -125,17 +125,15 @@ describe("handleJsonRpc", () => {
       expect(response.result).toHaveProperty("content");
     });
 
-    it("catches handler exceptions and returns JSON-RPC error -32603", async () => {
-      // This requires a tool handler that throws — we use test_tool which doesn't throw,
-      // so we test the error path via an unknown tool instead.
-      // The -32603 code is covered by the unknown tool path above.
+    it("returns -32602 for unknown tool name (not -32603)", async () => {
+      // Handler exists but name is unknown — verify the correct error code
       const response = await handleJsonRpc({
         jsonrpc: "2.0",
         id: 8,
         method: "tools/call",
         params: { name: "nonexistent_tool", arguments: {} },
       });
-      expect(response.error?.code).toBe(-32602); // Not -32603 since handler exists
+      expect(response.error?.code).toBe(-32602);
     });
   });
 
@@ -159,7 +157,7 @@ describe("handleJsonRpc", () => {
         params: {},
       });
 
-      expect(response.error?.code).toBeLessThan(0); // JSON-RPC error code
+      expect(response.error).toEqual({ code: -32601, message: "Method not found: " });
     });
   });
 });
