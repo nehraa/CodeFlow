@@ -319,5 +319,5 @@ export function createHttpServer(port = 3100, host = "localhost"): Server {
 
 // ─── Exports ─────────────────────────────────────────────────────────────────
 
-export { TOOLS };
+export { TOOLS, handleJsonRpc, jsonRpcError, jsonRpcResult };
 export type { Tool, ToolResult, JsonRpcRequest, JsonRpcResponse };
