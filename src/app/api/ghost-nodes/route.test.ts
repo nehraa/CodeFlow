@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { POST } from "@/app/api/ghost-nodes/route";
 import type { BlueprintGraph } from "@/lib/blueprint/schema";
@@ -57,6 +57,10 @@ const baseGraph: BlueprintGraph = {
 afterEach(() => {
   delete process.env.NVIDIA_API_KEY;
   vi.unstubAllGlobals();
+});
+
+beforeEach(() => {
+  delete process.env.NVIDIA_API_KEY;
 });
 
 describe("POST /api/ghost-nodes", () => {

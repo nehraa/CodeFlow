@@ -19,3 +19,7 @@ claude-code/
 
 # Serena tooling
 .serena/
+
+# Qwen Code working directories
+.qwen/
+.qwen*

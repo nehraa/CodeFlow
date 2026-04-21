@@ -12,6 +12,8 @@ interface ExtractedNode {
         symbol?: string;
     }>;
     ownerId?: string;
+    startLine: number;
+    endLine: number;
 }
 export declare const extractNodesFromFile: (filePath: string, relativePath: string) => Promise<{
     nodes: ExtractedNode[];
@@ -21,6 +23,7 @@ export declare const extractNodesFromFile: (filePath: string, relativePath: stri
         fromId: string;
         toName: string;
         callText: string;
+        callLine: number;
     }>;
     importEdges: Array<{
         fromModuleId: string;

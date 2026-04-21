@@ -70,6 +70,16 @@ export const analyzeRepo = async (repoPath, options) => {
         allImportEdges.push(...result.importEdges);
         allInheritEdges.push(...result.inheritEdges);
     }
+    const sourceSpans = {};
+    for (const n of allNodes) {
+        sourceSpans[n.nodeId] = {
+            nodeId: n.nodeId,
+            filePath: n.path,
+            startLine: n.startLine,
+            endLine: n.endLine,
+            symbol: n.sourceRefs.find(r => r.symbol)?.symbol
+        };
+    }
     const nodeMap = new Map();
     for (const n of allNodes) {
         nodeMap.set(n.nodeId, createNode({
@@ -237,10 +247,42 @@ export const analyzeRepo = async (repoPath, options) => {
             }
         });
     }
+    // Build callSites from resolved call edges
+    const callSites = {};
+    const callSiteGroups = new Map();
+    for (const call of allCallEdges) {
+        const targetId = [...allSymbolIndex.entries()].find(([key]) => key.endsWith(`::${call.toName}`))?.[1];
+        if (!targetId || targetId === call.fromId)
+            continue;
+        const edgeKey = `calls:${call.fromId}:${targetId}`;
+        const callerNode = nodeMap.get(call.fromId);
+        const filePath = callerNode?.path ?? "";
+        if (!filePath)
+            continue;
+        let group = callSiteGroups.get(edgeKey);
+        if (!group) {
+            group = { fromId: call.fromId, toId: targetId, lines: [], texts: [] };
+            callSiteGroups.set(edgeKey, group);
+        }
+        group.lines.push(call.callLine);
+        group.texts.push(call.callText);
+    }
+    for (const [edgeKey, group] of callSiteGroups) {
+        callSites[edgeKey] = {
+            edgeKey,
+            fromNodeId: group.fromId,
+            toNodeId: group.toId,
+            filePath: nodeMap.get(group.fromId)?.path ?? "",
+            lineNumbers: [...new Set(group.lines)].sort((a, b) => a - b),
+            expressions: [...new Set(group.texts)]
+        };
+    }
     return {
         nodes: [...nodeMap.values()],
         edges: dedupeEdges(edges),
         workflows: [],
-        warnings
+        warnings,
+        sourceSpans,
+        callSites
     };
 };

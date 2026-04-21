@@ -147,6 +147,7 @@ export const extractNodesFromFile = async (filePath, relativePath) => {
         const importEdges = [];
         const inheritEdges = [];
         const moduleId = createNodeId("module", relativePath, relativePath);
+        const moduleEndLine = root.endPosition.row + 1;
         nodes.push({
             nodeId: moduleId,
             kind: "module",
@@ -154,7 +155,9 @@ export const extractNodesFromFile = async (filePath, relativePath) => {
             summary: `Source module ${relativePath}.`,
             path: relativePath,
             signature: "",
-            sourceRefs: [{ kind: "repo", path: relativePath }]
+            sourceRefs: [{ kind: "repo", path: relativePath }],
+            startLine: 1,
+            endLine: moduleEndLine
         });
         const recordFunc = (funcName, funcNode, paramsNode, returnTypeNode, bodyNode, ownerName, ownerId) => {
             if (!funcName)
@@ -175,7 +178,9 @@ export const extractNodesFromFile = async (filePath, relativePath) => {
                 path: relativePath,
                 signature,
                 sourceRefs: [{ kind: "repo", path: relativePath, symbol: displayName }],
-                ownerId: isMethod ? ownerId : (kind === "function" ? moduleId : undefined)
+                ownerId: isMethod ? ownerId : (kind === "function" ? moduleId : undefined),
+                startLine: funcNode.startPosition.row + 1,
+                endLine: funcNode.endPosition.row + 1
             });
             // Only store fully-qualified keys for methods to avoid collisions
             symbolIndex.set(`${relativePath}::${displayName}`, nodeId);
@@ -206,7 +211,12 @@ export const extractNodesFromFile = async (filePath, relativePath) => {
                     }
                 }
                 if (calleeName) {
-                    callEdges.push({ fromId: callerId, toName: calleeName, callText: child.text });
+                    callEdges.push({
+                        fromId: callerId,
+                        toName: calleeName,
+                        callText: child.text,
+                        callLine: child.startPosition.row + 1
+                    });
                 }
                 collectCalls(child, callerId);
             }
@@ -441,7 +451,9 @@ export const extractNodesFromFile = async (filePath, relativePath) => {
                         path: relativePath,
                         signature: `class ${className}`,
                         sourceRefs: [{ kind: "repo", path: relativePath, symbol: className }],
-                        ownerId: moduleId
+                        ownerId: moduleId,
+                        startLine: child.startPosition.row + 1,
+                        endLine: child.endPosition.row + 1
                     });
                     symbolIndex.set(`${relativePath}::${className}`, classId);
                     if (parentClass)
@@ -473,7 +485,9 @@ export const extractNodesFromFile = async (filePath, relativePath) => {
                         path: relativePath,
                         signature: `class ${className}`,
                         sourceRefs: [{ kind: "repo", path: relativePath, symbol: className }],
-                        ownerId: moduleId
+                        ownerId: moduleId,
+                        startLine: child.startPosition.row + 1,
+                        endLine: child.endPosition.row + 1
                     });
                     symbolIndex.set(`${relativePath}::${className}`, classId);
                     if (parentClass)
@@ -496,7 +510,9 @@ export const extractNodesFromFile = async (filePath, relativePath) => {
                                 summary: buildSummary(className, child, null, [], ""),
                                 path: relativePath,
                                 signature: `type ${className} struct`,
-                                sourceRefs: [{ kind: "repo", path: relativePath, symbol: className }]
+                                sourceRefs: [{ kind: "repo", path: relativePath, symbol: className }],
+                                startLine: structType.startPosition.row + 1,
+                                endLine: structType.endPosition.row + 1
                             });
                             symbolIndex.set(`${relativePath}::${className}`, classId);
                             walkFunctions(child, className, classId);
@@ -519,7 +535,9 @@ export const extractNodesFromFile = async (filePath, relativePath) => {
                         summary: buildSummary(className, child, null, [], ""),
                         path: relativePath,
                         signature: `struct ${className}`,
-                        sourceRefs: [{ kind: "repo", path: relativePath, symbol: className }]
+                        sourceRefs: [{ kind: "repo", path: relativePath, symbol: className }],
+                        startLine: child.startPosition.row + 1,
+                        endLine: child.endPosition.row + 1
                     });
                     symbolIndex.set(`${relativePath}::${className}`, classId);
                     walkFunctions(child, className, classId);
@@ -547,7 +565,9 @@ export const extractNodesFromFile = async (filePath, relativePath) => {
                             summary: buildSummary(className, child, null, [], ""),
                             path: relativePath,
                             signature: `impl ${className}`,
-                            sourceRefs: [{ kind: "repo", path: relativePath, symbol: className }]
+                            sourceRefs: [{ kind: "repo", path: relativePath, symbol: className }],
+                            startLine: child.startPosition.row + 1,
+                            endLine: child.endPosition.row + 1
                         });
                         symbolIndex.set(`${relativePath}::${className}`, classId);
                         walkFunctions(child, className, classId);
