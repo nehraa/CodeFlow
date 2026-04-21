@@ -5,6 +5,12 @@ export default defineConfig({
     include: ["src/**/*.test.ts"],
     exclude: ["node_modules", "dist", "test-fixtures", "**/*.test.ts.skip"],
     globals: true,
-    environment: "node"
+    environment: "node",
+    pool: "threads",
+    poolOptions: {
+      threads: {
+        singleThread: true
+      }
+    }
   }
 });
