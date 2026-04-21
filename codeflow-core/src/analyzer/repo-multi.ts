@@ -14,6 +14,28 @@ import { extractNodesFromFile } from "./tree-sitter-analyzer.js";
 
 type RepoGraphPart = Omit<import("../schema/index.js").BlueprintGraph, "projectName" | "mode" | "generatedAt">;
 
+export interface SourceSpanEntry {
+  nodeId: string;
+  filePath: string;
+  startLine: number;
+  endLine: number;
+  symbol?: string;
+}
+
+export interface CallSiteEntry {
+  edgeKey: string;
+  fromNodeId: string;
+  toNodeId: string;
+  filePath: string;
+  lineNumbers: number[];
+  expressions: string[];
+}
+
+export interface RepoAnalysisResult extends RepoGraphPart {
+  sourceSpans: Record<string, SourceSpanEntry>;
+  callSites: Record<string, CallSiteEntry>;
+}
+
 const DEFAULT_EXCLUDE_DIRS = new Set([
   "node_modules",
   ".git",
@@ -63,7 +85,7 @@ const walkDirectory = async (
 export const analyzeRepo = async (
   repoPath: string,
   options?: AnalyzeRepoOptions
-): Promise<RepoGraphPart> => {
+): Promise<RepoAnalysisResult> => {
   const repoStat = await fs.stat(repoPath).catch(() => null);
   if (!repoStat?.isDirectory()) {
     throw new Error(`Repo path does not exist or is not a directory: ${repoPath}`);
@@ -81,9 +103,9 @@ export const analyzeRepo = async (
     warnings.push(`No supported source files found under ${repoPath}. Supported: ${[...SOURCE_EXTENSIONS].join(", ")}`);
   }
 
-  const allNodes: Array<{ nodeId: string; kind: string; name: string; summary: string; path: string; signature: string; sourceRefs: Array<{ kind: "repo"; path: string; symbol?: string }>; ownerId?: string }> = [];
+  const allNodes: Array<{ nodeId: string; kind: string; name: string; summary: string; path: string; signature: string; sourceRefs: Array<{ kind: "repo"; path: string; symbol?: string }>; ownerId?: string; startLine: number; endLine: number }> = [];
   const allSymbolIndex = new Map<string, string>();
-  const allCallEdges: Array<{ fromId: string; toName: string; callText: string }> = [];
+  const allCallEdges: Array<{ fromId: string; toName: string; callText: string; callLine: number }> = [];
   const allImportEdges: Array<{ fromModuleId: string; importPath: string }> = [];
   const allInheritEdges: Array<{ fromId: string; toName: string }> = [];
 
@@ -99,6 +121,17 @@ export const analyzeRepo = async (
     allCallEdges.push(...result.callEdges);
     allImportEdges.push(...result.importEdges);
     allInheritEdges.push(...result.inheritEdges);
+  }
+
+  const sourceSpans: Record<string, SourceSpanEntry> = {};
+  for (const n of allNodes) {
+    sourceSpans[n.nodeId] = {
+      nodeId: n.nodeId,
+      filePath: n.path,
+      startLine: n.startLine,
+      endLine: n.endLine,
+      symbol: n.sourceRefs.find(r => r.symbol)?.symbol
+    };
   }
 
   const nodeMap = new Map<string, BlueprintNode>();
@@ -300,10 +333,47 @@ export const analyzeRepo = async (
     });
   }
 
+  // Build callSites from resolved call edges
+  const callSites: Record<string, CallSiteEntry> = {};
+  const callSiteGroups = new Map<string, { fromId: string; toId: string; lines: number[]; texts: string[] }>();
+
+  for (const call of allCallEdges) {
+    const targetId = [...allSymbolIndex.entries()].find(
+      ([key]) => key.endsWith(`::${call.toName}`)
+    )?.[1];
+    if (!targetId || targetId === call.fromId) continue;
+
+    const edgeKey = `calls:${call.fromId}:${targetId}`;
+    const callerNode = nodeMap.get(call.fromId);
+    const filePath = callerNode?.path ?? "";
+    if (!filePath) continue;
+
+    let group = callSiteGroups.get(edgeKey);
+    if (!group) {
+      group = { fromId: call.fromId, toId: targetId, lines: [], texts: [] };
+      callSiteGroups.set(edgeKey, group);
+    }
+    group.lines.push(call.callLine);
+    group.texts.push(call.callText);
+  }
+
+  for (const [edgeKey, group] of callSiteGroups) {
+    callSites[edgeKey] = {
+      edgeKey,
+      fromNodeId: group.fromId,
+      toNodeId: group.toId,
+      filePath: nodeMap.get(group.fromId)?.path ?? "",
+      lineNumbers: [...new Set(group.lines)].sort((a, b) => a - b),
+      expressions: [...new Set(group.texts)]
+    };
+  }
+
   return {
     nodes: [...nodeMap.values()],
     edges: dedupeEdges(edges),
     workflows: [],
-    warnings
+    warnings,
+    sourceSpans,
+    callSites
   };
 };
