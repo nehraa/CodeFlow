@@ -1,0 +1,78 @@
+import { create } from "zustand";
+const resolveGraphUpdate = (current, next) => (typeof next === "function" ? next(current) : next);
+const resolveNodeUpdate = (node, patch) => typeof patch === "function" ? patch(node) : { ...node, ...patch };
+export const useBlueprintStore = create((set) => ({
+    graph: null,
+    setGraph: (next) => set((state) => ({
+        graph: resolveGraphUpdate(state.graph, next)
+    })),
+    updateNode: (id, patch) => set((state) => {
+        if (!state.graph) {
+            return state;
+        }
+        return {
+            graph: {
+                ...state.graph,
+                nodes: state.graph.nodes.map((node) => node.id === id ? resolveNodeUpdate(node, patch) : node)
+            }
+        };
+    }),
+    openFiles: [],
+    activeFile: null,
+    setOpenFiles: (paths) => set(() => ({
+        openFiles: paths
+    })),
+    setActiveFile: (path) => set((state) => ({
+        activeFile: path,
+        floatingGraph: {
+            ...state.floatingGraph,
+            visible: path !== null
+        }
+    })),
+    closeFile: (path) => set((state) => {
+        const nextOpenFiles = state.openFiles.filter((f) => f !== path);
+        const nextActiveFile = state.activeFile === path
+            ? nextOpenFiles[nextOpenFiles.length - 1] ?? null
+            : state.activeFile;
+        return {
+            openFiles: nextOpenFiles,
+            activeFile: nextActiveFile,
+            floatingGraph: {
+                ...state.floatingGraph,
+                visible: nextActiveFile !== null
+            },
+            dirtyFiles: { ...state.dirtyFiles, [path]: false }
+        };
+    }),
+    repoPath: null,
+    setRepoPath: (path) => set(() => ({ repoPath: path })),
+    mode: "ide",
+    setMode: (mode) => set((state) => ({
+        mode,
+        floatingGraph: {
+            ...state.floatingGraph,
+            visible: state.activeFile !== null
+        }
+    })),
+    floatingGraph: {
+        visible: false,
+        x: 0,
+        y: 0,
+        width: 400,
+        height: 350
+    },
+    setFloatingGraph: (panel) => set((state) => ({
+        floatingGraph: { ...state.floatingGraph, ...panel }
+    })),
+    selectedNodeId: null,
+    setSelectedNodeId: (id) => set(() => ({ selectedNodeId: id })),
+    dirtyFiles: {},
+    setFileDirty: (path, dirty) => set((state) => ({
+        dirtyFiles: { ...state.dirtyFiles, [path]: dirty }
+    })),
+    clearFileDirty: (path) => set((state) => {
+        const { [path]: _, ...rest } = state.dirtyFiles;
+        return { dirtyFiles: rest };
+    })
+}));
+//# sourceMappingURL=index.js.map

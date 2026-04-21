@@ -1,0 +1,63 @@
+{
+  "name": "@abhinav2203/codeflow-store",
+  "version": "0.1.0",
+  "description": "Local session storage, project-scoped state, checkpointing, approvals.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./checkpoint": {
+      "types": "./dist/checkpoint/index.d.ts",
+      "default": "./dist/checkpoint/index.js"
+    },
+    "./approval": {
+      "types": "./dist/approval/index.d.ts",
+      "default": "./dist/approval/index.js"
+    },
+    "./run": {
+      "types": "./dist/run/index.d.ts",
+      "default": "./dist/run/index.js"
+    },
+    "./risk": {
+      "types": "./dist/risk/index.d.ts",
+      "default": "./dist/risk/index.js"
+    },
+    "./observability": {
+      "types": "./dist/observability/index.d.ts",
+      "default": "./dist/observability/index.js"
+    },
+    "./branch": {
+      "types": "./dist/branch/index.d.ts",
+      "default": "./dist/branch/index.js"
+    },
+    "./session": {
+      "types": "./dist/session/index.d.ts",
+      "default": "./dist/session/index.js"
+    },
+    "./store": {
+      "types": "./dist/store/index.d.ts",
+      "default": "./dist/store/index.js"
+    }
+  },
+  "bin": {
+    "codeflow-store": "./dist/bin/cli.js"
+  },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "vitest run",
+    "build": "tsc --outDir dist --declaration --declarationMap"
+  },
+  "dependencies": {
+    "@abhinav2203/codeflow-core": "^0.1.1",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}

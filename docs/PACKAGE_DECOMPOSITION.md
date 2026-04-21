@@ -12,6 +12,21 @@
 coderag → @abhinav2203/codeflow-core
 ```
 
+### `codeflow-core` Source Files (not yet isolated — extracted from `src/lib/blueprint/`)
+
+```
+src/lib/blueprint/
+  - schema.ts                 ← BlueprintGraph, BlueprintNode, BlueprintEdge, all type definitions
+  - repo.ts
+  - repo.test.ts
+  - utils.ts                  ← slugify, createNodeId, mergeFields, dedupeEdges, toPosixPath, etc.
+  - store-paths.ts            ← getStoreRoot, sessionDirForProject, latestSessionPath, etc.
+  - export.ts
+  - export.test.ts
+```
+
+> **Note:** `codeflow-core` is the foundation. `schema.ts` defines the entire type system used by every other package. `repo.ts` uses ts-morph for TypeScript repo analysis. `export.ts` handles blueprint artifact export. These are extracted first before any other package work begins.
+
 ## Proposed New Packages
 
 | Package | Description |
@@ -228,7 +243,11 @@ FROM: src/lib/server/terminal-sessions.ts
     "./checkpoint": { "types": "./dist/checkpoint.d.ts", "default": "./dist/checkpoint.js" },
     "./approval": { "types": "./dist/approval.d.ts", "default": "./dist/approval.js" },
     "./run": { "types": "./dist/run.d.ts", "default": "./dist/run.js" },
-    "./risk": { "types": "./dist/risk.d.ts", "default": "./dist/risk.js" }
+    "./risk": { "types": "./dist/risk.d.ts", "default": "./dist/risk.js" },
+    "./observability": { "types": "./dist/observability.d.ts", "default": "./dist/observability.js" },
+    "./branch": { "types": "./dist/branch.d.ts", "default": "./dist/branch.js" },
+    "./session": { "types": "./dist/session.d.ts", "default": "./dist/session.js" },
+    "./store": { "types": "./dist/store.d.ts", "default": "./dist/store.js" }
   },
   "bin": {
     "codeflow-store": "./dist/bin/cli.js"
@@ -301,9 +320,8 @@ FROM: src/app/api/mcp/tools/route.test.ts
 
 ```
 FROM: src/lib/blueprint/
-  - branches.ts
+  - branches.ts          ← handles branch CRUD + diff logic
   - branches.test.ts
-  - branches.ts (branch diff logic is in same file)
 ```
 
 **API routes to wire:**
@@ -356,6 +374,7 @@ FROM: src/lib/blueprint/
   - build.ts
   - build.test.ts
   - file-tree.ts               (used by build for file scanning)
+  - typescript-workspace.ts     (used by build.ts for reverse-mode ts-morph analysis)
 ```
 
 **API routes to wire:**
@@ -364,6 +383,7 @@ FROM: src/lib/blueprint/
 FROM: src/app/api/blueprint/route.ts
 FROM: src/app/api/blueprint/route.test.ts
 FROM: src/app/api/generate-blueprint/route.ts
+FROM: src/app/api/generate-blueprint/route.test.ts
 ```
 
 **`package.json` fields:**
@@ -373,7 +393,8 @@ FROM: src/app/api/generate-blueprint/route.ts
   "name": "@abhinav2203/codeflow-prd",
   "exports": {
     ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
-    "./build": { "types": "./dist/build.d.ts", "default": "./dist/build.js" }
+    "./build": { "types": "./dist/build.d.ts", "default": "./dist/build.js" },
+    "./typescript-workspace": { "types": "./dist/typescript-workspace.d.ts", "default": "./dist/typescript-workspace.js" }
   },
   "bin": {
     "codeflow-prd": "./dist/bin/cli.js"
@@ -386,7 +407,7 @@ FROM: src/app/api/generate-blueprint/route.ts
 ```
 
 **Developer prompt:**
-> "Extract the PRD ingestion layer. Move `src/lib/blueprint/{prd,prd.test,build,build.test,file-tree}.ts` and `src/app/api/blueprint/route.ts`, `src/app/api/generate-blueprint/route.ts` into `packages/codeflow-prd/src/`. The PRD parser extracts screens, APIs, classes, functions, modules, and workflows (with `->` syntax) from markdown. The build step turns parsed PRD into a BlueprintGraph. Publish as `@abhinav2203/codeflow-prd`."
+> "Extract the PRD ingestion layer. Move `src/lib/blueprint/{prd,prd.test,build,build.test,file-tree,typescript-workspace}.ts` and `src/app/api/blueprint/route.ts`, `src/app/api/generate-blueprint/route.ts` into `packages/codeflow-prd/src/`. The PRD parser extracts screens, APIs, classes, functions, modules, and workflows (with `->` syntax) from markdown. The build step turns parsed PRD into a BlueprintGraph. Publish as `@abhinav2203/codeflow-prd`."
 
 ---
 
@@ -408,6 +429,8 @@ FROM: src/lib/blueprint/
   - metrics.test.ts
   - refactor.ts
   - refactor.test.ts
+  - conflicts.ts              ← detectGraphConflicts: repo vs blueprint conflict analysis (imports analyzeTypeScriptRepo from repo.ts in codeflow-core)
+  - conflicts.test.ts
 ```
 
 **API routes to wire:**
@@ -451,7 +474,7 @@ FROM: src/app/api/conflicts/route.test.ts
 ```
 
 **Developer prompt:**
-> "Extract the graph analysis layer. Move all `src/lib/blueprint/{cycles,smells,metrics,refactor}*.ts` files and their corresponding `src/app/api/analysis/{cycles,metrics,smells}/route.ts`, `src/app/api/refactor/{detect,heal}/route.ts`, and `src/app/api/conflicts/route.ts` (with all tests) into `packages/codeflow-analysis/src/`. Each sub-module exposes a focused analysis function. Publish as `@abhinav2203/codeflow-analysis`."
+> "Extract the graph analysis layer. Move all `src/lib/blueprint/{cycles,smells,metrics,refactor,conflicts}*.ts` files and their corresponding `src/app/api/analysis/{cycles,metrics,smells}/route.ts`, `src/app/api/refactor/{detect,heal}/route.ts`, and `src/app/api/conflicts/route.ts` (with all tests) into `packages/codeflow-analysis/src/`. Each sub-module exposes a focused analysis function. Publish as `@abhinav2203/codeflow-analysis`."
 
 ---
 
@@ -473,8 +496,10 @@ FROM: src/lib/blueprint/
 **API routes to wire:**
 
 ```
-FROM: src/app/api/generate-blueprint/route.ts   (NVIDIA AI generation endpoint)
+FROM: src/app/api/generate-blueprint/route.ts   (AI generation endpoint — delegates to nvidia.ts when model=llama)
 ```
+
+> **Note:** `generate-blueprint` is a **single shared route** that dispatches to either PRD build (reverse mode) or AI generation (nvidia.ts) based on request parameters. Both `codeflow-prd` and `codeflow-ai` contribute to this route's implementation.
 
 **`package.json` fields:**
 
@@ -518,13 +543,15 @@ FROM: src/lib/blueprint/
   - phases.test.ts
   - execute.ts
   - execute.test.ts
-  - vcr.ts
+  - vcr.ts                ← VCR recording/replay of trace spans
   - vcr.test.ts
   - runtime-contracts.ts
   - runtime-tests.ts
   - runtime-tests.test.ts
   - runtime-workspace.ts
   - sandbox.ts
+  - mermaid.ts            ← toMermaid / toMermaidClassDiagram (used by export/mermaid API route)
+  - mermaid.test.ts
 ```
 
 **API routes to wire:**
@@ -551,7 +578,8 @@ FROM: src/app/api/code-completions/route.ts
     "./execute": { "types": "./dist/execute.d.ts", "default": "./dist/execute.js" },
     "./vcr": { "types": "./dist/vcr.d.ts", "default": "./dist/vcr.js" },
     "./runtime-tests": { "types": "./dist/runtime-tests.d.ts", "default": "./dist/runtime-tests.js" },
-    "./mermaid": { "types": "./dist/mermaid.d.ts", "default": "./dist/mermaid.js" }
+    "./mermaid": { "types": "./dist/mermaid.d.ts", "default": "./dist/mermaid.js" },
+    "./sandbox": { "types": "./dist/sandbox.d.ts", "default": "./dist/sandbox.js" }
   },
   "bin": {
     "codeflow-execution": "./dist/bin/cli.js"
@@ -565,7 +593,7 @@ FROM: src/app/api/code-completions/route.ts
 ```
 
 **Developer prompt:**
-> "Extract the execution engine. Move `src/lib/blueprint/{runner,plan,phases,execute,vcr,runtime-contracts,runtime-tests,runtime-workspace,sandbox}*.ts` (all files with these prefixes, with tests) and `src/app/api/executions/run/route.ts`, `src/app/api/vcr/route.ts`, `src/app/api/export/mermaid/route.ts`, `src/app/api/code-completions/route.ts` into `packages/codeflow-execution/src/`. The runner orchestrates task plans with phases. VCR records trace spans for replay. Publish as `@abhinav2203/codeflow-execution`."
+> "Extract the execution engine. Move `src/lib/blueprint/{runner,plan,phases,execute,vcr,runtime-contracts,runtime-tests,runtime-workspace,sandbox,mermaid}*.ts` (all files with these prefixes, with tests) and `src/app/api/executions/run/route.ts`, `src/app/api/vcr/route.ts`, `src/app/api/export/mermaid/route.ts`, `src/app/api/code-completions/route.ts` into `packages/codeflow-execution/src/`. The runner orchestrates task plans with phases. VCR records trace spans for replay. Mermaid exports generate diagrams from blueprints. Publish as `@abhinav2203/codeflow-execution`."
 
 ---
 
@@ -589,6 +617,7 @@ FROM: src/lib/opencode/
   - config.test.ts
   - modelFetcher.ts
   - modelFetcher.test.ts
+  - types.ts              ← OpencodeProvider, OpencodeConfig, McpServerConfig types
   - api-key-validator.tsx
 
 FROM: src/lib/server/
@@ -698,11 +727,13 @@ FROM: src/app/api/implement-node/route.ts
 FROM: src/lib/blueprint/
   - genetic.ts
   - genetic.test.ts
-  - heatmap.ts
+  - heatmap.ts              (computeHeatmap, heatColor, heatGlow — also used by codeflow-canvas)
   - heatmap.test.ts
 
 FROM: src/app/api/ghost-nodes/route.ts
 ```
+
+> **Note:** `heatmap.ts` is shared between `codeflow-evolution` and `codeflow-canvas`. Both packages copy this file (it's not a separate package). The heatmap CLI in `codeflow-evolution` and the heatmap overlay in `codeflow-canvas` both use this same file.
 
 **API routes to wire:**
 
@@ -772,6 +803,8 @@ FROM: src/lib/blueprint/
   - traces.test.ts
   - node-navigation.ts
   - heatmap.ts            (heatmap color computation — used by canvas overlay)
+  - observability.ts      (overlayObservability: applies spans + logs to graph for canvas display)
+  - observability.test.ts
 ```
 
 **Note on heatmap:** `heatmap.ts` computes colors (used by canvas). `heatmap.test.ts` is analysis — decide whether it stays in `codeflow-analysis` or moves here. Recommendation: keep computation in `codeflow-canvas`, keep test in `codeflow-analysis`.
@@ -779,9 +812,11 @@ FROM: src/lib/blueprint/
 **API routes to wire:** (canvas is primarily UI — most logic is in the lib files above)
 
 ```
-FROM: src/app/api/observability/ingest/route.ts   (trace overlay data)
-FROM: src/app/api/observability/latest/route.ts
+FROM: src/app/api/observability/ingest/route.ts   (ingest spans/logs → codeflow-store)
+FROM: src/app/api/observability/latest/route.ts     (fetch latest → codeflow-store)
 ```
+
+> **Note:** Observability data storage routes (`observability/ingest`, `observability/latest`) persist to `codeflow-store`. The `observability.ts` lib file (display/compute logic) lives in `codeflow-canvas` alongside traces and heatmap for graph overlay rendering.
 
 **`package.json` fields:**
 
@@ -794,7 +829,8 @@ FROM: src/app/api/observability/latest/route.ts
     "./edit": { "types": "./dist/edit.d.ts", "default": "./dist/edit.js" },
     "./traces": { "types": "./dist/traces.d.ts", "default": "./dist/traces.js" },
     "./editor": { "types": "./dist/editor.d.ts", "default": "./dist/editor.js" },
-    "./heatmap": { "types": "./dist/heatmap.d.ts", "default": "./dist/heatmap.js" }
+    "./heatmap": { "types": "./dist/heatmap.d.ts", "default": "./dist/heatmap.js" },
+    "./observability": { "types": "./dist/observability.d.ts", "default": "./dist/observability.js" }
   },
   "bin": {
     "codeflow-canvas": "./dist/bin/cli.js"
@@ -811,7 +847,7 @@ FROM: src/app/api/observability/latest/route.ts
 ```
 
 **Developer prompt:**
-> "Extract the React Flow canvas UI. Move `src/components/{graph-canvas,blueprint-workbench,file-tabs,file-tree,ide-layout,ide-workbench,code-diff-editor,code-editor,monaco-setup,ts-language-service,opencode-settings}*.ts*` and `src/lib/blueprint/{flow-view,edit,traces,node-navigation,heatmap}.ts` into `packages/codeflow-canvas/src/`. Wire `src/app/api/observability/{ingest,latest}/route.ts` to import from `codeflow-store` for trace data. This is a React component package — publish as `@abhinav2203/codeflow-canvas`. Monaco editor setup and TS language service are part of this package."
+> "Extract the React Flow canvas UI. Move `src/components/{graph-canvas,blueprint-workbench,file-tabs,file-tree,ide-layout,ide-workbench,code-diff-editor,code-editor,monaco-setup,ts-language-service,opencode-settings}*.ts*` and `src/lib/blueprint/{flow-view,edit,traces,node-navigation,heatmap,observability}.ts` into `packages/codeflow-canvas/src/`. Wire `src/app/api/observability/{ingest,latest}/route.ts` to import from `codeflow-store` for trace data. This is a React component package — publish as `@abhinav2203/codeflow-canvas`. Monaco editor setup and TS language service are part of this package."
 
 ---
 
@@ -863,16 +899,34 @@ FROM: src/app/api/digital-twin/simulate/route.test.ts
 
 ---
 
-## Shared / Copy-Once Utilities
+## Unaccounted API Routes
+
+The following API routes exist in `src/app/api/` but are NOT assigned to any package in this decomposition. They may belong to an existing package, a future package, or may need to be reassigned:
+
+| Route | Likely Owner | Notes |
+|-------|-------------|-------|
+| `src/app/api/coderag/route.ts` | `coderag` (existing) | RAG embedding + retrieval |
+| `src/app/api/files/get/route.ts` | TBD | File retrieval |
+| `src/app/api/files/list/route.ts` | TBD | File listing |
+| `src/app/api/files/post/route.ts` | TBD | File upload |
+| `src/app/api/terminal/sessions/route.ts` | TBD | Terminal session management |
+| `src/app/api/terminal/sessions/[sessionId]/route.ts` | TBD | Individual terminal session |
+
+> **Action needed:** Assign these routes to appropriate packages before extraction begins. `coderag` is an existing package and should take its own route. The file and terminal routes may belong to `codeflow-store` or a new `codeflow-fs` package.
+
+---
 
 These files are used by multiple packages but don't warrant their own package. Copy them into each consuming package rather than creating a shared dependency:
 
 | File | Used by |
 |-------|---------|
+| `src/lib/blueprint/utils.ts` | All packages (slugify, createNodeId, mergeFields, dedupeEdges, toPosixPath, etc.) |
+| `src/lib/blueprint/store-paths.ts` | `codeflow-store`, `codeflow-execution` |
 | `src/lib/blueprint/file-tree.ts` | `codeflow-prd`, `codeflow-store` |
+| `src/lib/blueprint/typescript-workspace.ts` | `codeflow-prd` (reverse mode), `codeflow-execution`, `codeflow-codegen` |
+| `src/lib/blueprint/heatmap.ts` | `codeflow-evolution`, `codeflow-canvas` |
 | `src/lib/server/run-command.ts` | `codeflow-store` |
 | `src/lib/server/terminal-sessions.ts` | `codeflow-store` |
-| `src/lib/blueprint/typescript-workspace.ts` | `codeflow-execution`, `codeflow-codegen` |
 | `src/lib/blueprint/sandbox.ts` | `codeflow-execution`, `codeflow-store` |
 
 ---
@@ -893,11 +947,11 @@ codeflow-versioning:
   src/app/api/branches/{route,[id]/route,diff/route}.ts
 
 codeflow-prd:
-  src/lib/blueprint/{prd,prd.test,build,build.test,file-tree}.ts
+  src/lib/blueprint/{prd,prd.test,build,build.test,file-tree,typescript-workspace}.ts
   src/app/api/{blueprint,generate-blueprint}/route.ts
 
 codeflow-analysis:
-  src/lib/blueprint/{cycles,smells,metrics,refactor}*.ts
+  src/lib/blueprint/{cycles,smells,metrics,refactor,conflicts}*.ts
   src/app/api/analysis/{cycles,metrics,smells}/route.ts
   src/app/api/{refactor/{detect,heal},conflicts}/route.ts
 
@@ -906,12 +960,14 @@ codeflow-ai:
   src/app/api/generate-blueprint/route.ts
 
 codeflow-execution:
-  src/lib/blueprint/{runner,plan,phases,execute,vcr,runtime-contracts,runtime-tests,runtime-workspace,sandbox}*.ts
+  src/lib/blueprint/{runner,plan,phases,execute,vcr,runtime-contracts,runtime-tests,runtime-workspace,sandbox,mermaid}*.ts
   src/app/api/{executions/run,vcr,export/mermaid,code-completions}/route.ts
 
 codeflow-opencode:
-  src/lib/opencode/*.ts
+  src/lib/opencode/{index,agent,client,server,config,modelFetcher,types,api-key-validator}*.{ts,tsx}
+  src/lib/opencode/{agent,server,config,modelFetcher}.test.ts
   src/app/api/opencode/{status,start,stop,restart,agent,sessions/[id],mcp,permissions}/route.ts
+  (all corresponding .test.ts files)
 
 codeflow-codegen:
   src/lib/blueprint/{codegen,compile-validation,code-assist}.ts
@@ -922,9 +978,10 @@ codeflow-evolution:
   src/app/api/{genetic/evolve,ghost-nodes}/route.ts
 
 codeflow-canvas:
-  src/components/{graph-canvas,blueprint-workbench,file-tabs,file-tree,ide-layout,ide-workbench,code-diff-editor,code-editor,monaco-setup,ts-language-service,opencode-settings}*.ts*
-  src/lib/blueprint/{flow-view,edit,traces,node-navigation,heatmap}.ts
-  src/app/api/observability/{ingest,latest}/route.ts
+  src/components/{graph-canvas,blueprint-workbench,file-tabs,file-tree,ide-layout,ide-workbench,code-diff-editor,code-editor,monaco-setup,ts-language-service,opencode-settings}*.{ts,tsx}
+  src/lib/blueprint/{flow-view,edit,traces,node-navigation,heatmap,observability}.ts
+  src/lib/blueprint/{flow-view,edit,traces,observability}.test.ts
+  src/app/api/observability/{ingest,latest}/route.{ts,test.ts}
 
 codeflow-dtwin:
   src/lib/blueprint/{digital-twin,digital-twin.test}.ts
