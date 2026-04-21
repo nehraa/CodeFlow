@@ -2,19 +2,18 @@
 
 /**
  * codeflow-mcp CLI
+ *
  * Usage:
- *   codeflow-mcp server start [--port 3100] [--host localhost]
- *   codeflow-mcp tool list <serverUrl>
- *   codeflow-mcp tool invoke <name> <serverUrl> [args-json]
+ *   codeflow-mcp stdio              # Start MCP server over stdio (Claude Code, Cursor)
+ *   codeflow-mcp server start      # Start MCP server over HTTP+SSE
+ *   codeflow-mcp tool list <url>    # Query tools from a remote MCP server
+ *   codeflow-mcp tool invoke <name> <url> [args-json]
  */
 
 import { createServer } from "node:http";
-import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const ROOT = join(__dirname, "../..");
+import { startStdioServer, createHttpServer } from "../invoke/index.js";
 
 interface JsonRpcRequest {
   jsonrpc: "2.0";
@@ -30,14 +29,6 @@ interface JsonRpcResponse {
   error?: { code: number; message: string };
 }
 
-const TOOLS = [
-  {
-    name: "test_tool",
-    description: "Prints a paw and 'CF' in ASCII art. Use to verify the MCP server is working.",
-    inputSchema: { type: "object", properties: {} },
-  },
-] as const;
-
 function jsonRpcError(id: unknown, code: number, message: string): JsonRpcResponse {
   return { jsonrpc: "2.0", id: id as string | number | null, error: { code, message } };
 }
@@ -46,115 +37,48 @@ function jsonRpcResult(id: unknown, result: unknown): JsonRpcResponse {
   return { jsonrpc: "2.0", id: id as string | number | null, result };
 }
 
-async function handleRequest(req: JsonRpcRequest): Promise<JsonRpcResponse> {
-  const { method, params, id } = req;
+// ─── Tool query client ────────────────────────────────────────────────────────
 
-  if (method === "tools/list") {
-    return jsonRpcResult(id, { tools: TOOLS });
-  }
-
-  if (method === "tools/call") {
-    const name = (params as Record<string, unknown>)?.["name"] as string | undefined;
-    const args = ((params as Record<string, unknown>)?.["arguments"] as Record<string, unknown>) ?? {};
-    if (!name) {
-      return jsonRpcError(id, -32602, "Missing tool name");
-    }
-    if (name === "test_tool") {
-      return jsonRpcResult(id, {
-        content: [
-          {
-            type: "text" as const,
-            text: [
-              "    ∧＿∧",
-              "   (｡･ω･｡)",
-              "   ／>  <＼",
-              "  ／<  >  ＼",
-              "  |  ∨  |  |",
-              "",
-              "   ┌──┐",
-              "   │CF│",
-              "   └──┘",
-              "",
-              "🐾 CodeFlow MCP server is alive!",
-            ].join("\n"),
-          },
-        ],
-      });
-    }
-    throw new Error(`Unknown tool: ${name}`);
-  }
-
-  return jsonRpcError(id, -32601, `Method not found: ${method}`);
-}
-
-function startHttpServer(port: number, host: string) {
-  const server = createServer(async (req, res) => {
-    if (req.method === "OPTIONS") {
-      res.writeHead(204, {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, authorization, x-api-key",
-      });
-      res.end();
-      return;
-    }
-    if (req.method !== "POST") {
-      res.writeHead(405);
-      res.end();
-      return;
-    }
-
-    let body = "";
-    for await (const chunk of req) {
-      body += chunk;
-    }
-
-    let request: JsonRpcRequest;
-    try {
-      request = JSON.parse(body);
-    } catch {
-      const err: JsonRpcResponse = {
-        jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" },
-      };
-      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
-      res.end(JSON.stringify(err));
-      return;
-    }
-
-    const response = await handleRequest(request);
-    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
-    res.end(JSON.stringify(response));
-  });
-
-  server.listen(port, host, () => {
-    console.log(`[codeflow-mcp] MCP server running at http://${host}:${port}`);
-    console.log(`[codeflow-mcp] SSE endpoint: POST /`);
-    console.log(`[codeflow-mcp] Tools: test_tool`);
-  });
-
-  return server;
-}
-
-// ─── CLI dispatcher ───────────────────────────────────────────────────────────
-
-const [cmd, subcmd, ...args] = process.argv.slice(2);
-
-if (cmd === "server" && subcmd === "start") {
-  let port = 3100;
-  let host = "localhost";
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--port" && i + 1 < args.length) port = parseInt(args[i + 1], 10);
-    else if (args[i] === "--host" && i + 1 < args.length) host = args[i + 1];
-  }
-  startHttpServer(port, host);
-} else if (cmd === "tool" && subcmd === "list") {
-  const serverUrl = args[0] ?? "http://localhost:3100";
+async function queryRemote(serverUrl: string, request: JsonRpcRequest): Promise<JsonRpcResponse> {
   const res = await fetch(serverUrl, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
+    body: JSON.stringify(request),
   });
-  const data = await res.json() as JsonRpcResponse;
+  return res.json() as Promise<JsonRpcResponse>;
+}
+
+// ─── CLI dispatch ─────────────────────────────────────────────────────────────
+
+const [cmd, subcmd, ...args] = process.argv.slice(2);
+
+if (cmd === "stdio") {
+  // MCP over stdio — keeps process alive, reads/writes JSON-RPC lines
+  startStdioServer().catch((err) => {
+    console.error("[codeflow-mcp] stdio server error:", err);
+    process.exit(1);
+  });
+} else if (cmd === "server" && subcmd === "start") {
+  // HTTP + SSE server
+  let port = 3100;
+  let host = "localhost";
+  const remaining = args.slice(0);
+  for (let i = 0; i < remaining.length; i++) {
+    if (remaining[i] === "--port" && i + 1 < remaining.length) {
+      port = parseInt(remaining[i + 1], 10);
+    } else if (remaining[i] === "--host" && i + 1 < remaining.length) {
+      host = remaining[i + 1];
+    }
+  }
+  createHttpServer(port, host);
+} else if (cmd === "tool" && subcmd === "list") {
+  const serverUrl = args[0] ?? "http://localhost:3100";
+  const data = await queryRemote(serverUrl, {
+    jsonrpc: "2.0",
+    id: 1,
+    method: "tools/list",
+    params: {},
+  });
   if (data.error) {
     console.error(`Error: ${data.error.message}`);
     process.exit(1);
@@ -162,17 +86,12 @@ if (cmd === "server" && subcmd === "start") {
   console.log(JSON.stringify(data.result, null, 2));
 } else if (cmd === "tool" && subcmd === "invoke") {
   const [toolName, serverUrl = "http://localhost:3100", argsJson = "{}"] = args;
-  const res = await fetch(serverUrl, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: 2,
-      method: "tools/call",
-      params: { name: toolName, arguments: JSON.parse(argsJson) },
-    }),
+  const data = await queryRemote(serverUrl, {
+    jsonrpc: "2.0",
+    id: 2,
+    method: "tools/call",
+    params: { name: toolName, arguments: JSON.parse(argsJson) },
   });
-  const data = await res.json() as JsonRpcResponse;
   if (data.error) {
     console.error(`Error: ${data.error.message}`);
     process.exit(1);
@@ -180,12 +99,24 @@ if (cmd === "server" && subcmd === "start") {
   console.log(JSON.stringify(data.result, null, 2));
 } else {
   console.log(`Usage:
+  codeflow-mcp stdio                            # Start MCP server over stdio (Claude Code, Cursor)
   codeflow-mcp server start [--port 3100] [--host localhost]
   codeflow-mcp tool list <serverUrl>
   codeflow-mcp tool invoke <name> <serverUrl> [args-json]
 
+Transports:
+  stdio  — Claude Code CLI, Cursor, any stdio MCP client  (Recommended for local dev)
+  HTTP   — Web clients, Claude Desktop, any HTTP MCP client
+  SSE    — Claude Desktop streaming responses
+
 Examples:
+  # Start as MCP server for Claude Code CLI
+  codeflow-mcp stdio
+
+  # Start as HTTP server with SSE
   codeflow-mcp server start --port 3100
+
+  # Query remote server
   codeflow-mcp tool list http://localhost:3100
   codeflow-mcp tool invoke test_tool http://localhost:3100 '{}'
 `);
