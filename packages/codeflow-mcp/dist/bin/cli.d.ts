@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 /**
  * codeflow-mcp CLI
+ *
  * Usage:
- *   codeflow-mcp server start [--port 3100] [--host localhost]
- *   codeflow-mcp tool list <serverUrl>
- *   codeflow-mcp tool invoke <name> <serverUrl> [args-json]
+ *   codeflow-mcp stdio              # Start MCP server over stdio (Claude Code, Cursor)
+ *   codeflow-mcp server start      # Start MCP server over HTTP+SSE
+ *   codeflow-mcp tool list <url>    # Query tools from a remote MCP server
+ *   codeflow-mcp tool invoke <name> <url> [args-json]
  */
 export {};
 //# sourceMappingURL=cli.d.ts.map
