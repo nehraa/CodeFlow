@@ -67,6 +67,12 @@ export const checkpointPath = (checkpointId: string): string => {
 export const observabilityPath = (projectName: string): string =>
   path.join(getStoreRoot(), "observability", `${slugify(projectName)}.json`);
 
+export const reasoningCheckpointDir = (runId: string): string =>
+  path.join(getStoreRoot(), "checkpoints", "reasoning", runId);
+
+export const reasoningBasePath = (): string =>
+  path.join(getStoreRoot(), "checkpoints", "reasoning");
+
 export const branchDirForProject = (projectName: string): string =>
   path.join(getStoreRoot(), "branches", slugify(projectName));
 

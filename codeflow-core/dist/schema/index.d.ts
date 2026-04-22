@@ -822,8 +822,8 @@ export declare const taskExecutionResultSchema: z.ZodObject<{
         documentation: "documentation";
         unknown: "unknown";
     }>>;
-    reasoning: z.ZodString;
-    changes: z.ZodArray<z.ZodObject<{
+    reasoning: z.ZodOptional<z.ZodString>;
+    changes: z.ZodOptional<z.ZodArray<z.ZodObject<{
         file: z.ZodString;
         action: z.ZodEnum<{
             created: "created";
@@ -832,7 +832,7 @@ export declare const taskExecutionResultSchema: z.ZodObject<{
             renamed: "renamed";
         }>;
         summary: z.ZodString;
-    }, z.core.$strip>>;
+    }, z.core.$strip>>>;
 }, z.core.$strip>;
 export type TaskExecutionResult = z.infer<typeof taskExecutionResultSchema>;
 export declare const ownershipRecordSchema: z.ZodObject<{
@@ -867,8 +867,8 @@ export declare const executionReportSchema: z.ZodObject<{
             documentation: "documentation";
             unknown: "unknown";
         }>>;
-        reasoning: z.ZodString;
-        changes: z.ZodArray<z.ZodObject<{
+        reasoning: z.ZodOptional<z.ZodString>;
+        changes: z.ZodOptional<z.ZodArray<z.ZodObject<{
             file: z.ZodString;
             action: z.ZodEnum<{
                 created: "created";
@@ -877,7 +877,7 @@ export declare const executionReportSchema: z.ZodObject<{
                 renamed: "renamed";
             }>;
             summary: z.ZodString;
-        }, z.core.$strip>>;
+        }, z.core.$strip>>>;
     }, z.core.$strip>>;
     ownership: z.ZodArray<z.ZodObject<{
         path: z.ZodString;
@@ -982,6 +982,7 @@ export declare const approvalRecordSchema: z.ZodObject<{
     action: z.ZodEnum<{
         export: "export";
     }>;
+    runId: z.ZodOptional<z.ZodString>;
     projectName: z.ZodString;
     status: z.ZodEnum<{
         pending: "pending";
@@ -989,6 +990,7 @@ export declare const approvalRecordSchema: z.ZodObject<{
     }>;
     fingerprint: z.ZodString;
     requestedAt: z.ZodString;
+    approver: z.ZodOptional<z.ZodString>;
     approvedAt: z.ZodOptional<z.ZodString>;
     outputDir: z.ZodString;
     runPlan: z.ZodObject<{
@@ -1356,8 +1358,8 @@ export declare const persistedSessionSchema: z.ZodObject<{
                 documentation: "documentation";
                 unknown: "unknown";
             }>>;
-            reasoning: z.ZodString;
-            changes: z.ZodArray<z.ZodObject<{
+            reasoning: z.ZodOptional<z.ZodString>;
+            changes: z.ZodOptional<z.ZodArray<z.ZodObject<{
                 file: z.ZodString;
                 action: z.ZodEnum<{
                     created: "created";
@@ -1366,7 +1368,7 @@ export declare const persistedSessionSchema: z.ZodObject<{
                     renamed: "renamed";
                 }>;
                 summary: z.ZodString;
-            }, z.core.$strip>>;
+            }, z.core.$strip>>>;
         }, z.core.$strip>>;
         ownership: z.ZodArray<z.ZodObject<{
             path: z.ZodString;
@@ -1519,8 +1521,8 @@ export declare const runRecordSchema: z.ZodObject<{
                 documentation: "documentation";
                 unknown: "unknown";
             }>>;
-            reasoning: z.ZodString;
-            changes: z.ZodArray<z.ZodObject<{
+            reasoning: z.ZodOptional<z.ZodString>;
+            changes: z.ZodOptional<z.ZodArray<z.ZodObject<{
                 file: z.ZodString;
                 action: z.ZodEnum<{
                     created: "created";
@@ -1529,7 +1531,7 @@ export declare const runRecordSchema: z.ZodObject<{
                     renamed: "renamed";
                 }>;
                 summary: z.ZodString;
-            }, z.core.$strip>>;
+            }, z.core.$strip>>>;
         }, z.core.$strip>>;
         ownership: z.ZodArray<z.ZodObject<{
             path: z.ZodString;
@@ -1633,6 +1635,7 @@ export type RunRecord = z.infer<typeof runRecordSchema>;
 export declare const traceSpanSchema: z.ZodObject<{
     spanId: z.ZodString;
     traceId: z.ZodString;
+    taskId: z.ZodOptional<z.ZodString>;
     name: z.ZodString;
     blueprintNodeId: z.ZodOptional<z.ZodString>;
     path: z.ZodOptional<z.ZodString>;
@@ -1674,6 +1677,7 @@ export declare const observabilityIngestRequestSchema: z.ZodObject<{
     spans: z.ZodDefault<z.ZodArray<z.ZodObject<{
         spanId: z.ZodString;
         traceId: z.ZodString;
+        taskId: z.ZodOptional<z.ZodString>;
         name: z.ZodString;
         blueprintNodeId: z.ZodOptional<z.ZodString>;
         path: z.ZodOptional<z.ZodString>;
@@ -1715,6 +1719,7 @@ export declare const observabilitySnapshotSchema: z.ZodObject<{
     spans: z.ZodArray<z.ZodObject<{
         spanId: z.ZodString;
         traceId: z.ZodString;
+        taskId: z.ZodOptional<z.ZodString>;
         name: z.ZodString;
         blueprintNodeId: z.ZodOptional<z.ZodString>;
         path: z.ZodOptional<z.ZodString>;

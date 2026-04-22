@@ -24,4 +24,5 @@ export const createCheckpointIfNeeded = async (targetDir, checkpointId) => {
     });
     return checkpointDir;
 };
+export { saveTaskReasoningCheckpoint, loadTaskReasoningCheckpoint, recoverRun, clearTaskReasoningCheckpoint } from "./reasoning.js";
 //# sourceMappingURL=index.js.map

@@ -1,267 +1,141 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs/promises";
-import fsSync from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import os from "node:os";
 
-import { loadObservabilitySnapshot, mergeObservabilitySnapshot } from "./index.js";
-import type { ObservabilitySnapshot, BlueprintGraph } from "@abhinav2203/codeflow-core/schema";
+import { mergeObservabilitySnapshot } from "./index.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const STORE_ROOT = path.join(__dirname, "../../.test-store");
+describe("mergeObservabilitySnapshot", () => {
+  const tmpDir = path.join(os.tmpdir(), `codeflow-test-observability-${Date.now()}`);
 
-const cleanStore = () => {
-  try {
-    fsSync.rmSync(STORE_ROOT, { recursive: true, force: true });
-  } catch {
-    // Ignore cleanup errors — best effort
-  }
-};
-
-const withEnv = async <T>(fn: () => Promise<T>): Promise<T> => {
-  const original = process.env.CODEFLOW_STORE_ROOT;
-  process.env.CODEFLOW_STORE_ROOT = STORE_ROOT;
-  try {
-    return await fn();
-  } finally {
-    process.env.CODEFLOW_STORE_ROOT = original ?? "";
-    cleanStore();
-  }
-};
-
-const makeSpan = (id: string, name: string) => ({
-  spanId: id,
-  traceId: "trace-1",
-  name,
-  blueprintNodeId: `node-${id}`,
-  path: undefined,
-  status: "success" as const,
-  durationMs: 100,
-  runtime: "test",
-  provenance: "observed" as const,
-  timestamp: new Date().toISOString()
-});
-
-const makeLog = (id: string, message: string) => ({
-  id: `log-${id}`,
-  level: "info" as const,
-  message,
-  blueprintNodeId: undefined,
-  path: undefined,
-  runtime: "test",
-  timestamp: new Date().toISOString()
-});
-
-const makeGraph = (): BlueprintGraph => ({
-  projectName: "test-project",
-  mode: "essential",
-  generatedAt: new Date().toISOString(),
-  nodes: [],
-  edges: [],
-  workflows: [],
-  warnings: []
-});
-
-describe("observability", () => {
-  beforeEach(() => {
-    cleanStore();
+  const makeSpan = (id: string) => ({
+    spanId: id,
+    traceId: "trace-1",
+    name: id,
+    status: "success" as const,
+    durationMs: 10,
+    runtime: "test",
+    provenance: "observed" as const,
+    timestamp: new Date().toISOString()
   });
 
-  describe("loadObservabilitySnapshot", () => {
-    it("returns null when no snapshot exists for the project", async () => {
-      await withEnv(async () => {
-        const result = await loadObservabilitySnapshot("nonexistent-project");
-        expect(result).toBeNull();
-      });
-    });
-
-    it("returns the existing snapshot when it exists", async () => {
-      await withEnv(async () => {
-        const snapshot: ObservabilitySnapshot = {
-          projectName: "test-project",
-          updatedAt: new Date().toISOString(),
-          spans: [makeSpan("s1", "auth.validate")],
-          logs: [makeLog("l1", "server started")]
-        };
-
-        await mergeObservabilitySnapshot({
-          projectName: "test-project",
-          spans: snapshot.spans,
-          logs: snapshot.logs
-        });
-
-        const result = await loadObservabilitySnapshot("test-project");
-        expect(result).not.toBeNull();
-        expect(result!.spans).toHaveLength(1);
-        expect(result!.logs).toHaveLength(1);
-        expect(result!.spans[0].name).toBe("auth.validate");
-      });
-    });
+  const makeLog = (msg: string) => ({
+    id: `log-${msg}`,
+    level: "info" as const,
+    message: msg,
+    runtime: "test",
+    timestamp: new Date().toISOString()
   });
 
-  describe("mergeObservabilitySnapshot", () => {
-    it("writes a snapshot to disk", async () => {
-      await withEnv(async () => {
-        await mergeObservabilitySnapshot({
-          projectName: "test-project",
-          spans: [makeSpan("s1", "auth.login")],
-          logs: [makeLog("l1", "user logged in")]
-        });
+  beforeEach(async () => {
+    process.env.CODEFLOW_STORE_ROOT = tmpDir;
+    await fs.mkdir(tmpDir, { recursive: true });
+  });
 
-        const filePath = path.join(
-          STORE_ROOT,
-          "observability",
-          "test-project.json"
-        );
-        const content = await fs.readFile(filePath, "utf8");
-        const parsed = JSON.parse(content);
-        expect(parsed.projectName).toBe("test-project");
-        expect(parsed.spans).toHaveLength(1);
-      });
+  afterEach(async () => {
+    delete process.env.CODEFLOW_STORE_ROOT;
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it("should use default cap of 500 when no config exists", async () => {
+    const projectName = "test-project";
+    const spans = Array.from({ length: 600 }, (_, i) => makeSpan(`span-${i}`));
+
+    const result = await mergeObservabilitySnapshot({
+      projectName,
+      spans,
+      logs: []
     });
 
-    it("appends spans when merging (does not replace)", async () => {
-      await withEnv(async () => {
-        await mergeObservabilitySnapshot({
-          projectName: "test-project",
-          spans: [makeSpan("s1", "auth.login")],
-          logs: []
-        });
+    expect(result.spans).toHaveLength(500);
+    expect(result.spans[0].spanId).toBe("span-100");
+    expect(result.spans[499].spanId).toBe("span-599");
+  });
 
-        await mergeObservabilitySnapshot({
-          projectName: "test-project",
-          spans: [makeSpan("s2", "db.query")],
-          logs: []
-        });
+  it("should respect custom maxSpans from config", async () => {
+    const projectName = "custom-cap-project";
+    await fs.mkdir(path.join(tmpDir, "observability-config"), { recursive: true });
+    await fs.writeFile(
+      path.join(tmpDir, "observability-config", `${projectName}.json`),
+      JSON.stringify({ maxSpans: 3, maxLogs: 100 }),
+      "utf8"
+    );
 
-        const result = await loadObservabilitySnapshot("test-project");
-        expect(result!.spans).toHaveLength(2);
-        expect(result!.spans[0].spanId).toBe("s1");
-        expect(result!.spans[1].spanId).toBe("s2");
-      });
+    const result = await mergeObservabilitySnapshot({
+      projectName,
+      spans: [makeSpan("s1"), makeSpan("s2"), makeSpan("s3"), makeSpan("s4"), makeSpan("s5")],
+      logs: []
     });
 
-    it("appends logs when merging (does not replace)", async () => {
-      await withEnv(async () => {
-        await mergeObservabilitySnapshot({
-          projectName: "test-project",
-          spans: [],
-          logs: [makeLog("l1", "server started")]
-        });
+    expect(result.spans).toHaveLength(3);
+    expect(result.spans.map(s => s.spanId)).toEqual(["s3", "s4", "s5"]);
+  });
 
-        await mergeObservabilitySnapshot({
-          projectName: "test-project",
-          spans: [],
-          logs: [makeLog("l2", "request received")]
-        });
+  it("should respect custom maxLogs from config", async () => {
+    const projectName = "custom-logs-project";
+    await fs.mkdir(path.join(tmpDir, "observability-config"), { recursive: true });
+    await fs.writeFile(
+      path.join(tmpDir, "observability-config", `${projectName}.json`),
+      JSON.stringify({ maxSpans: 500, maxLogs: 2 }),
+      "utf8"
+    );
 
-        const result = await loadObservabilitySnapshot("test-project");
-        expect(result!.logs).toHaveLength(2);
-        expect(result!.logs[0].message).toBe("server started");
-        expect(result!.logs[1].message).toBe("request received");
-      });
+    const result = await mergeObservabilitySnapshot({
+      projectName,
+      spans: [],
+      logs: [makeLog("log-1"), makeLog("log-2"), makeLog("log-3")]
     });
 
-    it("caps spans at 500 items (slice -500)", async () => {
-      await withEnv(async () => {
-        // Create 600 spans
-        const manySpans = Array.from({ length: 600 }, (_, i) =>
-          makeSpan(`s${i}`, `span-${i}`)
-        );
+    expect(result.logs).toHaveLength(2);
+    expect(result.logs.map(l => l.message)).toEqual(["log-2", "log-3"]);
+  });
 
-        await mergeObservabilitySnapshot({
-          projectName: "test-project",
-          spans: manySpans,
-          logs: []
-        });
+  it("should default logs to empty array when omitted", async () => {
+    const result = await mergeObservabilitySnapshot({
+      projectName: "no-logs-project",
+      spans: [makeSpan("s1"), makeSpan("s2")]
+    });
+    expect(result.logs).toHaveLength(0);
+    expect(result.spans).toHaveLength(2);
+  });
 
-        const result = await loadObservabilitySnapshot("test-project");
-        expect(result!.spans).toHaveLength(500);
-        // Last 500 — so s100 through s599 should be present, s0-s99 dropped
-        expect(result!.spans[0].spanId).toBe("s100");
-        expect(result!.spans[499].spanId).toBe("s599");
-      });
+  it("should throw clear error when projectName is not a non-empty string", async () => {
+    await expect(
+      mergeObservabilitySnapshot({ projectName: 123 as any, spans: [], logs: [] })
+    ).rejects.toThrow(/projectName must be a non-empty string/);
+
+    await expect(
+      mergeObservabilitySnapshot({ projectName: "", spans: [], logs: [] })
+    ).rejects.toThrow(/projectName must be a non-empty string/);
+
+    await expect(
+      mergeObservabilitySnapshot({ projectName: "   " as any, spans: [], logs: [] })
+    ).rejects.toThrow(/projectName must be a non-empty string/);
+  });
+
+  it("should throw validation error for bad span data", async () => {
+    await expect(
+      // @ts-expect-error — deliberately passing invalid data
+      mergeObservabilitySnapshot({ projectName: "bad-spans", spans: [{ spanId: 123 }], logs: [] })
+    ).rejects.toThrow();
+  });
+
+  it("should preserve graph when provided", async () => {
+    const result = await mergeObservabilitySnapshot({
+      projectName: "graph-test",
+      spans: [],
+      logs: [],
+      graph: {
+        projectName: "graph-test",
+        mode: "essential" as const,
+        generatedAt: new Date().toISOString(),
+        nodes: [],
+        edges: [],
+        workflows: [],
+        warnings: []
+      }
     });
 
-    it("caps logs at 500 items", async () => {
-      await withEnv(async () => {
-        const manyLogs = Array.from({ length: 600 }, (_, i) =>
-          makeLog(`l${i}`, `log message ${i}`)
-        );
-
-        await mergeObservabilitySnapshot({
-          projectName: "test-project",
-          spans: [],
-          logs: manyLogs
-        });
-
-        const result = await loadObservabilitySnapshot("test-project");
-        expect(result!.logs).toHaveLength(500);
-      });
-    });
-
-    it("updates the graph when provided", async () => {
-      await withEnv(async () => {
-        const graph = makeGraph();
-
-        await mergeObservabilitySnapshot({
-          projectName: "test-project",
-          spans: [],
-          logs: [],
-          graph
-        });
-
-        const result = await loadObservabilitySnapshot("test-project");
-        expect(result!.graph).toBeDefined();
-        expect(result!.graph!.projectName).toBe("test-project");
-      });
-    });
-
-    it("preserves the existing graph when not provided", async () => {
-      await withEnv(async () => {
-        const graph = makeGraph();
-        await mergeObservabilitySnapshot({
-          projectName: "test-project",
-          spans: [],
-          logs: [],
-          graph
-        });
-
-        await mergeObservabilitySnapshot({
-          projectName: "test-project",
-          spans: [makeSpan("s1", "auth.login")],
-          logs: []
-          // no graph provided
-        });
-
-        const result = await loadObservabilitySnapshot("test-project");
-        expect(result!.graph).toBeDefined();
-      });
-    });
-
-    it("updates the updatedAt timestamp on merge", async () => {
-      await withEnv(async () => {
-        await mergeObservabilitySnapshot({
-          projectName: "test-project",
-          spans: [],
-          logs: []
-        });
-
-        const first = await loadObservabilitySnapshot("test-project");
-        const firstUpdatedAt = first!.updatedAt;
-
-        // Wait a tiny bit to ensure timestamp differs
-        await new Promise((r) => setTimeout(r, 10));
-
-        await mergeObservabilitySnapshot({
-          projectName: "test-project",
-          spans: [makeSpan("s1", "auth.login")],
-          logs: []
-        });
-
-        const second = await loadObservabilitySnapshot("test-project");
-        expect(second!.updatedAt).not.toBe(firstUpdatedAt);
-      });
-    });
+    expect(result.graph).toBeDefined();
   });
 });

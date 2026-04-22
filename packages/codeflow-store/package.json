@@ -1,6 +1,6 @@
 {
   "name": "@abhinav2203/codeflow-store",
-  "version": "0.2.4",
+  "version": "1.0.2",
   "description": "Local session storage, project-scoped state, checkpointing, approvals.",
   "type": "module",
   "main": "./dist/index.js",
@@ -41,6 +41,10 @@
     "./store": {
       "types": "./dist/store/index.d.ts",
       "default": "./dist/store/index.js"
+    },
+    "./reasoning": {
+      "types": "./dist/reasoning/index.d.ts",
+      "default": "./dist/reasoning/index.js"
     }
   },
   "bin": {
@@ -52,8 +56,11 @@
     "build": "tsc --outDir dist --declaration --declarationMap"
   },
   "dependencies": {
-    "@abhinav2203/codeflow-core": "^1.1.1",
+    "@abhinav2203/codeflow-core": "^1.1.4",
     "zustand": "^5.0.0"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

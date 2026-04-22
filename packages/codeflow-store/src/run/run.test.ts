@@ -99,6 +99,15 @@ describe("run", () => {
       const id2 = createRunId();
       expect(id1).not.toBe(id2);
     });
+
+    it("throws when called with arguments", () => {
+      expect(() => (createRunId as any)({ projectId: 123 })).toThrow(
+        /createRunId takes no arguments/
+      );
+      expect(() => (createRunId as any)("any-arg")).toThrow(
+        /createRunId takes no arguments/
+      );
+    });
   });
 
   describe("saveRunRecord", () => {

@@ -275,8 +275,8 @@ export const taskExecutionResultSchema = z.object({
     message: z.string(),
     errors: z.array(z.string()).default([]),
     taskType: taskTypeSchema.default("unknown"),
-    reasoning: z.string().min(10).max(2000),
-    changes: z.array(fileChangeSchema)
+    reasoning: z.string().min(10).max(2000).optional(),
+    changes: z.array(fileChangeSchema).optional()
 });
 export const ownershipRecordSchema = z.object({
     path: z.string(),
@@ -307,10 +307,12 @@ export const riskReportSchema = z.object({
 export const approvalRecordSchema = z.object({
     id: z.string(),
     action: z.enum(["export"]),
+    runId: z.string().optional(),
     projectName: z.string(),
     status: z.enum(["pending", "approved"]),
     fingerprint: z.string(),
     requestedAt: z.string(),
+    approver: z.string().optional(),
     approvedAt: z.string().optional(),
     outputDir: z.string(),
     runPlan: runPlanSchema,
@@ -379,6 +381,7 @@ export const runRecordSchema = z.object({
 export const traceSpanSchema = z.object({
     spanId: z.string(),
     traceId: z.string(),
+    taskId: z.string().optional(),
     name: z.string(),
     blueprintNodeId: z.string().optional(),
     path: z.string().optional(),
