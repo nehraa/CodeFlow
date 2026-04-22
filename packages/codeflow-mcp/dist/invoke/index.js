@@ -11,6 +11,7 @@
  * protocol over its channel.
  */
 import { createServer } from "node:http";
+import { TOOLS } from "../tools/index.js";
 const TOOL_HANDLERS = {
     async test_tool(_args) {
         return {
@@ -35,13 +36,6 @@ const TOOL_HANDLERS = {
         };
     },
 };
-const TOOLS = [
-    {
-        name: "test_tool",
-        description: "Prints a paw and 'CF' in ASCII art. Use to verify the MCP server is working.",
-        inputSchema: { type: "object", properties: {}, required: [] },
-    },
-];
 function jsonRpcError(id, code, message) {
     return { jsonrpc: "2.0", id: id, error: { code, message } };
 }

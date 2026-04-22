@@ -14,13 +14,9 @@
 import { createServer, type Server } from "node:http";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
-// ─── Tool registry ────────────────────────────────────────────────────────────
+import { TOOLS } from "../tools/index.js";
 
-interface Tool {
-  name: string;
-  description: string;
-  inputSchema: Record<string, unknown>;
-}
+// ─── Tool registry ────────────────────────────────────────────────────────────
 
 interface ToolResult {
   content: Array<{ type: "text"; text: string } | { type: "image"; data: string; mimeType: string }>;
@@ -55,14 +51,6 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
     };
   },
 };
-
-const TOOLS: Tool[] = [
-  {
-    name: "test_tool",
-    description: "Prints a paw and 'CF' in ASCII art. Use to verify the MCP server is working.",
-    inputSchema: { type: "object", properties: {}, required: [] },
-  },
-];
 
 // ─── JSON-RPC types ───────────────────────────────────────────────────────────
 
@@ -320,4 +308,4 @@ export function createHttpServer(port = 3100, host = "localhost"): Server {
 // ─── Exports ─────────────────────────────────────────────────────────────────
 
 export { TOOLS, handleJsonRpc, jsonRpcError, jsonRpcResult };
-export type { Tool, ToolResult, JsonRpcRequest, JsonRpcResponse };
+export type { ToolResult, JsonRpcRequest, JsonRpcResponse };
