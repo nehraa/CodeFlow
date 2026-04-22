@@ -35,12 +35,12 @@ coderag → @abhinav2203/codeflow-core
 
 ## Recommended Build Order
 
-### Phase 1 — Foundation (no dependencies)
+### Phase 1 — Foundation (depends only on codeflow-core)
 
 | # | Package | Why first |
 |---|---------|-----------|
-| 1 | `codeflow-store` | Session storage, checkpoints, project isolation — zero deps, can ship immediately |
-| 2 | `codeflow-mcp` | MCP server config, tool registry — zero deps, can ship immediately |
+| 1 | `codeflow-store` | Session storage, checkpoints, project isolation — depends on core, can ship immediately |
+| 2 | `codeflow-mcp` | MCP server config, tool registry — depends on core, can ship immediately |
 
 ### Phase 2 — Schema Producers (depend only on codeflow-core schema)
 
@@ -98,7 +98,7 @@ codeflow-versioning   codeflow-prd   codeflow-analysis   codeflow-ai
 
 **Core principle: packages communicate only via npm package dependencies, never via direct code imports.**
 
-Every internal package dependency is declared as an `npm` dependency in `package.json` pointing to the published package name (`@abhinav2203/codeflow-<name>`), NOT a relative path or monorepo workspace import. This means:
+Every internal package dependency is declared as an `npm` dependency in `package.json` pointing to the published package name (`@abhinav2203/codeflow-<name>`). During development inside the monorepo, use `workspace:*` ranges (requires workspaces to be configured in the root `package.json`); a release tool (e.g. `npm publish` with changesets, or pnpm publish) must rewrite `workspace:*` to the actual published semver range before the package reaches consumers on npm. This means:
 
 - Each package is **independently installable** — `npm install @abhinav2203/codeflow-prd` also pulls in `@abhinav2203/codeflow-core` as a transitive dep
 - Each package is **independently versionable** — semver bumps happen per package
@@ -139,7 +139,7 @@ codeflow-evolution   → @abhinav2203/codeflow-core
 codeflow-canvas     → @abhinav2203/codeflow-core
                      → @abhinav2203/codeflow-store
                      → @abhinav2203/codeflow-execution
-                     → react, reactflow, @monaco-editor/react
+                     → react, @xyflow/react, @monaco-editor/react
 
 codeflow-dtwin      → @abhinav2203/codeflow-core
                      → @abhinav2203/codeflow-execution
@@ -158,7 +158,7 @@ import { buildBlueprintGraph } from "../../codeflow-core/src/analyzer/index.js";
 import { buildBlueprintGraph } from "@abhinav2203/codeflow-core/analyzer.js";
 ```
 
-During development within the monorepo, use workspace ranges (npm/yarn/pnpm workspaces):
+During development within the monorepo, use workspace ranges (npm/yarn/pnpm workspaces). **Prerequisite:** declare a `workspaces` field in the root `package.json` listing all package paths. A release tool (e.g. changesets + `npm publish`, or `pnpm publish`) must rewrite `workspace:*` to the actual published semver version before the package is pushed to npm.
 
 ```json
 {
@@ -169,7 +169,7 @@ During development within the monorepo, use workspace ranges (npm/yarn/pnpm work
 }
 ```
 
-Once published to npm, workspace ranges resolve to the actual published version semver.
+Once published to npm, workspace ranges are replaced with the resolved published semver version.
 
 ---
 
@@ -301,9 +301,8 @@ FROM: src/app/api/mcp/tools/route.test.ts
 
 ```
 FROM: src/lib/blueprint/
-  - branches.ts
+  - branches.ts               (includes branch diff logic)
   - branches.test.ts
-  - branches.ts (branch diff logic is in same file)
 ```
 
 **API routes to wire:**
@@ -698,8 +697,6 @@ FROM: src/app/api/implement-node/route.ts
 FROM: src/lib/blueprint/
   - genetic.ts
   - genetic.test.ts
-  - heatmap.ts
-  - heatmap.test.ts
 
 FROM: src/app/api/ghost-nodes/route.ts
 ```
@@ -720,8 +717,7 @@ FROM: src/app/api/ghost-nodes/route.ts
   "exports": {
     ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
     "./genetic": { "types": "./dist/genetic.d.ts", "default": "./dist/genetic.js" },
-    "./ghost": { "types": "./dist/ghost.d.ts", "default": "./dist/ghost.js" },
-    "./heatmap": { "types": "./dist/heatmap.d.ts", "default": "./dist/heatmap.js" }
+    "./ghost": { "types": "./dist/ghost.d.ts", "default": "./dist/ghost.js" }
   },
   "bin": {
     "codeflow-evolution": "./dist/bin/cli.js"
@@ -734,7 +730,7 @@ FROM: src/app/api/ghost-nodes/route.ts
 ```
 
 **Developer prompt:**
-> "Extract the evolution layer. Move `src/lib/blueprint/{genetic,heatmap}*.ts` and `src/app/api/genetic/evolve/route.ts`, `src/app/api/ghost-nodes/route.ts` into `packages/codeflow-evolution/src/`. Genetic algorithms evolve architecture variants. Ghost nodes are AI-suggested next components. Heatmap colors nodes by call count/error rate/latency. Publish as `@abhinav2203/codeflow-evolution`."
+> "Extract the evolution layer. Move `src/lib/blueprint/genetic*.ts` and `src/app/api/genetic/evolve/route.ts`, `src/app/api/ghost-nodes/route.ts` into `packages/codeflow-evolution/src/`. Genetic algorithms evolve architecture variants. Ghost nodes are AI-suggested next components. Heatmap lives in `codeflow-canvas` — do not copy it here. Publish as `@abhinav2203/codeflow-evolution`."
 
 ---
 
@@ -772,9 +768,10 @@ FROM: src/lib/blueprint/
   - traces.test.ts
   - node-navigation.ts
   - heatmap.ts            (heatmap color computation — used by canvas overlay)
+  - heatmap.test.ts
 ```
 
-**Note on heatmap:** `heatmap.ts` computes colors (used by canvas). `heatmap.test.ts` is analysis — decide whether it stays in `codeflow-analysis` or moves here. Recommendation: keep computation in `codeflow-canvas`, keep test in `codeflow-analysis`.
+**Note on heatmap:** `heatmap.ts` computes colors (used by canvas). Recommendation: keep both the computation and its tests in `codeflow-canvas` to maintain package isolation.
 
 **API routes to wire:** (canvas is primarily UI — most logic is in the lib files above)
 
@@ -804,14 +801,17 @@ FROM: src/app/api/observability/latest/route.ts
     "@abhinav2203/codeflow-store": "workspace:*",
     "@abhinav2203/codeflow-execution": "workspace:*",
     "react": "^18.0",
-    "reactflow": "^11.0",
     "@monaco-editor/react": "^4.0"
+  },
+  "peerDependencies": {
+    "react": "^18.0",
+    "@xyflow/react": "^12.0"
   }
 }
 ```
 
 **Developer prompt:**
-> "Extract the React Flow canvas UI. Move `src/components/{graph-canvas,blueprint-workbench,file-tabs,file-tree,ide-layout,ide-workbench,code-diff-editor,code-editor,monaco-setup,ts-language-service,opencode-settings}*.ts*` and `src/lib/blueprint/{flow-view,edit,traces,node-navigation,heatmap}.ts` into `packages/codeflow-canvas/src/`. Wire `src/app/api/observability/{ingest,latest}/route.ts` to import from `codeflow-store` for trace data. This is a React component package — publish as `@abhinav2203/codeflow-canvas`. Monaco editor setup and TS language service are part of this package."
+> "Extract the React Flow canvas UI. Move `src/components/{graph-canvas,blueprint-workbench,file-tabs,file-tree,ide-layout,ide-workbench,code-diff-editor,code-editor,monaco-setup,ts-language-service,opencode-settings}*.ts*` and `src/lib/blueprint/{flow-view,edit,traces,node-navigation,heatmap,heatmap.test}.ts` into `packages/codeflow-canvas/src/`. Wire `src/app/api/observability/{ingest,latest}/route.ts` to import from `codeflow-store` for trace data. This is a React component package — publish as `@abhinav2203/codeflow-canvas`. Monaco editor setup and TS language service are part of this package. `@xyflow/react` should be a peer dependency."
 
 ---
 
@@ -865,15 +865,15 @@ FROM: src/app/api/digital-twin/simulate/route.test.ts
 
 ## Shared / Copy-Once Utilities
 
-These files are used by multiple packages but don't warrant their own package. Copy them into each consuming package rather than creating a shared dependency:
+These files are used by multiple packages. They should be moved to `@abhinav2203/codeflow-core` (or a dedicated utility package) to avoid code duplication and logic drift. Each consuming package should import them as a normal package dependency rather than copying the source:
 
-| File | Used by |
-|-------|---------|
-| `src/lib/blueprint/file-tree.ts` | `codeflow-prd`, `codeflow-store` |
-| `src/lib/server/run-command.ts` | `codeflow-store` |
-| `src/lib/server/terminal-sessions.ts` | `codeflow-store` |
-| `src/lib/blueprint/typescript-workspace.ts` | `codeflow-execution`, `codeflow-codegen` |
-| `src/lib/blueprint/sandbox.ts` | `codeflow-execution`, `codeflow-store` |
+| File | Move to | Used by |
+|-------|---------|---------|
+| `src/lib/blueprint/file-tree.ts` | `@abhinav2203/codeflow-core` | `codeflow-prd`, `codeflow-store` |
+| `src/lib/server/run-command.ts` | `@abhinav2203/codeflow-core` | `codeflow-store` |
+| `src/lib/server/terminal-sessions.ts` | `@abhinav2203/codeflow-core` | `codeflow-store` |
+| `src/lib/blueprint/typescript-workspace.ts` | `@abhinav2203/codeflow-core` | `codeflow-execution`, `codeflow-codegen` |
+| `src/lib/blueprint/sandbox.ts` | `@abhinav2203/codeflow-core` | `codeflow-execution`, `codeflow-store` |
 
 ---
 
@@ -911,19 +911,19 @@ codeflow-execution:
 
 codeflow-opencode:
   src/lib/opencode/*.ts
-  src/app/api/opencode/{status,start,stop,restart,agent,sessions/[id],mcp,permissions}/route.ts
+  src/app/api/opencode/{status,start,stop,restart,agent,sessions,sessions/[id],mcp,permissions}/route.ts
 
 codeflow-codegen:
   src/lib/blueprint/{codegen,compile-validation,code-assist}.ts
   src/app/api/{code-suggestions,implement-node}/route.ts
 
 codeflow-evolution:
-  src/lib/blueprint/{genetic,heatmap}*.ts
+  src/lib/blueprint/genetic*.ts
   src/app/api/{genetic/evolve,ghost-nodes}/route.ts
 
 codeflow-canvas:
   src/components/{graph-canvas,blueprint-workbench,file-tabs,file-tree,ide-layout,ide-workbench,code-diff-editor,code-editor,monaco-setup,ts-language-service,opencode-settings}*.ts*
-  src/lib/blueprint/{flow-view,edit,traces,node-navigation,heatmap}.ts
+  src/lib/blueprint/{flow-view,edit,traces,node-navigation,heatmap,heatmap.test}.ts
   src/app/api/observability/{ingest,latest}/route.ts
 
 codeflow-dtwin:
