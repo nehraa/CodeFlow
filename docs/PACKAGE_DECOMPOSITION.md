@@ -8,7 +8,7 @@
 | `coderag` | `@abhinav2203/coderag` | Code retrieval & RAG: embeddings, indexing, retrieval, MCP server |
 
 **`coderag` also appears in the dependency graph:**
-```
+```text
 coderag → @abhinav2203/codeflow-core
 ```
 
@@ -74,7 +74,7 @@ coderag → @abhinav2203/codeflow-core
 
 ### Dependency Graph
 
-```
+```text
 codeflow-store
 codeflow-mcp
        │
@@ -107,7 +107,7 @@ Every internal package dependency is declared as an `npm` dependency in `package
 
 ### Package Dependency Graph (npm deps)
 
-```
+```text
 codeflow-store        → @abhinav2203/codeflow-core
 codeflow-mcp         → @abhinav2203/codeflow-core
                        → @abhinav2203/codeflow-store   (optional, resolved at build time)
@@ -187,7 +187,7 @@ Below are exact instructions for each package — what files to move, what to wi
 
 **Source files to isolate:**
 
-```
+```text
 FROM: src/lib/blueprint/
   - approval-store.ts
   - checkpoint-store.ts
@@ -205,17 +205,19 @@ FROM: src/store/
 
 **API routes to wire:**
 
-```
+```text
 FROM: src/app/api/approvals/approve/route.ts
 FROM: src/app/api/export/route.ts        (risk/export approval gating)
 ```
 
-**Shared utilities (copy, don't import from blueprint):**
+**Shared utilities (import from `@abhinav2203/codeflow-core`, do not copy):**
 
-```
-FROM: src/lib/blueprint/file-tree.ts
-FROM: src/lib/server/run-command.ts
-FROM: src/lib/server/terminal-sessions.ts
+> These files must be moved into `@abhinav2203/codeflow-core` first. Once there, declare `@abhinav2203/codeflow-core` as a dependency and import from it. Do not duplicate business logic into `codeflow-store`.
+
+```text
+src/lib/blueprint/file-tree.ts         → move to @abhinav2203/codeflow-core
+src/lib/server/run-command.ts          → move to @abhinav2203/codeflow-core
+src/lib/server/terminal-sessions.ts   → move to @abhinav2203/codeflow-core
 ```
 
 **`package.json` fields:**
@@ -240,7 +242,7 @@ FROM: src/lib/server/terminal-sessions.ts
 ```
 
 **Developer prompt:**
-> "Extract the storage layer from the CodeFlow monorepo. Move `src/lib/blueprint/{approval-store,checkpoint-store,branch-store,run-store,observability-store,session-store,store,risk}.ts` and `src/store/blueprint-store.ts` into `packages/codeflow-store/src/`. Copy shared utilities `src/lib/blueprint/file-tree.ts`, `src/lib/server/run-command.ts`, and `src/lib/server/terminal-sessions.ts` into the package (they're used by the store layer but live in the monorepo). Wire the API routes `src/app/api/approvals/approve/route.ts` and `src/app/api/export/route.ts` to import from the new package. Publish as `@abhinav2203/codeflow-store`. Tests stay next to source files."
+> "Extract the storage layer from the CodeFlow monorepo. Move `src/lib/blueprint/{approval-store,checkpoint-store,branch-store,run-store,observability-store,session-store,store,risk}.ts` and `src/store/blueprint-store.ts` into `packages/codeflow-store/src/`. Import shared utilities (`file-tree`, `run-command`, `terminal-sessions`) from `@abhinav2203/codeflow-core` — do not copy them into this package. Wire the API routes `src/app/api/approvals/approve/route.ts` and `src/app/api/export/route.ts` to import from the new package. Publish as `@abhinav2203/codeflow-store`. Tests stay next to source files."
 
 ---
 
@@ -252,7 +254,7 @@ FROM: src/lib/server/terminal-sessions.ts
 
 **Source files to isolate:**
 
-```
+```text
 FROM: src/lib/blueprint/
   - mcp.ts
   - mcp.test.ts
@@ -260,7 +262,7 @@ FROM: src/lib/blueprint/
 
 **API routes to wire:**
 
-```
+```text
 FROM: src/app/api/mcp/invoke/route.ts
 FROM: src/app/api/mcp/invoke/route.test.ts
 FROM: src/app/api/mcp/tools/route.ts
@@ -299,7 +301,7 @@ FROM: src/app/api/mcp/tools/route.test.ts
 
 **Source files to isolate:**
 
-```
+```text
 FROM: src/lib/blueprint/
   - branches.ts               (includes branch diff logic)
   - branches.test.ts
@@ -307,7 +309,7 @@ FROM: src/lib/blueprint/
 
 **API routes to wire:**
 
-```
+```text
 FROM: src/app/api/branches/route.ts
 FROM: src/app/api/branches/route.test.ts
 FROM: src/app/api/branches/[id]/route.ts
@@ -348,7 +350,7 @@ FROM: src/app/api/branches/diff/route.test.ts
 
 **Source files to isolate:**
 
-```
+```text
 FROM: src/lib/blueprint/
   - prd.ts
   - prd.test.ts
@@ -359,7 +361,7 @@ FROM: src/lib/blueprint/
 
 **API routes to wire:**
 
-```
+```text
 FROM: src/app/api/blueprint/route.ts
 FROM: src/app/api/blueprint/route.test.ts
 FROM: src/app/api/generate-blueprint/route.ts
@@ -397,7 +399,7 @@ FROM: src/app/api/generate-blueprint/route.ts
 
 **Source files to isolate:**
 
-```
+```text
 FROM: src/lib/blueprint/
   - cycles.ts
   - cycles.test.ts
@@ -411,7 +413,7 @@ FROM: src/lib/blueprint/
 
 **API routes to wire:**
 
-```
+```text
 FROM: src/app/api/analysis/cycles/route.ts
 FROM: src/app/api/analysis/cycles/route.test.ts
 FROM: src/app/api/analysis/metrics/route.ts
@@ -462,7 +464,7 @@ FROM: src/app/api/conflicts/route.test.ts
 
 **Source files to isolate:**
 
-```
+```text
 FROM: src/lib/blueprint/
   - nvidia.ts
   - prompt-governance.ts
@@ -471,7 +473,7 @@ FROM: src/lib/blueprint/
 
 **API routes to wire:**
 
-```
+```text
 FROM: src/app/api/generate-blueprint/route.ts   (NVIDIA AI generation endpoint)
 ```
 
@@ -507,7 +509,7 @@ FROM: src/app/api/generate-blueprint/route.ts   (NVIDIA AI generation endpoint)
 
 **Source files to isolate:**
 
-```
+```text
 FROM: src/lib/blueprint/
   - runner.ts
   - runner.test.ts
@@ -528,7 +530,7 @@ FROM: src/lib/blueprint/
 
 **API routes to wire:**
 
-```
+```text
 FROM: src/app/api/executions/run/route.ts
 FROM: src/app/api/executions/run/route.test.ts
 FROM: src/app/api/vcr/route.ts
@@ -576,7 +578,7 @@ FROM: src/app/api/code-completions/route.ts
 
 **Source files to isolate:**
 
-```
+```text
 FROM: src/lib/opencode/
   - index.ts
   - agent.ts
@@ -596,7 +598,7 @@ FROM: src/lib/server/
 
 **API routes to wire:**
 
-```
+```text
 FROM: src/app/api/opencode/status/route.ts
 FROM: src/app/api/opencode/start/route.ts
 FROM: src/app/api/opencode/stop/route.ts
@@ -644,7 +646,7 @@ FROM: src/app/api/opencode/permissions/route.ts
 
 **Source files to isolate:**
 
-```
+```text
 FROM: src/lib/blueprint/
   - codegen.ts
   - compile-validation.ts
@@ -654,7 +656,7 @@ FROM: src/lib/blueprint/
 
 **API routes to wire:**
 
-```
+```text
 FROM: src/app/api/code-suggestions/route.ts
 FROM: src/app/api/implement-node/route.ts
 ```
@@ -693,7 +695,7 @@ FROM: src/app/api/implement-node/route.ts
 
 **Source files to isolate:**
 
-```
+```text
 FROM: src/lib/blueprint/
   - genetic.ts
   - genetic.test.ts
@@ -703,7 +705,7 @@ FROM: src/app/api/ghost-nodes/route.ts
 
 **API routes to wire:**
 
-```
+```text
 FROM: src/app/api/genetic/evolve/route.ts
 FROM: src/app/api/genetic/evolve/route.test.ts
 FROM: src/app/api/ghost-nodes/route.ts
@@ -742,7 +744,7 @@ FROM: src/app/api/ghost-nodes/route.ts
 
 **Source files to isolate:**
 
-```
+```text
 FROM: src/components/
   - graph-canvas.tsx
   - blueprint-workbench.tsx
@@ -775,7 +777,7 @@ FROM: src/lib/blueprint/
 
 **API routes to wire:** (canvas is primarily UI — most logic is in the lib files above)
 
-```
+```text
 FROM: src/app/api/observability/ingest/route.ts   (trace overlay data)
 FROM: src/app/api/observability/latest/route.ts
 ```
@@ -823,7 +825,7 @@ FROM: src/app/api/observability/latest/route.ts
 
 **Source files to isolate:**
 
-```
+```text
 FROM: src/lib/blueprint/
   - digital-twin.ts
   - digital-twin.test.ts
@@ -831,7 +833,7 @@ FROM: src/lib/blueprint/
 
 **API routes to wire:**
 
-```
+```text
 FROM: src/app/api/digital-twin/route.ts
 FROM: src/app/api/digital-twin/route.test.ts
 FROM: src/app/api/digital-twin/simulate/route.ts
@@ -879,7 +881,7 @@ These files are used by multiple packages. They should be moved to `@abhinav2203
 
 ## Summary: All Source Files by Package
 
-```
+```text
 codeflow-store:
   src/lib/blueprint/{approval-store,checkpoint-store,branch-store,run-store,observability-store,session-store,store,risk}.ts
   src/store/{blueprint-store,blueprint-store.test}.ts
@@ -1139,12 +1141,11 @@ codeflow-codegen suggest ./blueprint.json --node <node-id>
 codeflow-evolution ghost ./blueprint.json
 codeflow-evolution ghost ./blueprint.json --model <model-name>
 codeflow-evolution evolve ./blueprint.json --generations 20 --population 10
-codeflow-evolution heatmap ./blueprint.json ./trace-data.json
 ```
 
-**Isolation test:** `ghost` → assert ghost nodes are returned with `suggestedEdges[]`. `evolve` → assert a ranked list of architecture variants is returned after N generations. `heatmap` → assert each node has a `heat` value (0-1).
+**Isolation test:** `ghost` → assert ghost nodes are returned with `suggestedEdges[]`. `evolve` → assert a ranked list of architecture variants is returned after N generations.
 
-**Success signal:** Ghost nodes have `name`, `kind`, `reason`, and `suggestedEdges`. Evolved variants are ranked by fitness score. Heatmap colors are valid RGB hex strings.
+**Success signal:** Ghost nodes have `name`, `kind`, `reason`, and `suggestedEdges`. Evolved variants are ranked by fitness score.
 
 ---
 
