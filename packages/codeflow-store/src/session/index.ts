@@ -42,6 +42,7 @@ export const loadLatestSession = async (projectName: string): Promise<PersistedS
 export const upsertSession = async ({
   graph,
   runPlan,
+  repoPath,
   lastRiskReport,
   lastExportResult,
   lastExecutionReport,
@@ -50,6 +51,7 @@ export const upsertSession = async ({
 }: {
   graph: BlueprintGraph;
   runPlan: RunPlan;
+  repoPath?: string;
   lastRiskReport?: RiskReport;
   lastExportResult?: ExportResult;
   lastExecutionReport?: ExecutionReport;
@@ -62,6 +64,7 @@ export const upsertSession = async ({
     sessionId: sessionId ?? existing?.sessionId ?? createSessionId(),
     projectName: normalizedGraph.projectName,
     updatedAt: new Date().toISOString(),
+    repoPath: repoPath?.trim() ? path.resolve(repoPath) : existing?.repoPath,
     graph: normalizedGraph,
     runPlan,
     lastRiskReport: lastRiskReport ?? existing?.lastRiskReport,

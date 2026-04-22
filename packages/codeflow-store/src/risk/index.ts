@@ -102,7 +102,8 @@ export const assessExportRisk = async (
     });
   }
 
-  if (!resolvedOutputDir.startsWith(workspaceRoot)) {
+  const relativeOutputDir = path.relative(workspaceRoot, resolvedOutputDir);
+  if (relativeOutputDir.startsWith("..") || path.isAbsolute(relativeOutputDir)) {
     factors.push({
       code: "outside-workspace",
       message: `Output directory is outside the workspace root: ${resolvedOutputDir}.`,

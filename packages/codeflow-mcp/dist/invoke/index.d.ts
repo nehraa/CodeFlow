@@ -11,11 +11,7 @@
  * protocol over its channel.
  */
 import { type Server } from "node:http";
-interface Tool {
-    name: string;
-    description: string;
-    inputSchema: Record<string, unknown>;
-}
+import { TOOLS } from "../tools/index.js";
 interface ToolResult {
     content: Array<{
         type: "text";
@@ -27,7 +23,6 @@ interface ToolResult {
     }>;
     isError?: boolean;
 }
-declare const TOOLS: Tool[];
 interface JsonRpcRequest {
     jsonrpc: "2.0";
     id: number | string | null;
@@ -66,5 +61,5 @@ export declare function startStdioServer(): Promise<void>;
  */
 export declare function createHttpServer(port?: number, host?: string): Server;
 export { TOOLS, handleJsonRpc, jsonRpcError, jsonRpcResult };
-export type { Tool, ToolResult, JsonRpcRequest, JsonRpcResponse };
+export type { ToolResult, JsonRpcRequest, JsonRpcResponse };
 //# sourceMappingURL=index.d.ts.map

@@ -34,14 +34,35 @@ export const latestSessionPath = (projectName: string): string =>
 export const sessionHistoryPath = (projectName: string, sessionId: string): string =>
   path.join(sessionDirForProject(projectName), "history", `${sessionId}.json`);
 
-export const approvalPath = (approvalId: string): string =>
-  path.join(getStoreRoot(), "approvals", `${approvalId}.json`);
+export const approvalPath = (approvalId: string): string => {
+  const safeApprovalId = path.basename(approvalId);
 
-export const runPath = (runId: string): string =>
-  path.join(getStoreRoot(), "runs", `${runId}.json`);
+  if (safeApprovalId !== approvalId) {
+    throw new Error(`Invalid approval ID: must not contain path separators`);
+  }
 
-export const checkpointPath = (checkpointId: string): string =>
-  path.join(getStoreRoot(), "checkpoints", checkpointId);
+  return path.join(getStoreRoot(), "approvals", `${safeApprovalId}.json`);
+};
+
+export const runPath = (runId: string): string => {
+  const safeRunId = path.basename(runId);
+
+  if (safeRunId !== runId) {
+    throw new Error(`Invalid run ID: must not contain path separators`);
+  }
+
+  return path.join(getStoreRoot(), "runs", `${safeRunId}.json`);
+};
+
+export const checkpointPath = (checkpointId: string): string => {
+  const safeCheckpointId = path.basename(checkpointId);
+
+  if (safeCheckpointId !== checkpointId) {
+    throw new Error(`Invalid checkpoint ID: must not contain path separators`);
+  }
+
+  return path.join(getStoreRoot(), "checkpoints", safeCheckpointId);
+};
 
 export const observabilityPath = (projectName: string): string =>
   path.join(getStoreRoot(), "observability", `${slugify(projectName)}.json`);
