@@ -1,0 +1,20 @@
+# Claude Code
+claude-code/
+.qwen/
+
+# Source files - only dist is needed for publishing
+src/
+*.test.*
+vitest.config.ts
+tsconfig.json
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store

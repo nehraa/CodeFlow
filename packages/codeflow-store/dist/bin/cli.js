@@ -77,7 +77,8 @@ const main = async () => {
         }
         case "approval approve": {
             const approvalId = rest[0] ?? fail("approvalId required");
-            const approval = await approveRecord(approvalId);
+            const approver = rest[1] ?? fail("approver name required");
+            const approval = await approveRecord(approvalId, approver);
             console.log(JSON.stringify(approval, null, 2));
             break;
         }

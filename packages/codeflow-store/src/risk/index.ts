@@ -68,10 +68,40 @@ const resolveOutputDir = (graph: BlueprintGraph, outputDir?: string): string =>
     : resolveDefaultOutputDir(graph);
 
 export const assessExportRisk = async (
-  graph: BlueprintGraph,
-  runPlan: RunPlan,
+  graphOrOptions: BlueprintGraph | { graph: BlueprintGraph; runPlan: RunPlan; outputDir?: string },
+  runPlanOrUndefined?: RunPlan,
   outputDir?: string
 ): Promise<ExportRiskAssessment> => {
+  let graph: BlueprintGraph;
+  let runPlan: RunPlan;
+
+  // Support both assessExportRisk(graph, runPlan, outputDir) and assessExportRisk({ graph, runPlan, outputDir })
+  if (
+    typeof graphOrOptions === "object" &&
+    graphOrOptions !== null &&
+    "graph" in graphOrOptions &&
+    "runPlan" in (graphOrOptions as any)
+  ) {
+    const opts = graphOrOptions as { graph: BlueprintGraph; runPlan: RunPlan; outputDir?: string };
+    graph = opts.graph;
+    runPlan = opts.runPlan;
+    outputDir = opts.outputDir;
+  } else {
+    if (graphOrOptions == null) {
+      throw new Error(
+        `assessExportRisk: graph must be a BlueprintGraph or { graph, runPlan, outputDir }; received null`
+      );
+    }
+    if (typeof graphOrOptions !== "object") {
+      throw new Error(
+        `assessExportRisk: graph must be a BlueprintGraph or { graph, runPlan, outputDir }; received: ${JSON.stringify(graphOrOptions)}`
+      );
+    }
+    // graphOrOptions is an object but lacks both 'graph' and 'runPlan' keys.
+    // Treat it as a BlueprintGraph passed in the positional form: assessExportRisk(graph, runPlan, outputDir).
+    graph = graphOrOptions as BlueprintGraph;
+    runPlan = runPlanOrUndefined as RunPlan;
+  }
   const resolvedOutputDir = resolveOutputDir(graph, outputDir);
   const factors: RiskFactor[] = [];
   const repoBackedNodeCount = graph.nodes.filter((node) =>

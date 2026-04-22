@@ -42,7 +42,31 @@ const resolveDefaultOutputDir = (graph) => {
 const resolveOutputDir = (graph, outputDir) => outputDir && outputDir.trim()
     ? path.resolve(outputDir)
     : resolveDefaultOutputDir(graph);
-export const assessExportRisk = async (graph, runPlan, outputDir) => {
+export const assessExportRisk = async (graphOrOptions, runPlanOrUndefined, outputDir) => {
+    let graph;
+    let runPlan;
+    // Support both assessExportRisk(graph, runPlan, outputDir) and assessExportRisk({ graph, runPlan, outputDir })
+    if (typeof graphOrOptions === "object" &&
+        graphOrOptions !== null &&
+        "graph" in graphOrOptions &&
+        "runPlan" in graphOrOptions) {
+        const opts = graphOrOptions;
+        graph = opts.graph;
+        runPlan = opts.runPlan;
+        outputDir = opts.outputDir;
+    }
+    else {
+        if (graphOrOptions == null) {
+            throw new Error(`assessExportRisk: graph must be a BlueprintGraph or { graph, runPlan, outputDir }; received null`);
+        }
+        if (typeof graphOrOptions !== "object") {
+            throw new Error(`assessExportRisk: graph must be a BlueprintGraph or { graph, runPlan, outputDir }; received: ${JSON.stringify(graphOrOptions)}`);
+        }
+        // graphOrOptions is an object but lacks both 'graph' and 'runPlan' keys.
+        // Treat it as a BlueprintGraph passed in the positional form: assessExportRisk(graph, runPlan, outputDir).
+        graph = graphOrOptions;
+        runPlan = runPlanOrUndefined;
+    }
     const resolvedOutputDir = resolveOutputDir(graph, outputDir);
     const factors = [];
     const repoBackedNodeCount = graph.nodes.filter((node) => node.sourceRefs.some((ref) => ref.kind === "repo")).length;
@@ -68,7 +92,8 @@ export const assessExportRisk = async (graph, runPlan, outputDir) => {
             score: 1
         });
     }
-    if (!resolvedOutputDir.startsWith(workspaceRoot)) {
+    const relativeOutputDir = path.relative(workspaceRoot, resolvedOutputDir);
+    if (relativeOutputDir.startsWith("..") || path.isAbsolute(relativeOutputDir)) {
         factors.push({
             code: "outside-workspace",
             message: `Output directory is outside the workspace root: ${resolvedOutputDir}.`,

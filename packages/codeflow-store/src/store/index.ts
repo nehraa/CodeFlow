@@ -45,6 +45,14 @@ const resolveGraphUpdate = (
 const resolveNodeUpdate = (node: BlueprintNode, patch: NodeUpdater): BlueprintNode =>
   typeof patch === "function" ? patch(node) : { ...node, ...patch };
 
+/**
+ * NOTE: useBlueprintStore is a React hook. It crashes in non-React environments
+ * (e.g., Node.js servers) because React hook invariants require React to be present.
+ * This export exists for backwards-compatibility with existing React consumers only.
+ * Node.js callers should not use this — create a plain Zustand store directly.
+ *
+ * The `react` peerDependency is declared in package.json to enforce this constraint.
+ */
 export const useBlueprintStore = create<BlueprintStore>((set) => ({
   graph: null,
   setGraph: (next) =>

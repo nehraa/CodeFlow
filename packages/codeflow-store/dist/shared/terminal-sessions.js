@@ -124,7 +124,7 @@ export const createTerminalSession = async (options) => {
     child.on("close", (code) => {
         session.status = session.status === "error" ? "error" : "exited";
         session.exitCode = code;
-        appendOutput(session, `\n[CodeFlow] Terminal exited with code ${code ?? "unknown"}.\\n`);
+        appendOutput(session, `\n[CodeFlow] Terminal exited with code ${code ?? "unknown"}.\n`);
     });
     sessions.set(session.id, session);
     return toSnapshot(session);

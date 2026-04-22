@@ -398,10 +398,12 @@ export type RiskReport = z.infer<typeof riskReportSchema>;
 export const approvalRecordSchema = z.object({
   id: z.string(),
   action: z.enum(["export"]),
+  runId: z.string().optional(),
   projectName: z.string(),
   status: z.enum(["pending", "approved"]),
   fingerprint: z.string(),
   requestedAt: z.string(),
+  approver: z.string().optional(),
   approvedAt: z.string().optional(),
   outputDir: z.string(),
   runPlan: runPlanSchema,
@@ -482,6 +484,7 @@ export type RunRecord = z.infer<typeof runRecordSchema>;
 export const traceSpanSchema = z.object({
   spanId: z.string(),
   traceId: z.string(),
+  taskId: z.string().optional(),
   name: z.string(),
   blueprintNodeId: z.string().optional(),
   path: z.string().optional(),

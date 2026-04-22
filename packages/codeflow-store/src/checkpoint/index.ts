@@ -34,3 +34,10 @@ export const createCheckpointIfNeeded = async (
 
   return checkpointDir;
 };
+
+export {
+  saveTaskReasoningCheckpoint,
+  loadTaskReasoningCheckpoint,
+  recoverRun,
+  clearTaskReasoningCheckpoint
+} from "./reasoning.js";

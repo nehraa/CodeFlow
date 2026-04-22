@@ -130,7 +130,7 @@ describe("approval", () => {
   describe("approveRecord", () => {
     it("throws when the record does not exist", async () => {
       await withEnv(async () => {
-        await expect(approveRecord("does-not-exist")).rejects.toThrow(
+        await expect(approveRecord("does-not-exist", "test-approver")).rejects.toThrow(
           "Approval does-not-exist was not found."
         );
       });
@@ -146,10 +146,11 @@ describe("approval", () => {
           riskReport: { score: 0, level: "low", requiresApproval: false, factors: [] }
         });
 
-        const approved = await approveRecord(created.id);
+        const approved = await approveRecord(created.id, "test-approver");
         expect(approved.status).toBe("approved");
         expect(approved.approvedAt).toBeDefined();
         expect(approved.approvedAt).not.toBeNull();
+        expect(approved.approver).toBe("test-approver");
       });
     });
 
@@ -163,12 +164,13 @@ describe("approval", () => {
           riskReport: { score: 0, level: "low", requiresApproval: false, factors: [] }
         });
 
-        const approved = await approveRecord(created.id);
+        const approved = await approveRecord(created.id, "test-approver");
         expect(approved.id).toBe(created.id);
         expect(approved.projectName).toBe("test-project");
         expect(approved.fingerprint).toBe("fingerprint-abc");
         expect(approved.outputDir).toBe("/tmp/output");
         expect(approved.action).toBe("export");
+        expect(approved.approver).toBe("test-approver");
       });
     });
 
@@ -182,13 +184,14 @@ describe("approval", () => {
           riskReport: { score: 0, level: "low", requiresApproval: false, factors: [] }
         });
 
-        await approveRecord(created.id);
+        await approveRecord(created.id, "test-approver");
 
         const filePath = path.join(STORE_ROOT, "approvals", `${created.id}.json`);
         const content = await fs.readFile(filePath, "utf8");
         const parsed = JSON.parse(content);
         expect(parsed.status).toBe("approved");
         expect(parsed.approvedAt).toBeDefined();
+        expect(parsed.approver).toBe("test-approver");
       });
     });
   });

@@ -1,14 +1,16 @@
 import type { BlueprintGraph, ExecutionReport, ExportResult, PersistedSession, RiskReport, RunPlan } from "@abhinav2203/codeflow-core/schema";
-export declare const createSessionId: () => string;
-export declare const saveSession: (session: PersistedSession) => Promise<void>;
-export declare const loadLatestSession: (projectName: string) => Promise<PersistedSession | null>;
-export declare const upsertSession: ({ graph, runPlan, lastRiskReport, lastExportResult, lastExecutionReport, approvalId, sessionId }: {
+export declare const createSessionId: (hint?: string) => string;
+export declare const saveSession: (session: PersistedSession) => Promise<PersistedSession>;
+export declare const loadLatestSession: (projectName: string, _branchName?: string) => Promise<PersistedSession | null>;
+export declare const upsertSession: ({ projectName, sessionId, graph, runPlan, repoPath, lastRiskReport, lastExportResult, lastExecutionReport, approvalId }: {
+    projectName?: string;
+    sessionId?: string;
     graph: BlueprintGraph;
     runPlan: RunPlan;
+    repoPath?: string;
     lastRiskReport?: RiskReport;
     lastExportResult?: ExportResult;
     lastExecutionReport?: ExecutionReport;
     approvalId?: string;
-    sessionId?: string;
 }) => Promise<PersistedSession>;
 //# sourceMappingURL=index.d.ts.map

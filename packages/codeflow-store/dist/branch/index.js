@@ -5,11 +5,27 @@ const ensureDir = async (dirPath) => {
     await fs.mkdir(dirPath, { recursive: true });
 };
 export const saveBranch = async (branch) => {
-    const filePath = branchPath(branch.projectName, branch.id);
+    if (branch == null) {
+        throw new Error("branch is required; received null");
+    }
+    // Normalize common caller mistakes: branchName → name, projectId → projectName
+    const normalized = {
+        ...branch,
+        name: branch.name ?? branch.branchName ?? branch.id,
+        projectName: branch.projectName ?? branch.projectId ?? branch.projectName
+    };
+    const filePath = branchPath(normalized.projectName, normalized.id);
     await ensureDir(path.dirname(filePath));
-    await fs.writeFile(filePath, `${JSON.stringify(branch, null, 2)}\n`, "utf8");
+    await fs.writeFile(filePath, `${JSON.stringify(normalized, null, 2)}\n`, "utf8");
+    return normalized;
 };
 export const loadBranch = async (projectName, branchId) => {
+    if (typeof projectName !== "string" || projectName.trim().length === 0) {
+        throw new Error(`projectName must be a non-empty string; received: ${JSON.stringify(projectName)}`);
+    }
+    if (typeof branchId !== "string" || branchId.trim().length === 0) {
+        throw new Error(`branchId must be a non-empty string; received: ${JSON.stringify(branchId)}`);
+    }
     try {
         const content = await fs.readFile(branchPath(projectName, branchId), "utf8");
         return JSON.parse(content);
@@ -19,6 +35,9 @@ export const loadBranch = async (projectName, branchId) => {
     }
 };
 export const loadBranches = async (projectName) => {
+    if (typeof projectName !== "string" || projectName.trim().length === 0) {
+        throw new Error(`projectName must be a non-empty string; received: ${JSON.stringify(projectName)}`);
+    }
     const dir = branchDirForProject(projectName);
     try {
         const entries = await fs.readdir(dir);

@@ -15,31 +15,50 @@ const writeApprovalFile = async (record: ApprovalRecord): Promise<void> => {
   await fs.writeFile(filePath, `${JSON.stringify(record, null, 2)}\n`, "utf8");
 };
 
-export const createApprovalId = (): string => crypto.randomUUID();
+/**
+ * Creates a new unique approval record ID.
+ * @param hint - Optional hint to incorporate into the ID. If omitted, a random UUID is generated.
+ */
+export const createApprovalId = (hint?: string): string => {
+  if (hint != null && typeof hint !== "string") {
+    throw new Error(`createApprovalId: hint must be a string or omitted; received: ${JSON.stringify(hint)}`);
+  }
+  if (hint) {
+    return `${hint}-${crypto.randomUUID()}`;
+  }
+  return crypto.randomUUID();
+};
 
 export const createApprovalRecord = async ({
+  approvalId,
+  runId,
   projectName,
   fingerprint,
   outputDir,
   runPlan,
-  riskReport
+  riskReport,
+  status = "pending"
 }: {
+  approvalId?: string;
+  runId?: string;
   projectName: string;
   fingerprint: string;
   outputDir: string;
   runPlan: RunPlan;
   riskReport: RiskReport;
+  status?: "pending" | "approved";
 }): Promise<ApprovalRecord> => {
   const record: ApprovalRecord = {
-    id: createApprovalId(),
+    id: approvalId ?? createApprovalId(),
     action: "export",
     projectName,
-    status: "pending",
+    status,
     fingerprint,
     requestedAt: new Date().toISOString(),
     outputDir,
     runPlan,
-    riskReport
+    riskReport,
+    ...(runId ? { runId } : {})
   };
 
   await writeApprovalFile(record);
@@ -47,6 +66,9 @@ export const createApprovalRecord = async ({
 };
 
 export const getApprovalRecord = async (approvalId: string): Promise<ApprovalRecord | null> => {
+  if (typeof approvalId !== "string" || approvalId.trim().length === 0) {
+    throw new Error(`approvalId must be a non-empty string; received: ${JSON.stringify(approvalId)}`);
+  }
   try {
     const content = await fs.readFile(approvalPath(approvalId), "utf8");
     return JSON.parse(content) as ApprovalRecord;
@@ -55,7 +77,10 @@ export const getApprovalRecord = async (approvalId: string): Promise<ApprovalRec
   }
 };
 
-export const approveRecord = async (approvalId: string): Promise<ApprovalRecord> => {
+export const approveRecord = async (approvalId: string, approver: string): Promise<ApprovalRecord> => {
+  if (typeof approver !== "string" || approver.trim().length === 0) {
+    throw new Error(`approver must be a non-empty string; received: ${JSON.stringify(approver)}`);
+  }
   const existing = await getApprovalRecord(approvalId);
   if (!existing) {
     throw new Error(`Approval ${approvalId} was not found.`);
@@ -64,6 +89,7 @@ export const approveRecord = async (approvalId: string): Promise<ApprovalRecord>
   const approved: ApprovalRecord = {
     ...existing,
     status: "approved",
+    approver,
     approvedAt: new Date().toISOString()
   };
 
