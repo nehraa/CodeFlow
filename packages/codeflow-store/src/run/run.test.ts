@@ -51,7 +51,31 @@ const makeRunRecord = (id: string): RunRecord => ({
   },
   riskReport: undefined,
   approvalId: undefined,
-  executionReport: undefined,
+  executionReport: {
+    startedAt: new Date().toISOString(),
+    completedAt: new Date().toISOString(),
+    results: [
+      {
+        taskId: "task-1",
+        nodeId: "n1",
+        status: "completed",
+        batchIndex: 0,
+        outputPaths: ["dist/auth.js"],
+        managedRegionIds: [],
+        message: "Task completed successfully",
+        errors: [],
+        taskType: "code_generation",
+        reasoning:
+          "I created auth.ts to handle JWT validation because the blueprint specified validateToken as a module dependency.",
+        changes: [
+          { file: "src/auth.ts", action: "created", summary: "JWT validation module" }
+        ]
+      }
+    ],
+    ownership: [],
+    steps: [],
+    artifacts: []
+  },
   exportResult: undefined
 });
 
@@ -115,23 +139,57 @@ describe("run", () => {
       });
     });
 
-    it("can store a record with optional fields as null", async () => {
+    it("stores task execution result with reasoning and changes", async () => {
+      await withEnv(async () => {
+        const record = makeRunRecord("run-reasoning");
+        await saveRunRecord(record);
+
+        const filePath = path.join(STORE_ROOT, "runs", "run-reasoning.json");
+        const content = await fs.readFile(filePath, "utf8");
+        const parsed = JSON.parse(content);
+
+        expect(parsed.executionReport.results).toHaveLength(1);
+        expect(parsed.executionReport.results[0].reasoning).toBe(
+          "I created auth.ts to handle JWT validation because the blueprint specified validateToken as a module dependency."
+        );
+        expect(parsed.executionReport.results[0].changes).toHaveLength(1);
+        expect(parsed.executionReport.results[0].changes[0].file).toBe("src/auth.ts");
+        expect(parsed.executionReport.results[0].changes[0].action).toBe("created");
+        expect(parsed.executionReport.results[0].taskType).toBe("code_generation");
+      });
+    });
+
+    it("accepts empty changes array for no-op tasks", async () => {
       await withEnv(async () => {
         const record: RunRecord = {
-          ...makeRunRecord("run-minimal"),
-          riskReport: undefined,
-          approvalId: undefined,
-          executionReport: undefined,
-          exportResult: undefined
+          ...makeRunRecord("run-noop"),
+          executionReport: {
+            ...makeRunRecord("run-noop").executionReport!,
+            results: [
+              {
+                taskId: "task-1",
+                nodeId: "n1",
+                status: "completed",
+                batchIndex: 0,
+                outputPaths: [],
+                managedRegionIds: [],
+                message: "No files changed",
+                errors: [],
+                taskType: "bugfix",
+                reasoning: "No changes needed — existing implementation already handles edge case correctly.",
+                changes: []
+              }
+            ]
+          }
         };
         await saveRunRecord(record);
 
-        const result = await fs.readFile(
-          path.join(STORE_ROOT, "runs", "run-minimal.json"),
-          "utf8"
-        );
-        const parsed = JSON.parse(result);
-        expect(parsed.id).toBe("run-minimal");
+        const filePath = path.join(STORE_ROOT, "runs", "run-noop.json");
+        const content = await fs.readFile(filePath, "utf8");
+        const parsed = JSON.parse(content);
+
+        expect(parsed.executionReport.results[0].changes).toHaveLength(0);
+        expect(parsed.executionReport.results[0].taskType).toBe("bugfix");
       });
     });
   });
