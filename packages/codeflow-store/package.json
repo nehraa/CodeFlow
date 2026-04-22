@@ -1,6 +1,6 @@
 {
   "name": "@abhinav2203/codeflow-store",
-  "version": "0.2.1",
+  "version": "0.2.3",
   "description": "Local session storage, project-scoped state, checkpointing, approvals.",
   "type": "module",
   "main": "./dist/index.js",
@@ -52,7 +52,7 @@
     "build": "tsc --outDir dist --declaration --declarationMap"
   },
   "dependencies": {
-    "@abhinav2203/codeflow-core": "file:../../codeflow-core",
+    "@abhinav2203/codeflow-core": "^1.1.1",
     "zustand": "^5.0.0"
   },
   "devDependencies": {

@@ -1,4 +1,24 @@
 import { z } from "zod";
+export declare const fileChangeSchema: z.ZodObject<{
+    file: z.ZodString;
+    action: z.ZodEnum<{
+        created: "created";
+        modified: "modified";
+        deleted: "deleted";
+        renamed: "renamed";
+    }>;
+    summary: z.ZodString;
+}, z.core.$strip>;
+export type FileChange = z.infer<typeof fileChangeSchema>;
+export declare const taskTypeSchema: z.ZodEnum<{
+    code_generation: "code_generation";
+    refactor: "refactor";
+    bugfix: "bugfix";
+    test_generation: "test_generation";
+    documentation: "documentation";
+    unknown: "unknown";
+}>;
+export type TaskType = z.infer<typeof taskTypeSchema>;
 export declare const executionModeSchema: z.ZodEnum<{
     essential: "essential";
     yolo: "yolo";
@@ -37,10 +57,10 @@ export declare const edgeKindSchema: z.ZodEnum<{
 }>;
 export type BlueprintEdgeKind = z.infer<typeof edgeKindSchema>;
 export declare const traceStatusSchema: z.ZodEnum<{
+    error: "error";
     idle: "idle";
     success: "success";
     warning: "warning";
-    error: "error";
 }>;
 export type TraceStatus = z.infer<typeof traceStatusSchema>;
 export declare const outputProvenanceSchema: z.ZodEnum<{
@@ -195,10 +215,10 @@ export declare const sourceRefSchema: z.ZodObject<{
 export type SourceRef = z.infer<typeof sourceRefSchema>;
 export declare const traceStateSchema: z.ZodObject<{
     status: z.ZodEnum<{
+        error: "error";
         idle: "idle";
         success: "success";
         warning: "warning";
-        error: "error";
     }>;
     count: z.ZodNumber;
     errors: z.ZodNumber;
@@ -342,10 +362,10 @@ export declare const blueprintNodeSchema: z.ZodObject<{
     traceRefs: z.ZodArray<z.ZodString>;
     traceState: z.ZodOptional<z.ZodObject<{
         status: z.ZodEnum<{
+            error: "error";
             idle: "idle";
             success: "success";
             warning: "warning";
-            error: "error";
         }>;
         count: z.ZodNumber;
         errors: z.ZodNumber;
@@ -513,10 +533,10 @@ export declare const blueprintGraphSchema: z.ZodObject<{
         traceRefs: z.ZodArray<z.ZodString>;
         traceState: z.ZodOptional<z.ZodObject<{
             status: z.ZodEnum<{
+                error: "error";
                 idle: "idle";
                 success: "success";
                 warning: "warning";
-                error: "error";
             }>;
             count: z.ZodNumber;
             errors: z.ZodNumber;
@@ -793,6 +813,26 @@ export declare const taskExecutionResultSchema: z.ZodObject<{
     outputPaths: z.ZodArray<z.ZodString>;
     managedRegionIds: z.ZodArray<z.ZodString>;
     message: z.ZodString;
+    errors: z.ZodDefault<z.ZodArray<z.ZodString>>;
+    taskType: z.ZodDefault<z.ZodEnum<{
+        code_generation: "code_generation";
+        refactor: "refactor";
+        bugfix: "bugfix";
+        test_generation: "test_generation";
+        documentation: "documentation";
+        unknown: "unknown";
+    }>>;
+    reasoning: z.ZodString;
+    changes: z.ZodArray<z.ZodObject<{
+        file: z.ZodString;
+        action: z.ZodEnum<{
+            created: "created";
+            modified: "modified";
+            deleted: "deleted";
+            renamed: "renamed";
+        }>;
+        summary: z.ZodString;
+    }, z.core.$strip>>;
 }, z.core.$strip>;
 export type TaskExecutionResult = z.infer<typeof taskExecutionResultSchema>;
 export declare const ownershipRecordSchema: z.ZodObject<{
@@ -818,6 +858,26 @@ export declare const executionReportSchema: z.ZodObject<{
         outputPaths: z.ZodArray<z.ZodString>;
         managedRegionIds: z.ZodArray<z.ZodString>;
         message: z.ZodString;
+        errors: z.ZodDefault<z.ZodArray<z.ZodString>>;
+        taskType: z.ZodDefault<z.ZodEnum<{
+            code_generation: "code_generation";
+            refactor: "refactor";
+            bugfix: "bugfix";
+            test_generation: "test_generation";
+            documentation: "documentation";
+            unknown: "unknown";
+        }>>;
+        reasoning: z.ZodString;
+        changes: z.ZodArray<z.ZodObject<{
+            file: z.ZodString;
+            action: z.ZodEnum<{
+                created: "created";
+                modified: "modified";
+                deleted: "deleted";
+                renamed: "renamed";
+            }>;
+            summary: z.ZodString;
+        }, z.core.$strip>>;
     }, z.core.$strip>>;
     ownership: z.ZodArray<z.ZodObject<{
         path: z.ZodString;
@@ -988,10 +1048,10 @@ export declare const exportArtifactSchema: z.ZodObject<{
     }>>;
     relativePath: z.ZodString;
     artifactType: z.ZodEnum<{
+        documentation: "documentation";
         integration: "integration";
         ownership: "ownership";
         code: "code";
-        documentation: "documentation";
         blueprint: "blueprint";
         canvas: "canvas";
     }>;
@@ -1043,6 +1103,7 @@ export declare const persistedSessionSchema: z.ZodObject<{
     sessionId: z.ZodString;
     projectName: z.ZodString;
     updatedAt: z.ZodString;
+    repoPath: z.ZodOptional<z.ZodString>;
     graph: z.ZodObject<{
         projectName: z.ZodString;
         mode: z.ZodEnum<{
@@ -1154,10 +1215,10 @@ export declare const persistedSessionSchema: z.ZodObject<{
             traceRefs: z.ZodArray<z.ZodString>;
             traceState: z.ZodOptional<z.ZodObject<{
                 status: z.ZodEnum<{
+                    error: "error";
                     idle: "idle";
                     success: "success";
                     warning: "warning";
-                    error: "error";
                 }>;
                 count: z.ZodNumber;
                 errors: z.ZodNumber;
@@ -1286,6 +1347,26 @@ export declare const persistedSessionSchema: z.ZodObject<{
             outputPaths: z.ZodArray<z.ZodString>;
             managedRegionIds: z.ZodArray<z.ZodString>;
             message: z.ZodString;
+            errors: z.ZodDefault<z.ZodArray<z.ZodString>>;
+            taskType: z.ZodDefault<z.ZodEnum<{
+                code_generation: "code_generation";
+                refactor: "refactor";
+                bugfix: "bugfix";
+                test_generation: "test_generation";
+                documentation: "documentation";
+                unknown: "unknown";
+            }>>;
+            reasoning: z.ZodString;
+            changes: z.ZodArray<z.ZodObject<{
+                file: z.ZodString;
+                action: z.ZodEnum<{
+                    created: "created";
+                    modified: "modified";
+                    deleted: "deleted";
+                    renamed: "renamed";
+                }>;
+                summary: z.ZodString;
+            }, z.core.$strip>>;
         }, z.core.$strip>>;
         ownership: z.ZodArray<z.ZodObject<{
             path: z.ZodString;
@@ -1367,6 +1448,7 @@ export declare const persistedSessionSchema: z.ZodObject<{
 }, z.core.$strip>;
 export type PersistedSession = z.infer<typeof persistedSessionSchema>;
 export declare const runRecordSchema: z.ZodObject<{
+    schemaVersion: z.ZodDefault<z.ZodLiteral<"1.0">>;
     id: z.ZodString;
     projectName: z.ZodString;
     action: z.ZodEnum<{
@@ -1428,6 +1510,26 @@ export declare const runRecordSchema: z.ZodObject<{
             outputPaths: z.ZodArray<z.ZodString>;
             managedRegionIds: z.ZodArray<z.ZodString>;
             message: z.ZodString;
+            errors: z.ZodDefault<z.ZodArray<z.ZodString>>;
+            taskType: z.ZodDefault<z.ZodEnum<{
+                code_generation: "code_generation";
+                refactor: "refactor";
+                bugfix: "bugfix";
+                test_generation: "test_generation";
+                documentation: "documentation";
+                unknown: "unknown";
+            }>>;
+            reasoning: z.ZodString;
+            changes: z.ZodArray<z.ZodObject<{
+                file: z.ZodString;
+                action: z.ZodEnum<{
+                    created: "created";
+                    modified: "modified";
+                    deleted: "deleted";
+                    renamed: "renamed";
+                }>;
+                summary: z.ZodString;
+            }, z.core.$strip>>;
         }, z.core.$strip>>;
         ownership: z.ZodArray<z.ZodObject<{
             path: z.ZodString;
@@ -1535,9 +1637,9 @@ export declare const traceSpanSchema: z.ZodObject<{
     blueprintNodeId: z.ZodOptional<z.ZodString>;
     path: z.ZodOptional<z.ZodString>;
     status: z.ZodEnum<{
+        error: "error";
         success: "success";
         warning: "warning";
-        error: "error";
     }>;
     durationMs: z.ZodNumber;
     runtime: z.ZodDefault<z.ZodString>;
@@ -1576,9 +1678,9 @@ export declare const observabilityIngestRequestSchema: z.ZodObject<{
         blueprintNodeId: z.ZodOptional<z.ZodString>;
         path: z.ZodOptional<z.ZodString>;
         status: z.ZodEnum<{
+            error: "error";
             success: "success";
             warning: "warning";
-            error: "error";
         }>;
         durationMs: z.ZodNumber;
         runtime: z.ZodDefault<z.ZodString>;
@@ -1617,9 +1719,9 @@ export declare const observabilitySnapshotSchema: z.ZodObject<{
         blueprintNodeId: z.ZodOptional<z.ZodString>;
         path: z.ZodOptional<z.ZodString>;
         status: z.ZodEnum<{
+            error: "error";
             success: "success";
             warning: "warning";
-            error: "error";
         }>;
         durationMs: z.ZodNumber;
         runtime: z.ZodDefault<z.ZodString>;
@@ -1757,10 +1859,10 @@ export declare const observabilitySnapshotSchema: z.ZodObject<{
             traceRefs: z.ZodArray<z.ZodString>;
             traceState: z.ZodOptional<z.ZodObject<{
                 status: z.ZodEnum<{
+                    error: "error";
                     idle: "idle";
                     success: "success";
                     warning: "warning";
-                    error: "error";
                 }>;
                 count: z.ZodNumber;
                 errors: z.ZodNumber;
@@ -1970,10 +2072,10 @@ export declare const conflictCheckRequestSchema: z.ZodObject<{
             traceRefs: z.ZodArray<z.ZodString>;
             traceState: z.ZodOptional<z.ZodObject<{
                 status: z.ZodEnum<{
+                    error: "error";
                     idle: "idle";
                     success: "success";
                     warning: "warning";
-                    error: "error";
                 }>;
                 count: z.ZodNumber;
                 errors: z.ZodNumber;
@@ -2153,10 +2255,10 @@ export declare const exportBlueprintRequestSchema: z.ZodObject<{
             traceRefs: z.ZodArray<z.ZodString>;
             traceState: z.ZodOptional<z.ZodObject<{
                 status: z.ZodEnum<{
+                    error: "error";
                     idle: "idle";
                     success: "success";
                     warning: "warning";
-                    error: "error";
                 }>;
                 count: z.ZodNumber;
                 errors: z.ZodNumber;
@@ -2332,10 +2434,10 @@ export declare const runtimeExecutionRequestSchema: z.ZodObject<{
             traceRefs: z.ZodArray<z.ZodString>;
             traceState: z.ZodOptional<z.ZodObject<{
                 status: z.ZodEnum<{
+                    error: "error";
                     idle: "idle";
                     success: "success";
                     warning: "warning";
-                    error: "error";
                 }>;
                 count: z.ZodNumber;
                 errors: z.ZodNumber;
@@ -2626,10 +2728,10 @@ export declare const runtimeTestRequestSchema: z.ZodObject<{
             traceRefs: z.ZodArray<z.ZodString>;
             traceState: z.ZodOptional<z.ZodObject<{
                 status: z.ZodEnum<{
+                    error: "error";
                     idle: "idle";
                     success: "success";
                     warning: "warning";
-                    error: "error";
                 }>;
                 count: z.ZodNumber;
                 errors: z.ZodNumber;
@@ -3005,10 +3107,10 @@ export declare const graphBranchSchema: z.ZodObject<{
             traceRefs: z.ZodArray<z.ZodString>;
             traceState: z.ZodOptional<z.ZodObject<{
                 status: z.ZodEnum<{
+                    error: "error";
                     idle: "idle";
                     success: "success";
                     warning: "warning";
-                    error: "error";
                 }>;
                 count: z.ZodNumber;
                 errors: z.ZodNumber;
@@ -3066,9 +3168,9 @@ export declare const graphBranchSchema: z.ZodObject<{
 }, z.core.$strip>;
 export type GraphBranch = z.infer<typeof graphBranchSchema>;
 export declare const nodeDiffKindSchema: z.ZodEnum<{
+    modified: "modified";
     added: "added";
     removed: "removed";
-    modified: "modified";
     unchanged: "unchanged";
 }>;
 export type NodeDiffKind = z.infer<typeof nodeDiffKindSchema>;
@@ -3082,9 +3184,9 @@ export declare const nodeDiffSchema: z.ZodObject<{
     nodeId: z.ZodString;
     name: z.ZodString;
     kind: z.ZodEnum<{
+        modified: "modified";
         added: "added";
         removed: "removed";
-        modified: "modified";
         unchanged: "unchanged";
     }>;
     before: z.ZodOptional<z.ZodObject<{
@@ -3186,10 +3288,10 @@ export declare const nodeDiffSchema: z.ZodObject<{
         traceRefs: z.ZodArray<z.ZodString>;
         traceState: z.ZodOptional<z.ZodObject<{
             status: z.ZodEnum<{
+                error: "error";
                 idle: "idle";
                 success: "success";
                 warning: "warning";
-                error: "error";
             }>;
             count: z.ZodNumber;
             errors: z.ZodNumber;
@@ -3320,10 +3422,10 @@ export declare const nodeDiffSchema: z.ZodObject<{
         traceRefs: z.ZodArray<z.ZodString>;
         traceState: z.ZodOptional<z.ZodObject<{
             status: z.ZodEnum<{
+                error: "error";
                 idle: "idle";
                 success: "success";
                 warning: "warning";
-                error: "error";
             }>;
             count: z.ZodNumber;
             errors: z.ZodNumber;
@@ -3391,9 +3493,9 @@ export declare const branchDiffSchema: z.ZodObject<{
         nodeId: z.ZodString;
         name: z.ZodString;
         kind: z.ZodEnum<{
+            modified: "modified";
             added: "added";
             removed: "removed";
-            modified: "modified";
             unchanged: "unchanged";
         }>;
         before: z.ZodOptional<z.ZodObject<{
@@ -3495,10 +3597,10 @@ export declare const branchDiffSchema: z.ZodObject<{
             traceRefs: z.ZodArray<z.ZodString>;
             traceState: z.ZodOptional<z.ZodObject<{
                 status: z.ZodEnum<{
+                    error: "error";
                     idle: "idle";
                     success: "success";
                     warning: "warning";
-                    error: "error";
                 }>;
                 count: z.ZodNumber;
                 errors: z.ZodNumber;
@@ -3629,10 +3731,10 @@ export declare const branchDiffSchema: z.ZodObject<{
             traceRefs: z.ZodArray<z.ZodString>;
             traceState: z.ZodOptional<z.ZodObject<{
                 status: z.ZodEnum<{
+                    error: "error";
                     idle: "idle";
                     success: "success";
                     warning: "warning";
-                    error: "error";
                 }>;
                 count: z.ZodNumber;
                 errors: z.ZodNumber;
@@ -3699,18 +3801,18 @@ export declare const vcrFrameSchema: z.ZodObject<{
     nodeId: z.ZodOptional<z.ZodString>;
     nodeName: z.ZodOptional<z.ZodString>;
     status: z.ZodEnum<{
+        error: "error";
         idle: "idle";
         success: "success";
         warning: "warning";
-        error: "error";
     }>;
     durationMs: z.ZodNumber;
     nodeStates: z.ZodRecord<z.ZodString, z.ZodObject<{
         status: z.ZodEnum<{
+            error: "error";
             idle: "idle";
             success: "success";
             warning: "warning";
-            error: "error";
         }>;
         count: z.ZodNumber;
         errors: z.ZodNumber;
@@ -3731,18 +3833,18 @@ export declare const vcrRecordingSchema: z.ZodObject<{
         nodeId: z.ZodOptional<z.ZodString>;
         nodeName: z.ZodOptional<z.ZodString>;
         status: z.ZodEnum<{
+            error: "error";
             idle: "idle";
             success: "success";
             warning: "warning";
-            error: "error";
         }>;
         durationMs: z.ZodNumber;
         nodeStates: z.ZodRecord<z.ZodString, z.ZodObject<{
             status: z.ZodEnum<{
+                error: "error";
                 idle: "idle";
                 success: "success";
                 warning: "warning";
-                error: "error";
             }>;
             count: z.ZodNumber;
             errors: z.ZodNumber;
@@ -3764,9 +3866,9 @@ export declare const userFlowSchema: z.ZodObject<{
     startedAt: z.ZodOptional<z.ZodString>;
     endedAt: z.ZodOptional<z.ZodString>;
     status: z.ZodEnum<{
+        error: "error";
         success: "success";
         warning: "warning";
-        error: "error";
     }>;
     provenance: z.ZodEnum<{
         deterministic: "deterministic";
@@ -3800,9 +3902,9 @@ export declare const digitalTwinSnapshotSchema: z.ZodObject<{
         startedAt: z.ZodOptional<z.ZodString>;
         endedAt: z.ZodOptional<z.ZodString>;
         status: z.ZodEnum<{
+            error: "error";
             success: "success";
             warning: "warning";
-            error: "error";
         }>;
         provenance: z.ZodEnum<{
             deterministic: "deterministic";
@@ -3968,10 +4070,10 @@ export declare const architectureVariantSchema: z.ZodObject<{
             traceRefs: z.ZodArray<z.ZodString>;
             traceState: z.ZodOptional<z.ZodObject<{
                 status: z.ZodEnum<{
+                    error: "error";
                     idle: "idle";
                     success: "success";
                     warning: "warning";
-                    error: "error";
                 }>;
                 count: z.ZodNumber;
                 errors: z.ZodNumber;
@@ -4187,10 +4289,10 @@ export declare const tournamentResultSchema: z.ZodObject<{
                 traceRefs: z.ZodArray<z.ZodString>;
                 traceState: z.ZodOptional<z.ZodObject<{
                     status: z.ZodEnum<{
+                        error: "error";
                         idle: "idle";
                         success: "success";
                         warning: "warning";
-                        error: "error";
                     }>;
                     count: z.ZodNumber;
                     errors: z.ZodNumber;
@@ -4384,10 +4486,10 @@ export declare const evolveArchitectureRequestSchema: z.ZodObject<{
             traceRefs: z.ZodArray<z.ZodString>;
             traceState: z.ZodOptional<z.ZodObject<{
                 status: z.ZodEnum<{
+                    error: "error";
                     idle: "idle";
                     success: "success";
                     warning: "warning";
-                    error: "error";
                 }>;
                 count: z.ZodNumber;
                 errors: z.ZodNumber;
