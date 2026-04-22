@@ -30,6 +30,7 @@ const withEnv = async <T>(fn: () => Promise<T>): Promise<T> => {
 };
 
 const makeRunRecord = (id: string): RunRecord => ({
+  schemaVersion: "1.0",
   id,
   projectName: "test-project",
   action: "build",
