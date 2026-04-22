@@ -1,0 +1,11 @@
+export declare const getStoreRoot: () => string;
+export declare const sessionDirForProject: (projectName: string) => string;
+export declare const latestSessionPath: (projectName: string) => string;
+export declare const sessionHistoryPath: (projectName: string, sessionId: string) => string;
+export declare const approvalPath: (approvalId: string) => string;
+export declare const runPath: (runId: string) => string;
+export declare const checkpointPath: (checkpointId: string) => string;
+export declare const observabilityPath: (projectName: string) => string;
+export declare const branchDirForProject: (projectName: string) => string;
+export declare const branchPath: (projectName: string, branchId: string) => string;
+//# sourceMappingURL=utils.d.ts.map

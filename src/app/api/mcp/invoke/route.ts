@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { invokeMcpTool } from "@/lib/blueprint/mcp";
+import { invokeMcpTool } from "@abhinav2203/codeflow-mcp";
 
 const serverUrlSchema = z.string().min(1).transform((value, ctx) => {
   let url: URL;
