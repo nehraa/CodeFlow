@@ -1,5 +1,26 @@
 import { z } from "zod";
 
+// ── Reasoning Journal (defined early — referenced in taskExecutionResultSchema) ──
+
+export const fileChangeSchema = z.object({
+  file: z.string(),
+  action: z.enum(["created", "modified", "deleted", "renamed"]),
+  summary: z.string().max(200)
+});
+export type FileChange = z.infer<typeof fileChangeSchema>;
+
+export const taskTypeSchema = z.enum([
+  "code_generation",
+  "refactor",
+  "bugfix",
+  "test_generation",
+  "documentation",
+  "unknown"
+]);
+export type TaskType = z.infer<typeof taskTypeSchema>;
+
+// ── Core Enums ────────────────────────────────────────────────────────────────
+
 export const executionModeSchema = z.enum(["essential", "yolo"]);
 export type ExecutionMode = z.infer<typeof executionModeSchema>;
 
@@ -332,7 +353,11 @@ export const taskExecutionResultSchema = z.object({
   batchIndex: z.number().int().nonnegative(),
   outputPaths: z.array(z.string()),
   managedRegionIds: z.array(z.string()),
-  message: z.string()
+  message: z.string(),
+  errors: z.array(z.string()).default([]),
+  taskType: taskTypeSchema.default("unknown"),
+  reasoning: z.string().min(10).max(2000),
+  changes: z.array(fileChangeSchema)
 });
 export type TaskExecutionResult = z.infer<typeof taskExecutionResultSchema>;
 
@@ -440,6 +465,7 @@ export const persistedSessionSchema = z.object({
 export type PersistedSession = z.infer<typeof persistedSessionSchema>;
 
 export const runRecordSchema = z.object({
+  schemaVersion: z.literal("1.0").default("1.0"),
   id: z.string(),
   projectName: z.string(),
   action: z.enum(["build", "export"]),
