@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { listMcpTools } from "@/lib/blueprint/mcp";
+import { listMcpTools } from "@abhinav2203/codeflow-mcp";
 
 const requestSchema = z.object({
   serverUrl: z.string().min(1),

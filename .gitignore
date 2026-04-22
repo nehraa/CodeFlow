@@ -5,6 +5,7 @@ artifacts
 .codeflow-store
 .codeflow-store-test
 .codeflow-sandboxes
+.test-store
 *.log
 *.tsbuildinfo
 .env.local

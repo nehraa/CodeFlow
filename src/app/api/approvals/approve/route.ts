@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { approveRecord } from "@/lib/blueprint/approval-store";
+import { approveRecord } from "@abhinav2203/codeflow-store/approval";
 import { approvalActionRequestSchema } from "@/lib/blueprint/schema";
 
 export async function POST(request: Request) {
