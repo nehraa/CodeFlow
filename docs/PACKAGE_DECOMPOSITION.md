@@ -8,7 +8,7 @@
 | `coderag` | `@abhinav2203/coderag` | Code retrieval & RAG: embeddings, indexing, retrieval, MCP server |
 
 **`coderag` also appears in the dependency graph:**
-```
+```text
 coderag → @abhinav2203/codeflow-core
 ```
 
@@ -50,12 +50,12 @@ src/lib/blueprint/
 
 ## Recommended Build Order
 
-### Phase 1 — Foundation (no dependencies)
+### Phase 1 — Foundation (depends only on codeflow-core)
 
 | # | Package | Why first |
 |---|---------|-----------|
-| 1 | `codeflow-store` | Session storage, checkpoints, project isolation — zero deps, can ship immediately |
-| 2 | `codeflow-mcp` | MCP server config, tool registry — zero deps, can ship immediately |
+| 1 | `codeflow-store` | Session storage, checkpoints, project isolation — depends on core, can ship immediately |
+| 2 | `codeflow-mcp` | MCP server config, tool registry — depends on core, can ship immediately |
 
 ### Phase 2 — Schema Producers (depend only on codeflow-core schema)
 
@@ -89,7 +89,7 @@ src/lib/blueprint/
 
 ### Dependency Graph
 
-```
+```text
 codeflow-store
 codeflow-mcp
        │
@@ -113,7 +113,7 @@ codeflow-versioning   codeflow-prd   codeflow-analysis   codeflow-ai
 
 **Core principle: packages communicate only via npm package dependencies, never via direct code imports.**
 
-Every internal package dependency is declared as an `npm` dependency in `package.json` pointing to the published package name (`@abhinav2203/codeflow-<name>`), NOT a relative path or monorepo workspace import. This means:
+Every internal package dependency is declared as an `npm` dependency in `package.json` pointing to the published package name (`@abhinav2203/codeflow-<name>`). During development inside the monorepo, use `workspace:*` ranges (requires workspaces to be configured in the root `package.json`); a release tool (e.g. `npm publish` with changesets, or pnpm publish) must rewrite `workspace:*` to the actual published semver range before the package reaches consumers on npm. This means:
 
 - Each package is **independently installable** — `npm install @abhinav2203/codeflow-prd` also pulls in `@abhinav2203/codeflow-core` as a transitive dep
 - Each package is **independently versionable** — semver bumps happen per package
@@ -122,7 +122,7 @@ Every internal package dependency is declared as an `npm` dependency in `package
 
 ### Package Dependency Graph (npm deps)
 
-```
+```text
 codeflow-store        → @abhinav2203/codeflow-core
 codeflow-mcp         → @abhinav2203/codeflow-core
                        → @abhinav2203/codeflow-store   (optional, resolved at build time)
@@ -154,7 +154,7 @@ codeflow-evolution   → @abhinav2203/codeflow-core
 codeflow-canvas     → @abhinav2203/codeflow-core
                      → @abhinav2203/codeflow-store
                      → @abhinav2203/codeflow-execution
-                     → react, reactflow, @monaco-editor/react
+                     → react, @xyflow/react, @monaco-editor/react
 
 codeflow-dtwin      → @abhinav2203/codeflow-core
                      → @abhinav2203/codeflow-execution
@@ -173,7 +173,7 @@ import { buildBlueprintGraph } from "../../codeflow-core/src/analyzer/index.js";
 import { buildBlueprintGraph } from "@abhinav2203/codeflow-core/analyzer.js";
 ```
 
-During development within the monorepo, use workspace ranges (npm/yarn/pnpm workspaces):
+During development within the monorepo, use workspace ranges (npm/yarn/pnpm workspaces). **Prerequisite:** declare a `workspaces` field in the root `package.json` listing all package paths. A release tool (e.g. changesets + `npm publish`, or `pnpm publish`) must rewrite `workspace:*` to the actual published semver version before the package is pushed to npm.
 
 ```json
 {
@@ -184,7 +184,7 @@ During development within the monorepo, use workspace ranges (npm/yarn/pnpm work
 }
 ```
 
-Once published to npm, workspace ranges resolve to the actual published version semver.
+Once published to npm, workspace ranges are replaced with the resolved published semver version.
 
 ---
 
@@ -202,7 +202,7 @@ Below are exact instructions for each package — what files to move, what to wi
 
 **Source files to isolate:**
 
-```
+```text
 FROM: src/lib/blueprint/
   - approval-store.ts
   - checkpoint-store.ts
@@ -220,17 +220,19 @@ FROM: src/store/
 
 **API routes to wire:**
 
-```
+```text
 FROM: src/app/api/approvals/approve/route.ts
 FROM: src/app/api/export/route.ts        (risk/export approval gating)
 ```
 
-**Shared utilities (copy, don't import from blueprint):**
+**Shared utilities (import from `@abhinav2203/codeflow-core`, do not copy):**
 
-```
-FROM: src/lib/blueprint/file-tree.ts
-FROM: src/lib/server/run-command.ts
-FROM: src/lib/server/terminal-sessions.ts
+> These files must be moved into `@abhinav2203/codeflow-core` first. Once there, declare `@abhinav2203/codeflow-core` as a dependency and import from it. Do not duplicate business logic into `codeflow-store`.
+
+```text
+src/lib/blueprint/file-tree.ts         → move to @abhinav2203/codeflow-core
+src/lib/server/run-command.ts          → move to @abhinav2203/codeflow-core
+src/lib/server/terminal-sessions.ts   → move to @abhinav2203/codeflow-core
 ```
 
 **`package.json` fields:**
@@ -259,7 +261,7 @@ FROM: src/lib/server/terminal-sessions.ts
 ```
 
 **Developer prompt:**
-> "Extract the storage layer from the CodeFlow monorepo. Move `src/lib/blueprint/{approval-store,checkpoint-store,branch-store,run-store,observability-store,session-store,store,risk}.ts` and `src/store/blueprint-store.ts` into `packages/codeflow-store/src/`. Copy shared utilities `src/lib/blueprint/file-tree.ts`, `src/lib/server/run-command.ts`, and `src/lib/server/terminal-sessions.ts` into the package (they're used by the store layer but live in the monorepo). Wire the API routes `src/app/api/approvals/approve/route.ts` and `src/app/api/export/route.ts` to import from the new package. Publish as `@abhinav2203/codeflow-store`. Tests stay next to source files."
+> "Extract the storage layer from the CodeFlow monorepo. Move `src/lib/blueprint/{approval-store,checkpoint-store,branch-store,run-store,observability-store,session-store,store,risk}.ts` and `src/store/blueprint-store.ts` into `packages/codeflow-store/src/`. Import shared utilities (`file-tree`, `run-command`, `terminal-sessions`) from `@abhinav2203/codeflow-core` — do not copy them into this package. Wire the API routes `src/app/api/approvals/approve/route.ts` and `src/app/api/export/route.ts` to import from the new package. Publish as `@abhinav2203/codeflow-store`. Tests stay next to source files."
 
 ---
 
@@ -271,7 +273,7 @@ FROM: src/lib/server/terminal-sessions.ts
 
 **Source files to isolate:**
 
-```
+```text
 FROM: src/lib/blueprint/
   - mcp.ts
   - mcp.test.ts
@@ -279,7 +281,7 @@ FROM: src/lib/blueprint/
 
 **API routes to wire:**
 
-```
+```text
 FROM: src/app/api/mcp/invoke/route.ts
 FROM: src/app/api/mcp/invoke/route.test.ts
 FROM: src/app/api/mcp/tools/route.ts
@@ -318,15 +320,15 @@ FROM: src/app/api/mcp/tools/route.test.ts
 
 **Source files to isolate:**
 
-```
+```text
 FROM: src/lib/blueprint/
-  - branches.ts          ← handles branch CRUD + diff logic
+  - branches.ts               (includes branch diff logic)
   - branches.test.ts
 ```
 
 **API routes to wire:**
 
-```
+```text
 FROM: src/app/api/branches/route.ts
 FROM: src/app/api/branches/route.test.ts
 FROM: src/app/api/branches/[id]/route.ts
@@ -367,7 +369,7 @@ FROM: src/app/api/branches/diff/route.test.ts
 
 **Source files to isolate:**
 
-```
+```text
 FROM: src/lib/blueprint/
   - prd.ts
   - prd.test.ts
@@ -379,7 +381,7 @@ FROM: src/lib/blueprint/
 
 **API routes to wire:**
 
-```
+```text
 FROM: src/app/api/blueprint/route.ts
 FROM: src/app/api/blueprint/route.test.ts
 FROM: src/app/api/generate-blueprint/route.ts
@@ -419,7 +421,7 @@ FROM: src/app/api/generate-blueprint/route.test.ts
 
 **Source files to isolate:**
 
-```
+```text
 FROM: src/lib/blueprint/
   - cycles.ts
   - cycles.test.ts
@@ -435,7 +437,7 @@ FROM: src/lib/blueprint/
 
 **API routes to wire:**
 
-```
+```text
 FROM: src/app/api/analysis/cycles/route.ts
 FROM: src/app/api/analysis/cycles/route.test.ts
 FROM: src/app/api/analysis/metrics/route.ts
@@ -486,7 +488,7 @@ FROM: src/app/api/conflicts/route.test.ts
 
 **Source files to isolate:**
 
-```
+```text
 FROM: src/lib/blueprint/
   - nvidia.ts
   - prompt-governance.ts
@@ -495,8 +497,8 @@ FROM: src/lib/blueprint/
 
 **API routes to wire:**
 
-```
-FROM: src/app/api/generate-blueprint/route.ts   (AI generation endpoint — delegates to nvidia.ts when model=llama)
+```text
+FROM: src/app/api/generate-blueprint/route.ts   (NVIDIA AI generation endpoint)
 ```
 
 > **Note:** `generate-blueprint` is a **single shared route** that dispatches to either PRD build (reverse mode) or AI generation (nvidia.ts) based on request parameters. Both `codeflow-prd` and `codeflow-ai` contribute to this route's implementation.
@@ -533,7 +535,7 @@ FROM: src/app/api/generate-blueprint/route.ts   (AI generation endpoint — dele
 
 **Source files to isolate:**
 
-```
+```text
 FROM: src/lib/blueprint/
   - runner.ts
   - runner.test.ts
@@ -556,7 +558,7 @@ FROM: src/lib/blueprint/
 
 **API routes to wire:**
 
-```
+```text
 FROM: src/app/api/executions/run/route.ts
 FROM: src/app/api/executions/run/route.test.ts
 FROM: src/app/api/vcr/route.ts
@@ -605,7 +607,7 @@ FROM: src/app/api/code-completions/route.ts
 
 **Source files to isolate:**
 
-```
+```text
 FROM: src/lib/opencode/
   - index.ts
   - agent.ts
@@ -626,7 +628,7 @@ FROM: src/lib/server/
 
 **API routes to wire:**
 
-```
+```text
 FROM: src/app/api/opencode/status/route.ts
 FROM: src/app/api/opencode/start/route.ts
 FROM: src/app/api/opencode/stop/route.ts
@@ -674,7 +676,7 @@ FROM: src/app/api/opencode/permissions/route.ts
 
 **Source files to isolate:**
 
-```
+```text
 FROM: src/lib/blueprint/
   - codegen.ts
   - compile-validation.ts
@@ -684,7 +686,7 @@ FROM: src/lib/blueprint/
 
 **API routes to wire:**
 
-```
+```text
 FROM: src/app/api/code-suggestions/route.ts
 FROM: src/app/api/implement-node/route.ts
 ```
@@ -723,12 +725,10 @@ FROM: src/app/api/implement-node/route.ts
 
 **Source files to isolate:**
 
-```
+```text
 FROM: src/lib/blueprint/
   - genetic.ts
   - genetic.test.ts
-  - heatmap.ts              (computeHeatmap, heatColor, heatGlow — also used by codeflow-canvas)
-  - heatmap.test.ts
 
 FROM: src/app/api/ghost-nodes/route.ts
 ```
@@ -737,7 +737,7 @@ FROM: src/app/api/ghost-nodes/route.ts
 
 **API routes to wire:**
 
-```
+```text
 FROM: src/app/api/genetic/evolve/route.ts
 FROM: src/app/api/genetic/evolve/route.test.ts
 FROM: src/app/api/ghost-nodes/route.ts
@@ -751,8 +751,7 @@ FROM: src/app/api/ghost-nodes/route.ts
   "exports": {
     ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
     "./genetic": { "types": "./dist/genetic.d.ts", "default": "./dist/genetic.js" },
-    "./ghost": { "types": "./dist/ghost.d.ts", "default": "./dist/ghost.js" },
-    "./heatmap": { "types": "./dist/heatmap.d.ts", "default": "./dist/heatmap.js" }
+    "./ghost": { "types": "./dist/ghost.d.ts", "default": "./dist/ghost.js" }
   },
   "bin": {
     "codeflow-evolution": "./dist/bin/cli.js"
@@ -765,7 +764,7 @@ FROM: src/app/api/ghost-nodes/route.ts
 ```
 
 **Developer prompt:**
-> "Extract the evolution layer. Move `src/lib/blueprint/{genetic,heatmap}*.ts` and `src/app/api/genetic/evolve/route.ts`, `src/app/api/ghost-nodes/route.ts` into `packages/codeflow-evolution/src/`. Genetic algorithms evolve architecture variants. Ghost nodes are AI-suggested next components. Heatmap colors nodes by call count/error rate/latency. Publish as `@abhinav2203/codeflow-evolution`."
+> "Extract the evolution layer. Move `src/lib/blueprint/genetic*.ts` and `src/app/api/genetic/evolve/route.ts`, `src/app/api/ghost-nodes/route.ts` into `packages/codeflow-evolution/src/`. Genetic algorithms evolve architecture variants. Ghost nodes are AI-suggested next components. Heatmap lives in `codeflow-canvas` — do not copy it here. Publish as `@abhinav2203/codeflow-evolution`."
 
 ---
 
@@ -777,7 +776,7 @@ FROM: src/app/api/ghost-nodes/route.ts
 
 **Source files to isolate:**
 
-```
+```text
 FROM: src/components/
   - graph-canvas.tsx
   - blueprint-workbench.tsx
@@ -803,17 +802,16 @@ FROM: src/lib/blueprint/
   - traces.test.ts
   - node-navigation.ts
   - heatmap.ts            (heatmap color computation — used by canvas overlay)
-  - observability.ts      (overlayObservability: applies spans + logs to graph for canvas display)
-  - observability.test.ts
+  - heatmap.test.ts
 ```
 
-**Note on heatmap:** `heatmap.ts` computes colors (used by canvas). `heatmap.test.ts` is analysis — decide whether it stays in `codeflow-analysis` or moves here. Recommendation: keep computation in `codeflow-canvas`, keep test in `codeflow-analysis`.
+**Note on heatmap:** `heatmap.ts` computes colors (used by canvas). Recommendation: keep both the computation and its tests in `codeflow-canvas` to maintain package isolation.
 
 **API routes to wire:** (canvas is primarily UI — most logic is in the lib files above)
 
-```
-FROM: src/app/api/observability/ingest/route.ts   (ingest spans/logs → codeflow-store)
-FROM: src/app/api/observability/latest/route.ts     (fetch latest → codeflow-store)
+```text
+FROM: src/app/api/observability/ingest/route.ts   (trace overlay data)
+FROM: src/app/api/observability/latest/route.ts
 ```
 
 > **Note:** Observability data storage routes (`observability/ingest`, `observability/latest`) persist to `codeflow-store`. The `observability.ts` lib file (display/compute logic) lives in `codeflow-canvas` alongside traces and heatmap for graph overlay rendering.
@@ -840,14 +838,17 @@ FROM: src/app/api/observability/latest/route.ts     (fetch latest → codeflow-s
     "@abhinav2203/codeflow-store": "workspace:*",
     "@abhinav2203/codeflow-execution": "workspace:*",
     "react": "^18.0",
-    "reactflow": "^11.0",
     "@monaco-editor/react": "^4.0"
+  },
+  "peerDependencies": {
+    "react": "^18.0",
+    "@xyflow/react": "^12.0"
   }
 }
 ```
 
 **Developer prompt:**
-> "Extract the React Flow canvas UI. Move `src/components/{graph-canvas,blueprint-workbench,file-tabs,file-tree,ide-layout,ide-workbench,code-diff-editor,code-editor,monaco-setup,ts-language-service,opencode-settings}*.ts*` and `src/lib/blueprint/{flow-view,edit,traces,node-navigation,heatmap,observability}.ts` into `packages/codeflow-canvas/src/`. Wire `src/app/api/observability/{ingest,latest}/route.ts` to import from `codeflow-store` for trace data. This is a React component package — publish as `@abhinav2203/codeflow-canvas`. Monaco editor setup and TS language service are part of this package."
+> "Extract the React Flow canvas UI. Move `src/components/{graph-canvas,blueprint-workbench,file-tabs,file-tree,ide-layout,ide-workbench,code-diff-editor,code-editor,monaco-setup,ts-language-service,opencode-settings}*.ts*` and `src/lib/blueprint/{flow-view,edit,traces,node-navigation,heatmap,heatmap.test}.ts` into `packages/codeflow-canvas/src/`. Wire `src/app/api/observability/{ingest,latest}/route.ts` to import from `codeflow-store` for trace data. This is a React component package — publish as `@abhinav2203/codeflow-canvas`. Monaco editor setup and TS language service are part of this package. `@xyflow/react` should be a peer dependency."
 
 ---
 
@@ -859,7 +860,7 @@ FROM: src/app/api/observability/latest/route.ts     (fetch latest → codeflow-s
 
 **Source files to isolate:**
 
-```
+```text
 FROM: src/lib/blueprint/
   - digital-twin.ts
   - digital-twin.test.ts
@@ -867,7 +868,7 @@ FROM: src/lib/blueprint/
 
 **API routes to wire:**
 
-```
+```text
 FROM: src/app/api/digital-twin/route.ts
 FROM: src/app/api/digital-twin/route.test.ts
 FROM: src/app/api/digital-twin/simulate/route.ts
@@ -916,24 +917,21 @@ The following API routes exist in `src/app/api/` but are NOT assigned to any pac
 
 ---
 
-These files are used by multiple packages but don't warrant their own package. Copy them into each consuming package rather than creating a shared dependency:
+These files are used by multiple packages. They should be moved to `@abhinav2203/codeflow-core` (or a dedicated utility package) to avoid code duplication and logic drift. Each consuming package should import them as a normal package dependency rather than copying the source:
 
-| File | Used by |
-|-------|---------|
-| `src/lib/blueprint/utils.ts` | All packages (slugify, createNodeId, mergeFields, dedupeEdges, toPosixPath, etc.) |
-| `src/lib/blueprint/store-paths.ts` | `codeflow-store`, `codeflow-execution` |
-| `src/lib/blueprint/file-tree.ts` | `codeflow-prd`, `codeflow-store` |
-| `src/lib/blueprint/typescript-workspace.ts` | `codeflow-prd` (reverse mode), `codeflow-execution`, `codeflow-codegen` |
-| `src/lib/blueprint/heatmap.ts` | `codeflow-evolution`, `codeflow-canvas` |
-| `src/lib/server/run-command.ts` | `codeflow-store` |
-| `src/lib/server/terminal-sessions.ts` | `codeflow-store` |
-| `src/lib/blueprint/sandbox.ts` | `codeflow-execution`, `codeflow-store` |
+| File | Move to | Used by |
+|-------|---------|---------|
+| `src/lib/blueprint/file-tree.ts` | `@abhinav2203/codeflow-core` | `codeflow-prd`, `codeflow-store` |
+| `src/lib/server/run-command.ts` | `@abhinav2203/codeflow-core` | `codeflow-store` |
+| `src/lib/server/terminal-sessions.ts` | `@abhinav2203/codeflow-core` | `codeflow-store` |
+| `src/lib/blueprint/typescript-workspace.ts` | `@abhinav2203/codeflow-core` | `codeflow-execution`, `codeflow-codegen` |
+| `src/lib/blueprint/sandbox.ts` | `@abhinav2203/codeflow-core` | `codeflow-execution`, `codeflow-store` |
 
 ---
 
 ## Summary: All Source Files by Package
 
-```
+```text
 codeflow-store:
   src/lib/blueprint/{approval-store,checkpoint-store,branch-store,run-store,observability-store,session-store,store,risk}.ts
   src/store/{blueprint-store,blueprint-store.test}.ts
@@ -964,24 +962,21 @@ codeflow-execution:
   src/app/api/{executions/run,vcr,export/mermaid,code-completions}/route.ts
 
 codeflow-opencode:
-  src/lib/opencode/{index,agent,client,server,config,modelFetcher,types,api-key-validator}*.{ts,tsx}
-  src/lib/opencode/{agent,server,config,modelFetcher}.test.ts
-  src/app/api/opencode/{status,start,stop,restart,agent,sessions/[id],mcp,permissions}/route.ts
-  (all corresponding .test.ts files)
+  src/lib/opencode/*.ts
+  src/app/api/opencode/{status,start,stop,restart,agent,sessions,sessions/[id],mcp,permissions}/route.ts
 
 codeflow-codegen:
   src/lib/blueprint/{codegen,compile-validation,code-assist}.ts
   src/app/api/{code-suggestions,implement-node}/route.ts
 
 codeflow-evolution:
-  src/lib/blueprint/{genetic,heatmap}*.ts
+  src/lib/blueprint/genetic*.ts
   src/app/api/{genetic/evolve,ghost-nodes}/route.ts
 
 codeflow-canvas:
-  src/components/{graph-canvas,blueprint-workbench,file-tabs,file-tree,ide-layout,ide-workbench,code-diff-editor,code-editor,monaco-setup,ts-language-service,opencode-settings}*.{ts,tsx}
-  src/lib/blueprint/{flow-view,edit,traces,node-navigation,heatmap,observability}.ts
-  src/lib/blueprint/{flow-view,edit,traces,observability}.test.ts
-  src/app/api/observability/{ingest,latest}/route.{ts,test.ts}
+  src/components/{graph-canvas,blueprint-workbench,file-tabs,file-tree,ide-layout,ide-workbench,code-diff-editor,code-editor,monaco-setup,ts-language-service,opencode-settings}*.ts*
+  src/lib/blueprint/{flow-view,edit,traces,node-navigation,heatmap,heatmap.test}.ts
+  src/app/api/observability/{ingest,latest}/route.ts
 
 codeflow-dtwin:
   src/lib/blueprint/{digital-twin,digital-twin.test}.ts
@@ -1196,12 +1191,11 @@ codeflow-codegen suggest ./blueprint.json --node <node-id>
 codeflow-evolution ghost ./blueprint.json
 codeflow-evolution ghost ./blueprint.json --model <model-name>
 codeflow-evolution evolve ./blueprint.json --generations 20 --population 10
-codeflow-evolution heatmap ./blueprint.json ./trace-data.json
 ```
 
-**Isolation test:** `ghost` → assert ghost nodes are returned with `suggestedEdges[]`. `evolve` → assert a ranked list of architecture variants is returned after N generations. `heatmap` → assert each node has a `heat` value (0-1).
+**Isolation test:** `ghost` → assert ghost nodes are returned with `suggestedEdges[]`. `evolve` → assert a ranked list of architecture variants is returned after N generations.
 
-**Success signal:** Ghost nodes have `name`, `kind`, `reason`, and `suggestedEdges`. Evolved variants are ranked by fitness score. Heatmap colors are valid RGB hex strings.
+**Success signal:** Ghost nodes have `name`, `kind`, `reason`, and `suggestedEdges`. Evolved variants are ranked by fitness score.
 
 ---
 
