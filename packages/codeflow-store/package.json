@@ -52,7 +52,7 @@
     "build": "tsc --outDir dist --declaration --declarationMap"
   },
   "dependencies": {
-    "@abhinav2203/codeflow-core": "^0.1.1",
+    "@abhinav2203/codeflow-core": "^0.2.0",
     "zustand": "^5.0.0"
   },
   "devDependencies": {
