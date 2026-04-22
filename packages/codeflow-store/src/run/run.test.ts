@@ -193,5 +193,53 @@ describe("run", () => {
         expect(parsed.executionReport.results[0].taskType).toBe("bugfix");
       });
     });
+
+    it("accepts old records without Phase 1 fields (backward compat)", async () => {
+      await withEnv(async () => {
+        // Simulates an old record on disk — no taskType, reasoning, changes, errors
+        const oldRecord: RunRecord = {
+          schemaVersion: "1.0",
+          id: "old-run-001",
+          projectName: "test-project",
+          action: "build",
+          createdAt: new Date().toISOString(),
+          runPlan: makeRunRecord("old-run-001").runPlan,
+          riskReport: undefined,
+          approvalId: undefined,
+          executionReport: {
+            startedAt: new Date().toISOString(),
+            completedAt: new Date().toISOString(),
+            results: [
+              {
+                taskId: "task-1",
+                nodeId: "n1",
+                status: "completed",
+                batchIndex: 0,
+                outputPaths: ["dist/out.js"],
+                managedRegionIds: [],
+                message: "done",
+                errors: [],
+                taskType: "unknown" as const
+                // NO reasoning, NO changes
+              }
+            ],
+            ownership: [],
+            steps: [],
+            artifacts: []
+          },
+          exportResult: undefined
+        };
+        await saveRunRecord(oldRecord);
+
+        const filePath = path.join(STORE_ROOT, "runs", "old-run-001.json");
+        const content = await fs.readFile(filePath, "utf8");
+        const parsed = JSON.parse(content);
+        expect(parsed.id).toBe("old-run-001");
+        expect(parsed.executionReport.results[0].message).toBe("done");
+        expect(parsed.executionReport.results[0].taskType).toBe("unknown"); // default
+        expect(parsed.executionReport.results[0].reasoning).toBeUndefined();
+        expect(parsed.executionReport.results[0].changes).toBeUndefined();
+      });
+    });
   });
 });
