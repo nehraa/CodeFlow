@@ -172,5 +172,126 @@ export const VERSIONING_TOOLS: McpTool[] = [
       },
       required: ["projectName", "diff"]
     }
+  },
+  {
+    name: "versioning_observability_explain",
+    description: "Explain the execution observability attached to a branch.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectName: {
+          type: "string",
+          description: "The project name."
+        },
+        branchId: {
+          type: "string",
+          description: "The branch ID to retrieve observability for."
+        },
+        focusOn: {
+          type: "string",
+          enum: ["spans", "logs", "errors"],
+          description: "What aspect of observability to focus on."
+        }
+      },
+      required: ["projectName", "branchId"]
+    }
+  },
+  {
+    name: "versioning_risk_search",
+    description: "Search branches by risk profile using natural language.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectName: {
+          type: "string",
+          description: "The project name."
+        },
+        query: {
+          type: "string",
+          description: "Natural language search query for risk profile."
+        },
+        minScore: {
+          type: "number",
+          description: "Minimum risk score filter."
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of results to return."
+        }
+      },
+      required: ["projectName", "query"]
+    }
+  },
+  {
+    name: "versioning_risk_explain",
+    description: "Explain the risk report for a specific branch.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectName: {
+          type: "string",
+          description: "The project name."
+        },
+        branchId: {
+          type: "string",
+          description: "The branch ID to explain risk for."
+        }
+      },
+      required: ["projectName", "branchId"]
+    }
+  },
+  {
+    name: "versioning_create_with_full_context",
+    description: "Create a branch with all available context snapshots attached.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectName: {
+          type: "string",
+          description: "The project name."
+        },
+        graph: {
+          type: "object",
+          description: "The blueprint graph to snapshot."
+        },
+        name: {
+          type: "string",
+          description: "Name for the new branch."
+        },
+        description: {
+          type: "string",
+          description: "Optional description of the branch."
+        },
+        parentBranchId: {
+          type: "string",
+          description: "Optional parent branch ID to create a child branch."
+        },
+        runId: {
+          type: "string",
+          description: "Optional run ID to attach reasoning checkpoints."
+        },
+        attachObservability: {
+          type: "boolean",
+          description: "Attach execution observability snapshot."
+        },
+        attachRisk: {
+          type: "boolean",
+          description: "Compute and attach risk report."
+        },
+        attachSession: {
+          type: "boolean",
+          description: "Attach latest session snapshot."
+        },
+        runPlan: {
+          type: "object",
+          description: "Run plan required for risk assessment."
+        },
+        outputDir: {
+          type: "string",
+          description: "Optional output directory for risk assessment."
+        }
+      },
+      required: ["projectName", "graph", "name"]
+    }
   }
 ];

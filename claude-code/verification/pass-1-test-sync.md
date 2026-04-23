@@ -1,12 +1,12 @@
 # Pass 1: Test-Sync
 
-**Status:** PASS
-**Time:** 2026-04-23T12:07:20+05:30
-**Attempt:** 45
+**Status:** FAIL
+**Time:** 2026-04-23T16:50:50+05:30
+**Attempt:** 57
 
 ## Details
 
-## Test Sync Results\n\n
+Missing test files for:\n\n- packages/codeflow-versioning/src/coderag/observability.ts (missing test)\n- packages/codeflow-versioning/src/coderag/risk.ts (missing test)\n\n\n### Instructions to Pass\n\n1. Create test file for each missing test\n2. Write minimum viable test (happy path)\n3. Run tests to verify they pass\n4. Commit tests before proceeding
 
 ## Changed Files
 
@@ -28,9 +28,12 @@ claude-code/verification/attempt-count.txt
 claude-code/verification/current-failures.json
 claude-code/verification/pass-1-test-sync.md
 package-lock.json
+package.json
 packages/codeflow-store/package.json
+packages/codeflow-versioning/src/coderag/observability.ts
+packages/codeflow-versioning/src/coderag/risk.ts
 packages/codeflow-versioning/tsconfig.json
 ```
 
 ---
-**Next:** Proceed to next pass
+**Next:** BLOCKED - Fix required before proceeding

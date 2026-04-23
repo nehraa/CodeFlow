@@ -7,20 +7,27 @@ TESTS: FAIL
 [1m[46m RUN [49m[22m [36mv4.1.0 [39m[90m/Users/abhinavnehra/git/CodeFlow[39m
 
  [31m❯[39m src/app/api/branches/diff/route.test.ts [2m([22m[2m0 test[22m[2m)[22m
- [31m❯[39m src/app/api/branches/route.test.ts [2m([22m[2m0 test[22m[2m)[22m
- [31m❯[39m src/app/api/approvals/approve/route.test.ts [2m([22m[2m2 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 33[2mms[22m[39m
-[31m     [31m×[31m marks an approval as approved[39m[32m 28[2mms[22m[39m
-     [32m✓[39m returns 400 when the approval does not exist[32m 3[2mms[22m[39m
- [31m❯[39m src/app/api/blueprint/route.test.ts [2m([22m[2m0 test[22m[2m)[22m
- [31m❯[39m src/app/api/digital-twin/route.test.ts [2m([22m[2m0 test[22m[2m)[22m
- [31m❯[39m src/lib/blueprint/build.test.ts [2m([22m[2m0 test[22m[2m)[22m
- [31m❯[39m src/app/api/export/route.test.ts [2m([22m[2m0 test[22m[2m)[22m
- [31m❯[39m src/app/api/branches/[id]/route.test.ts [2m([22m[2m0 test[22m[2m)[22m
  [31m❯[39m src/app/api/mcp/tools/route.test.ts [2m([22m[2m0 test[22m[2m)[22m
+ [31m❯[39m src/app/api/branches/[id]/route.test.ts [2m([22m[2m0 test[22m[2m)[22m
+ [31m❯[39m src/app/api/branches/route.test.ts [2m([22m[2m0 test[22m[2m)[22m
  [31m❯[39m src/app/api/mcp/invoke/route.test.ts [2m([22m[2m0 test[22m[2m)[22m
- [31m❯[39m src/app/api/digital-twin/simulate/route.test.ts [2m([22m[2m0 test[22m[2m)[22m
- [31m❯[39m src/app/api/observability/ingest/route.test.ts [2m([22m[2m0 test[22m[2m)[22m
- [31m❯[39m src/app/api/observability/latest/route.test.ts [2m([22m[2m0 test[22m[2m)[22m
+ [31m❯[39m src/app/api/approvals/approve/route.test.ts [2m([22m[2m2 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 33[2mms[22m[39m
+[31m     [31m×[31m marks an approval as approved[39m[32m 27[2mms[22m[39m
+     [32m✓[39m returns 400 when the approval does not exist[32m 4[2mms[22m[39m
+[90mstderr[2m | src/app/api/export/route.test.ts[2m > [22m[2mPOST /api/export[2m > [22m[2mexports blueprint artifacts to disk when no approval is required
+[22m[39m[CodeFlow] Skipping CodeRag re-index because no repoPath is stored for the project { projectName: [32m'Route Exporter'[39m }
+
+[90mstderr[2m | src/app/api/export/route.test.ts[2m > [22m[2mPOST /api/export[2m > [22m[2mruns yolo exports through a sandbox and returns a diff manifest
+[22m[39m[CodeFlow] Skipping CodeRag re-index because no repoPath is stored for the project { projectName: [32m'Yolo Exporter'[39m }
+
+[90mstderr[2m | src/app/api/export/route.test.ts[2m > [22m[2mPOST /api/export[2m > [22m[2mwrites an integration entrypoint when exporting an integration-phase graph
+[22m[39m[CodeFlow] Skipping CodeRag re-index because no repoPath is stored for the project { projectName: [32m'Route Exporter'[39m }
+
+ [31m❯[39m src/app/api/export/route.test.ts [2m([22m[2m4 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 126[2mms[22m[39m
+     [32m✓[39m exports blueprint artifacts to disk when no approval is required[32m 51[2mms[22m[39m
+[31m     [31m×[31m requires approval before overwriting an existing directory in essential mode[39m[32m 27[2mms[22m[39m
+     [32m✓[39m runs yolo exports through a sandbox and returns a diff manifest[32m 27[2mms[22m[39m
+     [32m✓[39m writes an integration entrypoint when exporting an integration-phase graph[32m 19[2mms[22m[39m
 [90mstdout[2m | src/app/api/implement-node/route.test.ts[2m > [22m[2mPOST /api/implement-node[2m > [22m[2mupdates only the selected node draft and leaves other nodes untouched
 [22m[39m[CodeFlow] Implement node request received {
   nodeId: [32m'function:save-task'[39m,
@@ -29,7 +36,7 @@ TESTS: FAIL
 }
 
 [90mstdout[2m | src/components/blueprint-workbench.test.tsx[2m > [22m[2mBlueprintWorkbench[2m > [22m[2mbuilds a blueprint and allows node inspection
-[22m[39m[CodeFlow] Blueprint build completed { source: [32m'legacy'[39m, durationMs: [33m125[39m }
+[22m[39m[CodeFlow] Blueprint build completed { source: [32m'legacy'[39m, durationMs: [33m89[39m }
 
 [90mstdout[2m | src/app/api/implement-node/route.test.ts[2m > [22m[2mPOST /api/implement-node[2m > [22m[2mretries once when the first implementation fails local TypeScript validation
 [22m[39m[CodeFlow] Implement node request received {
@@ -38,31 +45,39 @@ TESTS: FAIL
   keySource: [32m'environment'[39m
 }
 
- [32m✓[39m src/lib/opencode/modelFetcher.test.ts [2m([22m[2m12 tests[22m[2m)[22m[33m 3360[2mms[22m[39m
-       [33m[2m✓[22m[39m handles providers with API validation [33m 695[2mms[22m[39m
-       [33m[2m✓[22m[39m should handle all 11 providers without crashing [33m 2027[2mms[22m[39m
-       [33m[2m✓[22m[39m handles timeout gracefully [33m 307[2mms[22m[39m
-       [33m[2m✓[22m[39m provides meaningful error messages [33m 318[2mms[22m[39m
- [32m✓[39m src/lib/blueprint/repo.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 4394[2mms[22m[39m
-     [33m[2m✓[22m[39m extracts modules, classes, functions, screens, apis, and structural edges [33m 4391[2mms[22m[39m
- [32m✓[39m src/lib/blueprint/conflicts.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 4595[2mms[22m[39m
-     [33m[2m✓[22m[39m finds signature mismatches and missing blueprint nodes [33m 4593[2mms[22m[39m
+ [32m✓[39m src/lib/opencode/modelFetcher.test.ts [2m([22m[2m12 tests[22m[2m)[22m[33m 2827[2mms[22m[39m
+       [33m[2m✓[22m[39m handles providers with API validation [33m 570[2mms[22m[39m
+       [33m[2m✓[22m[39m should handle all 11 providers without crashing [33m 1561[2mms[22m[39m
+       [33m[2m✓[22m[39m handles timeout gracefully [33m 315[2mms[22m[39m
+       [33m[2m✓[22m[39m provides meaningful error messages [33m 365[2mms[22m[39m
+ [32m✓[39m src/app/api/conflicts/route.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 3692[2mms[22m[39m
+     [33m[2m✓[22m[39m returns drift conflicts against the repo [33m 3675[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/repo.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 4044[2mms[22m[39m
+     [33m[2m✓[22m[39m extracts modules, classes, functions, screens, apis, and structural edges [33m 4042[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/compile-validation.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 5511[2mms[22m[39m
+     [33m[2m✓[22m[39m passes syntactically valid TypeScript using contract type shims [33m 2949[2mms[22m[39m
+     [33m[2m✓[22m[39m fails invalid TypeScript [33m 2559[2mms[22m[39m
 [90mstdout[2m | src/components/blueprint-workbench.test.tsx[2m > [22m[2mBlueprintWorkbench[2m > [22m[2mshows API key status and build progress in AI mode
-[22m[39m[CodeFlow] Blueprint build completed { source: [32m'ai'[39m, durationMs: [33m318[39m }
+[22m[39m[CodeFlow] Blueprint build completed { source: [32m'ai'[39m, durationMs: [33m304[39m }
 
- [32m✓[39m src/app/api/conflicts/route.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 4090[2mms[22m[39m
-     [33m[2m✓[22m[39m returns drift conflicts against the repo [33m 4080[2mms[22m[39m
- [32m✓[39m src/lib/blueprint/compile-validation.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 6198[2mms[22m[39m
-     [33m[2m✓[22m[39m passes syntactically valid TypeScript using contract type shims [33m 3662[2mms[22m[39m
-     [33m[2m✓[22m[39m fails invalid TypeScript [33m 2534[2mms[22m[39m
- [32m✓[39m src/app/api/files/post/route.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 287[2mms[22m[39m
 [90mstderr[2m | src/components/code-editor.test.tsx[2m > [22m[2mCodeEditor[2m > [22m[2mapplies an explicit shell height when the editor should fill its parent
 [22m[39mReceived `true` for a non-boolean attribute `jsx`.
 
 If you want to write it to the DOM, pass a string instead: jsx="true" or jsx={value.toString()}.
 
- [32m✓[39m src/components/code-editor.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 367[2mms[22m[39m
-     [33m[2m✓[22m[39m applies an explicit shell height when the editor should fill its parent [33m 331[2mms[22m[39m
+ [32m✓[39m src/components/code-editor.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 297[2mms[22m[39m
+ [32m✓[39m src/app/api/files/post/route.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 212[2mms[22m[39m
+[90mstdout[2m | src/app/api/implement-node/route.test.ts[2m > [22m[2mPOST /api/implement-node[2m > [22m[2mreturns 400 when the implementation still fails validation after retry
+[22m[39m[CodeFlow] Implement node request received {
+  nodeId: [32m'function:save-task'[39m,
+  kind: [32m'function'[39m,
+  keySource: [32m'environment'[39m
+}
+
+ [32m✓[39m src/app/api/files/get/route.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 176[2mms[22m[39m
+[90mstdout[2m | src/components/blueprint-workbench.test.tsx[2m > [22m[2mBlueprintWorkbench[2m > [22m[2msurfaces CodeRAG as a repo dock after a repo-backed build
+[22m[39m[CodeFlow] Blueprint build completed { source: [32m'legacy'[39m, durationMs: [33m1351[39m }
+
 [90mstdout[2m | src/app/api/generate-blueprint/route.test.ts[2m > [22m[2mPOST /api/generate-blueprint[2m > [22m[2mnormalizes sparse AI responses into a valid blueprint graph
 [22m[39m[CodeFlow] AI blueprint request received {
   projectName: [32m'AI Route Test'[39m,
@@ -75,7 +90,7 @@ If you want to write it to the DOM, pass a string instead: jsx="true" or jsx={va
 [90mstdout[2m | src/app/api/generate-blueprint/route.test.ts[2m > [22m[2mPOST /api/generate-blueprint[2m > [22m[2mnormalizes sparse AI responses into a valid blueprint graph
 [22m[39m[CodeFlow] NVIDIA blueprint normalized successfully {
   projectName: [32m'AI Route Test'[39m,
-  durationMs: [33m25[39m,
+  durationMs: [33m19[39m,
   nodes: [33m2[39m,
   edges: [33m1[39m,
   workflows: [33m0[39m
@@ -93,7 +108,7 @@ If you want to write it to the DOM, pass a string instead: jsx="true" or jsx={va
 [90mstdout[2m | src/app/api/generate-blueprint/route.test.ts[2m > [22m[2mPOST /api/generate-blueprint[2m > [22m[2mextracts the first valid JSON object when the AI wraps it in markdown and trailing prose
 [22m[39m[CodeFlow] NVIDIA blueprint normalized successfully {
   projectName: [32m'AI Route Test'[39m,
-  durationMs: [33m1[39m,
+  durationMs: [33m2[39m,
   nodes: [33m1[39m,
   edges: [33m0[39m,
   workflows: [33m0[39m
@@ -111,7 +126,7 @@ If you want to write it to the DOM, pass a string instead: jsx="true" or jsx={va
 [90mstdout[2m | src/app/api/generate-blueprint/route.test.ts[2m > [22m[2mPOST /api/generate-blueprint[2m > [22m[2msanitizes control characters before JSON parsing
 [22m[39m[CodeFlow] NVIDIA blueprint normalized successfully {
   projectName: [32m'AI Route Test'[39m,
-  durationMs: [33m1[39m,
+  durationMs: [33m6[39m,
   nodes: [33m1[39m,
   edges: [33m0[39m,
   workflows: [33m0[39m
@@ -135,22 +150,40 @@ If you want to write it to the DOM, pass a string instead: jsx="true" or jsx={va
   workflows: [33m0[39m
 }
 
- [32m✓[39m src/app/api/generate-blueprint/route.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 156[2mms[22m[39m
-[90mstdout[2m | src/app/api/implement-node/route.test.ts[2m > [22m[2mPOST /api/implement-node[2m > [22m[2mreturns 400 when the implementation still fails validation after retry
-[22m[39m[CodeFlow] Implement node request received {
-  nodeId: [32m'function:save-task'[39m,
-  kind: [32m'function'[39m,
-  keySource: [32m'environment'[39m
+ [32m✓[39m src/app/api/generate-blueprint/route.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 146[2mms[22m[39m
+ [32m✓[39m src/app/api/digital-twin/simulate/route.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 120[2mms[22m[39m
+[90mstdout[2m | src/app/api/blueprint/route.test.ts[2m > [22m[2mPOST /api/blueprint[2m > [22m[2minitializes CodeRag and returns query context after a repo build
+[22m[39m{"level":"info","message":"Indexed repository","repoPath":"/Users/abhinavnehra/git/CodeFlow/src/lib/blueprint/test-fixtures/sample-repo","indexedNodeCount":14,"fullReindex":true}
+
+ [32m✓[39m src/lib/blueprint/conflicts.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 3223[2mms[22m[39m
+     [33m[2m✓[22m[39m finds signature mismatches and missing blueprint nodes [33m 3221[2mms[22m[39m
+ [32m✓[39m src/app/api/blueprint/route.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 9141[2mms[22m[39m
+     [33m[2m✓[22m[39m initializes CodeRag and returns query context after a repo build [33m 9103[2mms[22m[39m
+ [32m✓[39m src/app/api/vcr/route.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 65[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/export.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 234[2mms[22m[39m
+[90mstderr[2m | src/app/api/implement-node/route.test.ts[2m > [22m[2mPOST /api/implement-node[2m > [22m[2mreturns 400 when the implementation still fails validation after retry
+[22m[39m[CodeFlow] Failed to implement node {
+  durationMs: [33m3875[39m,
+  error: [32m'TypeScript validation failed for stubs/function-savetask.ts.\n'[39m +
+    [32m'\x1B[96mstubs/function-savetask.ts\x1B[0m:\x1B[93m1\x1B[0m:\x1B[93m56\x1B[0m - \x1B[91merror\x1B[0m\x1B[90m TS1003: \x1B[0mIdentifier expected.\n'[39m +
+    [32m'\n'[39m +
+    [32m'\x1B[7m1\x1B[0m export function saveTask(input: string) { return input.; }\n'[39m +
+    [32m'\x1B[7m \x1B[0m \x1B[91m                                                       ~\x1B[0m'[39m
 }
 
-[90mstdout[2m | src/components/blueprint-workbench.test.tsx[2m > [22m[2mBlueprintWorkbench[2m > [22m[2msurfaces CodeRAG as a repo dock after a repo-backed build
-[22m[39m[CodeFlow] Blueprint build completed { source: [32m'legacy'[39m, durationMs: [33m1317[39m }
-
- [32m✓[39m src/app/api/files/get/route.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 134[2mms[22m[39m
- [32m✓[39m src/app/api/files/list/route.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 66[2mms[22m[39m
- [32m✓[39m src/lib/blueprint/export.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 106[2mms[22m[39m
+ [32m✓[39m src/app/api/implement-node/route.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 10999[2mms[22m[39m
+     [33m[2m✓[22m[39m updates only the selected node draft and leaves other nodes untouched [33m 3058[2mms[22m[39m
+     [33m[2m✓[22m[39m retries once when the first implementation fails local TypeScript validation [33m 4057[2mms[22m[39m
+     [33m[2m✓[22m[39m returns 400 when the implementation still fails validation after retry [33m 3881[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/genetic.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 50[2mms[22m[39m
+ [32m✓[39m src/app/api/executions/run/route.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 33[2mms[22m[39m
+ [32m✓[39m src/app/api/observability/ingest/route.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 50[2mms[22m[39m
+ [32m✓[39m src/app/api/files/list/route.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 52[2mms[22m[39m
 [90mstdout[2m | src/app/api/ghost-nodes/route.test.ts[2m > [22m[2mPOST /api/ghost-nodes[2m > [22m[2mreturns heuristic suggestions when no NVIDIA key is available
 [22m[39m[CodeFlow] Ghost node suggestion request received { projectName: [32m'Ghost Test'[39m, nodeCount: [33m3[39m, keySource: [32m'missing'[39m }
+
+[90mstdout[2m | src/components/blueprint-workbench.test.tsx[2m > [22m[2mBlueprintWorkbench[2m > [22m[2mdrills into a module graph and shows detailed function documentation
+[22m[39m[CodeFlow] Blueprint build completed { source: [32m'legacy'[39m, durationMs: [33m889[39m }
 
 [90mstdout[2m | src/app/api/ghost-nodes/route.test.ts[2m > [22m[2mPOST /api/ghost-nodes[2m > [22m[2mreturns AI suggestions when NVIDIA key is provided
 [22m[39m[CodeFlow] Ghost node suggestion request received { projectName: [32m'Ghost Test'[39m, nodeCount: [33m3[39m, keySource: [32m'environment'[39m }
@@ -178,8 +211,7 @@ If you want to write it to the DOM, pass a string instead: jsx="true" or jsx={va
 [90mstdout[2m | src/app/api/ghost-nodes/route.test.ts[2m > [22m[2mPOST /api/ghost-nodes[2m > [22m[2mheuristic suggests auth middleware for graphs with APIs but no auth node
 [22m[39m[CodeFlow] Ghost node suggestion request received { projectName: [32m'Ghost Test'[39m, nodeCount: [33m3[39m, keySource: [32m'missing'[39m }
 
- [32m✓[39m src/app/api/ghost-nodes/route.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 74[2mms[22m[39m
- [32m✓[39m src/lib/blueprint/store.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 49[2mms[22m[39m
+ [32m✓[39m src/app/api/ghost-nodes/route.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 51[2mms[22m[39m
 [90mstdout[2m | src/app/api/code-completions/route.test.ts[2m > [22m[2mPOST /api/code-completions[2m > [22m[2mreturns inline completion items for the active blueprint node
 [22m[39m[CodeFlow] Code completion request received {
   nodeId: [32m'function:save-task'[39m,
@@ -190,9 +222,19 @@ If you want to write it to the DOM, pass a string instead: jsx="true" or jsx={va
 }
 
 [90mstdout[2m | src/app/api/code-completions/route.test.ts[2m > [22m[2mPOST /api/code-completions[2m > [22m[2mreturns inline completion items for the active blueprint node
-[22m[39m[CodeFlow] Code completions generated { nodeId: [32m'function:save-task'[39m, suggestions: [33m2[39m, durationMs: [33m61[39m }
+[22m[39m[CodeFlow] Code completions generated { nodeId: [32m'function:save-task'[39m, suggestions: [33m2[39m, durationMs: [33m25[39m }
 
- [32m✓[39m src/app/api/code-completions/route.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 93[2mms[22m[39m
+ [32m✓[39m src/app/api/code-completions/route.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 44[2mms[22m[39m
+ [32m✓[39m src/app/api/observability/latest/route.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 64[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/risk.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m src/app/api/digital-twin/route.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 43[2mms[22m[39m
+ [32m✓[39m src/app/api/terminal/sessions/route.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 30[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/vcr.test.ts [2m([22m[2m26 tests[22m[2m)[22m[32m 30[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/prd.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m src/app/api/export/mermaid/route.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/store.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 66[2mms[22m[39m
+ [32m✓[39m src/app/api/analysis/smells/route.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/digital-twin.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 31[2mms[22m[39m
 [90mstdout[2m | src/app/api/code-suggestions/route.test.ts[2m > [22m[2mPOST /api/code-suggestions[2m > [22m[2mreturns a parsed AI code suggestion for a blueprint node
 [22m[39m[CodeFlow] Code suggestion request received {
   nodeId: [32m'function:save-task'[39m,
@@ -202,105 +244,70 @@ If you want to write it to the DOM, pass a string instead: jsx="true" or jsx={va
 }
 
 [90mstdout[2m | src/app/api/code-suggestions/route.test.ts[2m > [22m[2mPOST /api/code-suggestions[2m > [22m[2mreturns a parsed AI code suggestion for a blueprint node
-[22m[39m[CodeFlow] Code suggestion generated { nodeId: [32m'function:save-task'[39m, durationMs: [33m19[39m }
+[22m[39m[CodeFlow] Code suggestion generated { nodeId: [32m'function:save-task'[39m, durationMs: [33m13[39m }
 
- [32m✓[39m src/app/api/code-suggestions/route.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 39[2mms[22m[39m
+ [32m✓[39m src/app/api/code-suggestions/route.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 27[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/prompt-governance.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/lib/opencode/config.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 9[2mms[22m[39m
 [90mstdout[2m | src/app/api/coderag/route.test.ts[2m > [22m[2m/api/coderag[2m > [22m[2mreturns validated query results for a repo search
 [22m[39m[CodeRag] Query: Where is auth validated?
 
-[90mstderr[2m | src/app/api/implement-node/route.test.ts[2m > [22m[2mPOST /api/implement-node[2m > [22m[2mreturns 400 when the implementation still fails validation after retry
-[22m[39m[CodeFlow] Failed to implement node {
-  durationMs: [33m3426[39m,
-  error: [32m'TypeScript validation failed for stubs/function-savetask.ts.\n'[39m +
-    [32m'\x1B[96mstubs/function-savetask.ts\x1B[0m:\x1B[93m1\x1B[0m:\x1B[93m56\x1B[0m - \x1B[91merror\x1B[0m\x1B[90m TS1003: \x1B[0mIdentifier expected.\n'[39m +
-    [32m'\n'[39m +
-    [32m'\x1B[7m1\x1B[0m export function saveTask(input: string) { return input.; }\n'[39m +
-    [32m'\x1B[7m \x1B[0m \x1B[91m                                                       ~\x1B[0m'[39m
-}
-
- [32m✓[39m src/app/api/coderag/route.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 29[2mms[22m[39m
- [32m✓[39m src/app/api/implement-node/route.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 11450[2mms[22m[39m
-     [33m[2m✓[22m[39m updates only the selected node draft and leaves other nodes untouched [33m 3635[2mms[22m[39m
-     [33m[2m✓[22m[39m retries once when the first implementation fails local TypeScript validation [33m 4381[2mms[22m[39m
-     [33m[2m✓[22m[39m returns 400 when the implementation still fails validation after retry [33m 3432[2mms[22m[39m
- [32m✓[39m src/app/api/vcr/route.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 47[2mms[22m[39m
- [32m✓[39m src/lib/blueprint/risk.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 17[2mms[22m[39m
-[90mstdout[2m | src/components/blueprint-workbench.test.tsx[2m > [22m[2mBlueprintWorkbench[2m > [22m[2mdrills into a module graph and shows detailed function documentation
-[22m[39m[CodeFlow] Blueprint build completed { source: [32m'legacy'[39m, durationMs: [33m1005[39m }
-
- [32m✓[39m src/lib/blueprint/vcr.test.ts [2m([22m[2m26 tests[22m[2m)[22m[32m 46[2mms[22m[39m
- [32m✓[39m src/app/api/executions/run/route.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 42[2mms[22m[39m
- [32m✓[39m src/lib/blueprint/heatmap.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 12[2mms[22m[39m
- [32m✓[39m src/app/api/refactor/heal/route.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 27[2mms[22m[39m
- [32m✓[39m src/lib/blueprint/branches.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 27[2mms[22m[39m
- [32m✓[39m src/lib/blueprint/digital-twin.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 63[2mms[22m[39m
- [32m✓[39m src/lib/blueprint/plan.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 28[2mms[22m[39m
- [32m✓[39m src/lib/blueprint/runtime-tests.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 13[2mms[22m[39m
- [32m✓[39m src/lib/blueprint/genetic.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 64[2mms[22m[39m
- [32m✓[39m src/app/api/terminal/sessions/route.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 45[2mms[22m[39m
- [32m✓[39m src/app/api/export/mermaid/route.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 41[2mms[22m[39m
- [32m✓[39m src/app/api/refactor/detect/route.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 52[2mms[22m[39m
- [32m✓[39m src/app/api/analysis/smells/route.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 30[2mms[22m[39m
- [32m✓[39m src/app/api/genetic/evolve/route.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 23[2mms[22m[39m
- [32m✓[39m src/app/api/analysis/cycles/route.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 50[2mms[22m[39m
- [32m✓[39m src/app/api/analysis/metrics/route.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 43[2mms[22m[39m
+ [32m✓[39m src/app/api/coderag/route.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 38[2mms[22m[39m
 [90mstdout[2m | src/components/blueprint-workbench.test.tsx[2m > [22m[2mBlueprintWorkbench[2m > [22m[2mhard-gates phases and enables implementation only after entering phase 2
-[22m[39m[CodeFlow] Blueprint build completed { source: [32m'legacy'[39m, durationMs: [33m1817[39m }
+[22m[39m[CodeFlow] Blueprint build completed { source: [32m'legacy'[39m, durationMs: [33m1112[39m }
 
- [32m✓[39m src/lib/blueprint/runner.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 40[2mms[22m[39m
- [32m✓[39m src/lib/blueprint/mcp.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 21[2mms[22m[39m
- [32m✓[39m src/lib/blueprint/refactor.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 23[2mms[22m[39m
- [32m✓[39m src/lib/blueprint/flow-view.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 15[2mms[22m[39m
- [32m✓[39m src/lib/opencode/config.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 14[2mms[22m[39m
- [32m✓[39m src/lib/blueprint/prd.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 10[2mms[22m[39m
- [32m✓[39m src/lib/file-security.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 9[2mms[22m[39m
- [32m✓[39m src/lib/opencode/agent.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 13[2mms[22m[39m
- [32m✓[39m src/lib/blueprint/prompt-governance.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/plan.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 25[2mms[22m[39m
+ [32m✓[39m src/app/api/analysis/cycles/route.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 28[2mms[22m[39m
  [32m✓[39m src/lib/blueprint/edit.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/branches.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 42[2mms[22m[39m
+ [32m✓[39m src/app/api/analysis/metrics/route.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 36[2mms[22m[39m
+ [32m✓[39m src/app/api/refactor/detect/route.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/app/api/refactor/heal/route.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/runner.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/refactor.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/mcp.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m src/app/api/genetic/evolve/route.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 44[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/runtime-tests.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 8[2mms[22m[39m
 [90mstdout[2m | src/components/blueprint-workbench.test.tsx[2m > [22m[2mBlueprintWorkbench[2m > [22m[2mruns architecture analysis and shows the analysis panel with metrics, smells, cycles, and mermaid output
-[22m[39m[CodeFlow] Blueprint build completed { source: [32m'legacy'[39m, durationMs: [33m556[39m }
+[22m[39m[CodeFlow] Blueprint build completed { source: [32m'legacy'[39m, durationMs: [33m648[39m }
 
- [32m✓[39m src/lib/blueprint/cycles.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 12[2mms[22m[39m
- [32m✓[39m src/store/blueprint-store.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 7[2mms[22m[39m
- [32m✓[39m src/lib/blueprint/phases.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 9[2mms[22m[39m
- [32m✓[39m src/lib/blueprint/smells.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 12[2mms[22m[39m
- [32m✓[39m src/lib/opencode/server.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 22[2mms[22m[39m
- [32m✓[39m src/lib/blueprint/metrics.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 4[2mms[22m[39m
- [32m✓[39m src/components/monaco-setup.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 8[2mms[22m[39m
- [32m✓[39m src/lib/blueprint/mermaid.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 4[2mms[22m[39m
- [32m✓[39m src/lib/blueprint/traces.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 11[2mms[22m[39m
- [32m✓[39m src/lib/blueprint/execute.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 9[2mms[22m[39m
- [32m✓[39m src/lib/blueprint/observability.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/heatmap.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/lib/file-security.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m src/store/blueprint-store.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/mermaid.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/flow-view.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 29[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/build.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/lib/opencode/agent.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m src/components/monaco-setup.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/metrics.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/cycles.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/phases.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 7[2mms[22m[39m
 [90mstdout[2m | src/components/blueprint-workbench.test.tsx[2m > [22m[2mBlueprintWorkbench[2m > [22m[2mshows the Branches panel and can create a branch after building
-[22m[39m[CodeFlow] Blueprint build completed { source: [32m'legacy'[39m, durationMs: [33m446[39m }
+[22m[39m[CodeFlow] Blueprint build completed { source: [32m'legacy'[39m, durationMs: [33m545[39m }
 
+ [32m✓[39m src/lib/opencode/server.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/traces.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/smells.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/observability.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/lib/blueprint/execute.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 5[2mms[22m[39m
 [90mstdout[2m | src/components/blueprint-workbench.test.tsx[2m > [22m[2mBlueprintWorkbench[2m > [22m[2msuggests ghost nodes and solidifies them on click
-[22m[39m[CodeFlow] Blueprint build completed { source: [32m'legacy'[39m, durationMs: [33m435[39m }
+[22m[39m[CodeFlow] Blueprint build completed { source: [32m'legacy'[39m, durationMs: [33m309[39m }
 
- [32m✓[39m src/components/blueprint-workbench.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[33m 33037[2mms[22m[39m
-     [33m[2m✓[22m[39m builds a blueprint and allows node inspection [33m 3475[2mms[22m[39m
-     [33m[2m✓[22m[39m shows API key status and build progress in AI mode [33m 2505[2mms[22m[39m
-     [33m[2m✓[22m[39m surfaces CodeRAG as a repo dock after a repo-backed build [33m 3252[2mms[22m[39m
-     [33m[2m✓[22m[39m shows an actionable message when the local server is unreachable during blueprint build [33m 1578[2mms[22m[39m
-     [33m[2m✓[22m[39m drills into a module graph and shows detailed function documentation [33m 4713[2mms[22m[39m
-     [33m[2m✓[22m[39m hard-gates phases and enables implementation only after entering phase 2 [33m 5258[2mms[22m[39m
-     [33m[2m✓[22m[39m runs architecture analysis and shows the analysis panel with metrics, smells, cycles, and mermaid output [33m 3690[2mms[22m[39m
-     [33m[2m✓[22m[39m shows the Branches panel and can create a branch after building [33m 6087[2mms[22m[39m
-     [33m[2m✓[22m[39m suggests ghost nodes and solidifies them on click [33m 2478[2mms[22m[39m
+ [32m✓[39m src/components/blueprint-workbench.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[33m 26389[2mms[22m[39m
+     [33m[2m✓[22m[39m builds a blueprint and allows node inspection [33m 3288[2mms[22m[39m
+     [33m[2m✓[22m[39m shows API key status and build progress in AI mode [33m 2157[2mms[22m[39m
+     [33m[2m✓[22m[39m surfaces CodeRAG as a repo dock after a repo-backed build [33m 2913[2mms[22m[39m
+     [33m[2m✓[22m[39m shows an actionable message when the local server is unreachable during blueprint build [33m 2016[2mms[22m[39m
+     [33m[2m✓[22m[39m drills into a module graph and shows detailed function documentation [33m 3958[2mms[22m[39m
+     [33m[2m✓[22m[39m hard-gates phases and enables implementation only after entering phase 2 [33m 3676[2mms[22m[39m
+     [33m[2m✓[22m[39m runs architecture analysis and shows the analysis panel with metrics, smells, cycles, and mermaid output [33m 3077[2mms[22m[39m
+     [33m[2m✓[22m[39m shows the Branches panel and can create a branch after building [33m 3226[2mms[22m[39m
+     [33m[2m✓[22m[39m suggests ghost nodes and solidifies them on click [33m 2077[2mms[22m[39m
 
-[31m⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Suites 12 [49m[22m[31m⎯⎯⎯⎯⎯⎯[39m
-
-[41m[1m FAIL [22m[49m src/lib/blueprint/build.test.ts[2m [ src/lib/blueprint/build.test.ts ][22m
-[41m[1m FAIL [22m[49m src/app/api/blueprint/route.test.ts[2m [ src/app/api/blueprint/route.test.ts ][22m
-[41m[1m FAIL [22m[49m src/app/api/export/route.test.ts[2m [ src/app/api/export/route.test.ts ][22m
-[41m[1m FAIL [22m[49m src/app/api/digital-twin/route.test.ts[2m [ src/app/api/digital-twin/route.test.ts ][22m
-[41m[1m FAIL [22m[49m src/app/api/digital-twin/simulate/route.test.ts[2m [ src/app/api/digital-twin/simulate/route.test.ts ][22m
-[41m[1m FAIL [22m[49m src/app/api/observability/latest/route.test.ts[2m [ src/app/api/observability/latest/route.test.ts ][22m
-[41m[1m FAIL [22m[49m src/app/api/observability/ingest/route.test.ts[2m [ src/app/api/observability/ingest/route.test.ts ][22m
-[31m[1mError[22m: Cannot find module '/Users/abhinavnehra/git/CodeFlow/node_modules/@lancedb/lancedb-darwin-arm64/lancedb.darwin-arm64.node'. Please verify that the package.json has a valid "main" entry[39m
-[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/13]⎯[22m[39m
+[31m⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Suites 5 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
 
 [41m[1m FAIL [22m[49m src/app/api/branches/route.test.ts[2m [ src/app/api/branches/route.test.ts ][22m
+[41m[1m FAIL [22m[49m src/app/api/branches/[id]/route.test.ts[2m [ src/app/api/branches/[id]/route.test.ts ][22m
 [31m[1mError[22m: Failed to resolve import "@abhinav2203/codeflow-versioning" from "src/app/api/branches/route.ts". Does the file exist?[39m
   Plugin: [35mvite:import-analysis[39m
   File: [36m/Users/abhinavnehra/git/CodeFlow/src/app/api/branches/route.ts[39m:3:43
@@ -318,7 +325,7 @@ If you want to write it to the DOM, pass a string instead: jsx="true" or jsx={va
 [90m [2m❯[22m EnvironmentPluginContainer.transform node_modules/vite/dist/node/chunks/node.js:[2m29998:14[22m[39m
 [90m [2m❯[22m loadAndTransform node_modules/vite/dist/node/chunks/node.js:[2m24133:26[22m[39m
 
-[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/13]⎯[22m[39m
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯[22m[39m
 
 [41m[1m FAIL [22m[49m src/app/api/branches/diff/route.test.ts[2m [ src/app/api/branches/diff/route.test.ts ][22m
 [31m[1mError[22m: Failed to resolve import "@abhinav2203/codeflow-versioning/diff" from "src/app/api/branches/diff/route.ts". Does the file exist?[39m
@@ -338,28 +345,7 @@ If you want to write it to the DOM, pass a string instead: jsx="true" or jsx={va
 [90m [2m❯[22m EnvironmentPluginContainer.transform node_modules/vite/dist/node/chunks/node.js:[2m29998:14[22m[39m
 [90m [2m❯[22m loadAndTransform node_modules/vite/dist/node/chunks/node.js:[2m24133:26[22m[39m
 
-[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/13]⎯[22m[39m
-
-[41m[1m FAIL [22m[49m src/app/api/branches/[id]/route.test.ts[2m [ src/app/api/branches/[id]/route.test.ts ][22m
-[31m[1mError[22m: Failed to resolve import "@abhinav2203/codeflow-versioning" from "src/app/api/branches/route.ts". Does the file exist?[39m
-  Plugin: [35mvite:import-analysis[39m
-  File: [36m/Users/abhinavnehra/git/CodeFlow/src/app/api/branches/route.ts[39m:3:43
-[33m  1  |  import { NextResponse } from "next/server";
-  2  |  import { z } from "zod";
-  3  |  import { createBranch, listBranches } from "@abhinav2203/codeflow-versioning";
-     |                                              ^
-  4  |  import { blueprintGraphSchema } from "@abhinav2203/codeflow-core/schema";
-  5  |  const createBranchRequestSchema = z.object({[39m
-[90m [2m❯[22m TransformPluginContext._formatLog node_modules/vite/dist/node/chunks/node.js:[2m30209:39[22m[39m
-[90m [2m❯[22m TransformPluginContext.error node_modules/vite/dist/node/chunks/node.js:[2m30206:14[22m[39m
-[90m [2m❯[22m normalizeUrl node_modules/vite/dist/node/chunks/node.js:[2m27496:18[22m[39m
-[90m [2m❯[22m node_modules/vite/dist/node/chunks/node.js:[2m27559:30[22m[39m
-[90m [2m❯[22m TransformPluginContext.transform node_modules/vite/dist/node/chunks/node.js:[2m27527:4[22m[39m
-[90m [2m❯[22m EnvironmentPluginContainer.transform node_modules/vite/dist/node/chunks/node.js:[2m29998:14[22m[39m
-[90m [2m❯[22m loadAndTransform node_modules/vite/dist/node/chunks/node.js:[2m24133:26[22m[39m
-[90m [2m❯[22m fetchModule node_modules/vite/dist/node/chunks/node.js:[2m22953:15[22m[39m
-
-[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/13]⎯[22m[39m
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯[22m[39m
 
 [41m[1m FAIL [22m[49m src/app/api/mcp/tools/route.test.ts[2m [ src/app/api/mcp/tools/route.test.ts ][22m
 [31m[1mError[22m: Failed to resolve import "@abhinav2203/codeflow-mcp" from "src/app/api/mcp/tools/route.ts". Does the file exist?[39m
@@ -379,7 +365,7 @@ If you want to write it to the DOM, pass a string instead: jsx="true" or jsx={va
 [90m [2m❯[22m EnvironmentPluginContainer.transform node_modules/vite/dist/node/chunks/node.js:[2m29998:14[22m[39m
 [90m [2m❯[22m loadAndTransform node_modules/vite/dist/node/chunks/node.js:[2m24133:26[22m[39m
 
-[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/13]⎯[22m[39m
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯[22m[39m
 
 [41m[1m FAIL [22m[49m src/app/api/mcp/invoke/route.test.ts[2m [ src/app/api/mcp/invoke/route.test.ts ][22m
 [31m[1mError[22m: Failed to resolve import "@abhinav2203/codeflow-mcp" from "src/app/api/mcp/invoke/route.ts". Does the file exist?[39m
@@ -399,10 +385,29 @@ If you want to write it to the DOM, pass a string instead: jsx="true" or jsx={va
 [90m [2m❯[22m EnvironmentPluginContainer.transform node_modules/vite/dist/node/chunks/node.js:[2m29998:14[22m[39m
 [90m [2m❯[22m loadAndTransform node_modules/vite/dist/node/chunks/node.js:[2m24133:26[22m[39m
 
-[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/13]⎯[22m[39m
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯[22m[39m
 
 
-[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 2 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/app/api/export/route.test.ts[2m > [22mPOST /api/export[2m > [22mrequires approval before overwriting an existing directory in essential mode
+[31m[1mAssertionError[22m: expected 400 to be 200 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 200[39m
+[31m+ 400[39m
+
+[36m [2m❯[22m src/app/api/export/route.test.ts:[2m128:37[22m[39m
+    [90m126|[39m       })
+    [90m127|[39m     )[33m;[39m
+    [90m128|[39m     [34mexpect[39m(approvedResponse[33m.[39mstatus)[33m.[39m[34mtoBe[39m([34m200[39m)[33m;[39m
+    [90m   |[39m                                     [31m^[39m
+    [90m129|[39m
+    [90m130|[39m     [35mconst[39m exportResponse [33m=[39m [35mawait[39m [33mPOST[39m(
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯[22m[39m
 
 [41m[1m FAIL [22m[49m src/app/api/approvals/approve/route.test.ts[2m > [22mPOST /api/approvals/approve[2m > [22mmarks an approval as approved
 [31m[1mAssertionError[22m: expected 400 to be 200 // Object.is equality[39m
@@ -421,10 +426,10 @@ If you want to write it to the DOM, pass a string instead: jsx="true" or jsx={va
     [90m 57|[39m     [34mexpect[39m(body[33m.[39mapproval[33m.[39mstatus)[33m.[39m[34mtoBe[39m([32m"approved"[39m)[33m;[39m
     [90m 58|[39m     [34mexpect[39m(body[33m.[39mapproval[33m.[39mapprovedAt)[33m.[39m[34mtoBeTruthy[39m()[33m;[39m
 
-[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/13]⎯[22m[39m
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯[22m[39m
 
 
-[2m Test Files [22m [1m[31m13 failed[39m[22m[2m | [22m[1m[32m57 passed[39m[22m[90m (70)[39m
-[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m305 passed[39m[22m[90m (306)[39m
-[2m   Start at [22m 12:02:58
-[2m   Duration [22m 42.02s[2m (transform 5.55s, setup 12.69s, import 18.81s, tests 69.49s, environment 125.52s)[22m
+[2m Test Files [22m [1m[31m7 failed[39m[22m[2m | [22m[1m[32m63 passed[39m[22m[90m (70)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m319 passed[39m[22m[90m (321)[39m
+[2m   Start at [22m 16:52:08
+[2m   Duration [22m 31.21s[2m (transform 4.90s, setup 8.66s, import 24.83s, tests 68.37s, environment 78.86s)[22m
