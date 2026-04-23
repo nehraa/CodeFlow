@@ -1,12 +1,12 @@
 # Pass 1: Test-Sync
 
-**Status:** FAIL
-**Time:** 2026-04-23T12:01:34+05:30
-**Attempt:** 43
+**Status:** PASS
+**Time:** 2026-04-23T12:07:20+05:30
+**Attempt:** 45
 
 ## Details
 
-Missing test files for:\n\n- packages/codeflow-versioning/src/index.ts (missing test)\n\n\n### Instructions to Pass\n\n1. Create test file for each missing test\n2. Write minimum viable test (happy path)\n3. Run tests to verify they pass\n4. Commit tests before proceeding
+## Test Sync Results\n\n
 
 ## Changed Files
 
@@ -28,15 +28,9 @@ claude-code/verification/attempt-count.txt
 claude-code/verification/current-failures.json
 claude-code/verification/pass-1-test-sync.md
 package-lock.json
-packages/codeflow-mcp/src/tools/index.ts
 packages/codeflow-store/package.json
-packages/codeflow-versioning/package.json
-packages/codeflow-versioning/src/index.ts
 packages/codeflow-versioning/tsconfig.json
-src/app/api/branches/[id]/route.ts
-src/app/api/branches/diff/route.ts
-src/app/api/branches/route.ts
 ```
 
 ---
-**Next:** BLOCKED - Fix required before proceeding
+**Next:** Proceed to next pass
