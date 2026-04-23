@@ -1,6 +1,6 @@
 {
   "name": "@abhinav2203/codeflow-versioning",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -8,7 +8,11 @@
   "exports": {
     ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
     "./branch": { "types": "./dist/branch/index.d.ts", "default": "./dist/branch/index.js" },
-    "./store": { "types": "./dist/store/index.d.ts", "default": "./dist/store/index.js" }
+    "./store": { "types": "./dist/store/index.d.ts", "default": "./dist/store/index.js" },
+    "./reasoning": { "types": "./dist/reasoning/index.d.ts", "default": "./dist/reasoning/index.js" },
+    "./coderag": { "types": "./dist/coderag/index.d.ts", "default": "./dist/coderag/index.js" },
+    "./diff": { "types": "./dist/diff.d.ts", "default": "./dist/diff.js" },
+    "./tools": { "types": "./dist/tools.d.ts", "default": "./dist/tools.js" }
   },
   "scripts": {
     "check": "tsc --noEmit",
@@ -17,8 +21,9 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@abhinav2203/codeflow-core": "^1.1.5",
-    "@abhinav2203/codeflow-store": "^1.0.7",
+    "@abhinav2203/codeflow-core": "workspace:*",
+    "@abhinav2203/codeflow-store": "workspace:*",
+    "@abhinav2203/coderag": "^0.2.1",
     "uuid": "^11.0.0",
     "zod": "^3.0.0"
   },
