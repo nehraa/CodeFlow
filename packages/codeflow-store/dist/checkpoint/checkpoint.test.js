@@ -83,6 +83,44 @@ describe("checkpoint", () => {
                 expect(content).toBe("modified");
             });
         });
+        it("should throw clear error when checkpointId is a number", async () => {
+            await withEnv(async () => {
+                const targetDir = path.join(STORE_ROOT, "project-with-files");
+                await fs.mkdir(path.join(targetDir, "src"), { recursive: true });
+                await fs.writeFile(path.join(targetDir, "file.txt"), "content");
+                await expect(createCheckpointIfNeeded(targetDir, 42)).rejects.toThrow(/checkpointId must be a string/);
+            });
+        });
+        it("should throw clear error when checkpointId is an object", async () => {
+            await withEnv(async () => {
+                const targetDir = path.join(STORE_ROOT, "project-with-files2");
+                await fs.mkdir(path.join(targetDir, "src"), { recursive: true });
+                await fs.writeFile(path.join(targetDir, "file.txt"), "content");
+                await expect(createCheckpointIfNeeded(targetDir, { id: "cp-1" })).rejects.toThrow(/checkpointId must be a string/);
+            });
+        });
+        it("should auto-generate checkpointId when omitted", async () => {
+            await withEnv(async () => {
+                const targetDir = path.join(STORE_ROOT, "auto-id-project");
+                await fs.mkdir(path.join(targetDir, "src"), { recursive: true });
+                await fs.writeFile(path.join(targetDir, "file.txt"), "content");
+                const result = await createCheckpointIfNeeded(targetDir);
+                expect(result).toBeDefined();
+                expect(result).toContain("checkpoint-");
+            });
+        });
+        it("should throw error when copying directory into itself (EINVAL)", async () => {
+            await withEnv(async () => {
+                const targetDir = path.join(STORE_ROOT, "self-copy-project");
+                await fs.mkdir(path.join(targetDir, "src"), { recursive: true });
+                await fs.writeFile(path.join(targetDir, "file.txt"), "content");
+                // Create a checkpoint inside the target directory
+                const innerCheckpointDir = path.join(targetDir, "inner-checkpoint");
+                await fs.mkdir(innerCheckpointDir, { recursive: true });
+                // Now try to copy into a checkpoint that's INSIDE the target dir
+                await expect(createCheckpointIfNeeded(targetDir, "inner-checkpoint")).rejects.toThrow(/cannot copy directory into itself/i);
+            });
+        });
     });
 });
 //# sourceMappingURL=checkpoint.test.js.map

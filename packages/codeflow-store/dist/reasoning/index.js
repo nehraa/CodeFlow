@@ -2,6 +2,12 @@ import fs from "node:fs/promises";
 import { reasoningBasePath, reasoningCheckpointDir } from "../shared/utils.js";
 import { recoverRun, clearTaskReasoningCheckpoint } from "../checkpoint/reasoning.js";
 export const loadReasoningForRun = async (runId, projectName) => {
+    if (typeof runId !== "string" || runId.trim().length === 0) {
+        throw new Error(`loadReasoningForRun: runId must be a non-empty string; received: ${JSON.stringify(runId)}`);
+    }
+    if (projectName != null && typeof projectName !== "string") {
+        throw new Error(`loadReasoningForRun: projectName must be a non-empty string; received: ${JSON.stringify(projectName)}`);
+    }
     if (projectName) {
         return recoverRun(runId, projectName);
     }

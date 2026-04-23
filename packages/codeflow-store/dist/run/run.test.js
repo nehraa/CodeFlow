@@ -219,6 +219,51 @@ describe("run", () => {
                 expect(parsed.executionReport.results[0].changes).toBeUndefined();
             });
         });
+        it("should throw clear error when runRecord is null", async () => {
+            await withEnv(async () => {
+                await expect(saveRunRecord(null)).rejects.toThrow(/runRecord is required.*received null/i);
+            });
+        });
+        it("should throw clear error when runRecord is undefined", async () => {
+            await withEnv(async () => {
+                await expect(saveRunRecord(undefined)).rejects.toThrow(/runRecord is required/i);
+            });
+        });
+        it("should accept runRecord with runId instead of id (normalized to id)", async () => {
+            await withEnv(async () => {
+                const record = {
+                    runId: "r1", // Common mistake — should be normalized to id
+                    projectName: "test-project",
+                    action: "build",
+                    createdAt: new Date().toISOString(),
+                    schemaVersion: "1.0",
+                    runPlan: makeRunRecord("temp").runPlan
+                };
+                const result = await saveRunRecord(record);
+                expect(result.id).toBe("r1");
+            });
+        });
+        it("should throw clear error when runRecord is empty object", async () => {
+            await withEnv(async () => {
+                await expect(saveRunRecord({})).rejects.toThrow(); // Zod validation error for required fields
+            });
+        });
+        it("should accept record with all Phase 1 fields populated", async () => {
+            await withEnv(async () => {
+                const record = makeRunRecord("phase1-full");
+                record.executionReport.results[0].reasoning = "Test reasoning";
+                record.executionReport.results[0].changes = [{ file: "test.ts", action: "created", summary: "Test change" }];
+                record.executionReport.results[0].errors = [];
+                record.executionReport.results[0].taskType = "code_generation";
+                await saveRunRecord(record);
+                const filePath = path.join(STORE_ROOT, "runs", "phase1-full.json");
+                const content = await fs.readFile(filePath, "utf8");
+                const parsed = JSON.parse(content);
+                expect(parsed.executionReport.results[0].reasoning).toBe("Test reasoning");
+                expect(parsed.executionReport.results[0].changes).toHaveLength(1);
+                expect(parsed.executionReport.results[0].taskType).toBe("code_generation");
+            });
+        });
     });
 });
 //# sourceMappingURL=run.test.js.map

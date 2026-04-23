@@ -84,6 +84,46 @@ describe("mergeObservabilitySnapshot", () => {
         // @ts-expect-error — deliberately passing invalid data
         mergeObservabilitySnapshot({ projectName: "bad-spans", spans: [{ spanId: 123 }], logs: [] })).rejects.toThrow();
     });
+    it("should throw clear error when called with null", async () => {
+        await expect(mergeObservabilitySnapshot(null)).rejects.toThrow(/options is required.*received null/i);
+    });
+    it("should throw clear error when called with undefined", async () => {
+        await expect(mergeObservabilitySnapshot(undefined)).rejects.toThrow(/options is required/i);
+    });
+    it("should throw clear error when projectName is null", async () => {
+        await expect(mergeObservabilitySnapshot({ projectName: null, spans: [], logs: [] })).rejects.toThrow(/projectName must be a non-empty string.*null/i);
+    });
+    it("should preserve existing spans and logs when merging", async () => {
+        const projectName = "merge-test";
+        const span1 = makeSpan("span-existing");
+        const log1 = makeLog("log-existing");
+        // First call creates initial snapshot
+        await mergeObservabilitySnapshot({ projectName, spans: [span1], logs: [log1] });
+        // Second call merges new data with existing
+        const span2 = makeSpan("span-new");
+        const result = await mergeObservabilitySnapshot({ projectName, spans: [span2], logs: [] });
+        expect(result.spans).toHaveLength(2);
+        expect(result.spans.map(s => s.spanId)).toContain("span-existing");
+        expect(result.spans.map(s => s.spanId)).toContain("span-new");
+    });
+    it("should handle graph update correctly", async () => {
+        const result = await mergeObservabilitySnapshot({
+            projectName: "graph-update-test",
+            spans: [],
+            logs: [],
+            graph: {
+                projectName: "graph-update-test",
+                mode: "essential",
+                generatedAt: new Date().toISOString(),
+                nodes: [{ id: "n1", kind: "module", name: "test", summary: "", path: "test.ts", contract: { summary: "", responsibilities: [], inputs: [], outputs: [], attributes: [], methods: [], sideEffects: [], errors: [], dependencies: [], calls: [], uiAccess: [], backendAccess: [], notes: [] }, sourceRefs: [], generatedRefs: [], traceRefs: [], status: "spec_only" }],
+                edges: [],
+                workflows: [],
+                warnings: []
+            }
+        });
+        expect(result.graph).toBeDefined();
+        expect(result.graph.nodes).toHaveLength(1);
+    });
     it("should preserve graph when provided", async () => {
         const result = await mergeObservabilitySnapshot({
             projectName: "graph-test",

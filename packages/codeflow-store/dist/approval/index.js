@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { approvalRecordSchema } from "@abhinav2203/codeflow-core/schema";
 import { approvalPath } from "../shared/utils.js";
 const ensureDir = async (dirPath) => {
     await fs.mkdir(dirPath, { recursive: true });
@@ -23,7 +24,23 @@ export const createApprovalId = (hint) => {
     }
     return crypto.randomUUID();
 };
-export const createApprovalRecord = async ({ approvalId, runId, projectName, fingerprint, outputDir, runPlan, riskReport, status = "pending" }) => {
+export const createApprovalRecord = async ({ approvalId, runId, projectName, fingerprint, outputDir, runPlan, riskReport, status = "pending", approver }) => {
+    // Validate required fields with clear error messages
+    if (typeof projectName !== "string" || projectName.trim().length === 0) {
+        throw new Error(`createApprovalRecord: projectName is required and must be a non-empty string; received: ${JSON.stringify(projectName)}`);
+    }
+    if (typeof fingerprint !== "string" || fingerprint.trim().length === 0) {
+        throw new Error(`createApprovalRecord: fingerprint is required and must be a non-empty string; received: ${JSON.stringify(fingerprint)}`);
+    }
+    if (typeof outputDir !== "string" || outputDir.trim().length === 0) {
+        throw new Error(`createApprovalRecord: outputDir is required and must be a non-empty string; received: ${JSON.stringify(outputDir)}`);
+    }
+    if (!runPlan || typeof runPlan !== "object") {
+        throw new Error(`createApprovalRecord: runPlan is required and must be a RunPlan object; received: ${JSON.stringify(runPlan)}`);
+    }
+    if (!riskReport || typeof riskReport !== "object") {
+        throw new Error(`createApprovalRecord: riskReport is required and must be a RiskReport object; received: ${JSON.stringify(riskReport)}`);
+    }
     const record = {
         id: approvalId ?? createApprovalId(),
         action: "export",
@@ -34,10 +51,13 @@ export const createApprovalRecord = async ({ approvalId, runId, projectName, fin
         outputDir,
         runPlan,
         riskReport,
-        ...(runId ? { runId } : {})
+        ...(runId ? { runId } : {}),
+        ...(approver ? { approver } : {})
     };
-    await writeApprovalFile(record);
-    return record;
+    // Validate the constructed record against the schema
+    const validated = approvalRecordSchema.parse(record);
+    await writeApprovalFile(validated);
+    return validated;
 };
 export const getApprovalRecord = async (approvalId) => {
     if (typeof approvalId !== "string" || approvalId.trim().length === 0) {

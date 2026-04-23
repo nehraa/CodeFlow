@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import type { BlueprintGraph, ObservabilitySnapshot } from "@abhinav2203/codeflow-core/schema";
-import { blueprintGraphSchema, observabilityLogSchema, traceSpanSchema } from "@abhinav2203/codeflow-core/schema";
+import { blueprintGraphSchema, observabilityLogSchema, observabilitySnapshotSchema, traceSpanSchema } from "@abhinav2203/codeflow-core/schema";
 import { observabilityPath } from "../shared/utils.js";
 import { loadObservabilityConfig } from "./config.js";
 import { RingBuffer } from "./ring-buffer.js";
@@ -28,23 +28,30 @@ export const loadObservabilitySnapshot = async (
   }
   try {
     const content = await fs.readFile(observabilityPath(projectName), "utf8");
-    return JSON.parse(content) as ObservabilitySnapshot;
+    return observabilitySnapshotSchema.parse(JSON.parse(content));
   } catch {
     return null;
   }
 };
 
-export const mergeObservabilitySnapshot = async ({
-  projectName,
-  spans,
-  logs,
-  graph
-}: {
-  projectName: string;
-  spans?: ObservabilitySnapshot["spans"];
-  logs?: ObservabilitySnapshot["logs"];
-  graph?: BlueprintGraph;
-}): Promise<ObservabilitySnapshot> => {
+export const mergeObservabilitySnapshot = async (
+  options: {
+    projectName: string;
+    spans?: ObservabilitySnapshot["spans"];
+    logs?: ObservabilitySnapshot["logs"];
+    graph?: BlueprintGraph;
+  } | null
+): Promise<ObservabilitySnapshot> => {
+  // GUARD: Check null BEFORE destructuring - this was the original bug
+  if (options == null) {
+    throw new Error(
+      `mergeObservabilitySnapshot: options is required (received null). ` +
+      `Expected { projectName: string, spans?: Span[], logs?: Log[], graph?: BlueprintGraph }`
+    );
+  }
+  // Now we know options is not null, safe to destructure
+  const { projectName, spans, logs, graph } = options;
+
   if (typeof projectName !== "string" || projectName.trim().length === 0) {
     throw new Error(`projectName must be a non-empty string; received: ${JSON.stringify(projectName)}`);
   }

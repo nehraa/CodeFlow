@@ -1,6 +1,14 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { z } from "zod";
 import { reasoningCheckpointDir } from "../shared/utils.js";
+export const reasoningCheckpointSchema = z.object({
+    runId: z.string(),
+    projectName: z.string(),
+    taskId: z.string(),
+    content: z.string(),
+    savedAt: z.string()
+});
 const slugify = (value) => value
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -47,13 +55,19 @@ export const loadTaskReasoningCheckpoint = async (runId, projectName, taskId) =>
     const slugified = slugify(projectName);
     const filePath = path.join(reasoningCheckpointDir(runId), slugified, `${taskId}.json`);
     try {
-        return JSON.parse(await fs.readFile(filePath, "utf8"));
+        return reasoningCheckpointSchema.parse(JSON.parse(await fs.readFile(filePath, "utf8")));
     }
     catch {
         return null;
     }
 };
 export const recoverRun = async (runId, projectName) => {
+    if (typeof runId !== "string" || runId.trim().length === 0) {
+        throw new Error(`recoverRun: runId must be a non-empty string; received: ${JSON.stringify(runId)}`);
+    }
+    if (typeof projectName !== "string") {
+        throw new Error(`recoverRun: projectName must be a string; received: ${JSON.stringify(projectName)} (type: ${typeof projectName})`);
+    }
     const dir = path.join(reasoningCheckpointDir(runId), slugify(projectName));
     let entries;
     try {
@@ -67,8 +81,8 @@ export const recoverRun = async (runId, projectName) => {
         if (!entry.endsWith(".json"))
             continue;
         try {
-            const content = await fs.readFile(path.join(dir, entry), "utf8");
-            checkpoints.push(JSON.parse(content));
+            const parsed = reasoningCheckpointSchema.parse(JSON.parse(await fs.readFile(path.join(dir, entry), "utf8")));
+            checkpoints.push(parsed);
         }
         catch {
             // skip malformed

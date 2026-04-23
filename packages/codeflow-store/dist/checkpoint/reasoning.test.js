@@ -28,6 +28,15 @@ describe("reasoning checkpoint", () => {
             expect(loaded).not.toBeNull();
             expect(loaded.content).toBe("content");
         });
+        it("should throw clear error when runId is null", async () => {
+            await expect(saveTaskReasoningCheckpoint(null, "TestProject", "task-1", "content")).rejects.toThrow(/runId must be a non-empty string.*null/i);
+        });
+        it("should throw clear error when projectName is null", async () => {
+            await expect(saveTaskReasoningCheckpoint("run-1", null, "task-1", "content")).rejects.toThrow(/projectName must be a non-empty string.*null/i);
+        });
+        it("should throw clear error when taskId is null", async () => {
+            await expect(saveTaskReasoningCheckpoint("run-1", "TestProject", null, "content")).rejects.toThrow(/taskId must be a non-empty string.*null/i);
+        });
     });
     describe("loadTaskReasoningCheckpoint", () => {
         it("should return null for nonexistent checkpoint", async () => {
@@ -44,6 +53,15 @@ describe("reasoning checkpoint", () => {
             await saveTaskReasoningCheckpoint("run-3", "My Test Project", "task-1", "content");
             const loaded = await loadTaskReasoningCheckpoint("run-3", "My Test Project", "task-1");
             expect(loaded).not.toBeNull();
+        });
+        it("should throw clear error when runId is null", async () => {
+            await expect(loadTaskReasoningCheckpoint(null, "TestProject", "task-1")).rejects.toThrow(/runId must be a non-empty string.*null/i);
+        });
+        it("should throw clear error when projectName is null", async () => {
+            await expect(loadTaskReasoningCheckpoint("run-1", null, "task-1")).rejects.toThrow(/projectName must be a non-empty string.*null/i);
+        });
+        it("should throw clear error when taskId is null", async () => {
+            await expect(loadTaskReasoningCheckpoint("run-1", "TestProject", null)).rejects.toThrow(/taskId must be a non-empty string.*null/i);
         });
     });
     describe("recoverRun", () => {
@@ -74,6 +92,15 @@ describe("reasoning checkpoint", () => {
             expect(checkpoints).toHaveLength(1);
             expect(checkpoints[0].taskId).toBe("task-good");
         });
+        it("should throw clear error when runId is null", async () => {
+            await expect(recoverRun(null, "SomeProject")).rejects.toThrow(/runId must be a non-empty string.*null/i);
+        });
+        it("should throw clear error when runId is undefined", async () => {
+            await expect(recoverRun(undefined, "SomeProject")).rejects.toThrow(/runId must be a non-empty string/i);
+        });
+        it("should throw clear error when projectName is a number", async () => {
+            await expect(recoverRun("run-1", 42)).rejects.toThrow(/projectName must be a string.*42/i);
+        });
     });
     describe("clearTaskReasoningCheckpoint", () => {
         it("should return 0 for nonexistent run", async () => {
@@ -97,6 +124,15 @@ describe("reasoning checkpoint", () => {
             expect(deleted).toBe(2);
             const remaining = await recoverRun("run-clear-all", "ClearAllProject");
             expect(remaining).toHaveLength(0);
+        });
+        it("should throw clear error when runId is null", async () => {
+            await expect(clearTaskReasoningCheckpoint(null, "TestProject")).rejects.toThrow(/runId must be a non-empty string.*null/i);
+        });
+        it("should throw clear error when projectName is empty string", async () => {
+            await expect(clearTaskReasoningCheckpoint("run-1", "")).rejects.toThrow(/projectName must be a non-empty string/i);
+        });
+        it("should throw clear error when taskId is empty string", async () => {
+            await expect(clearTaskReasoningCheckpoint("run-1", "TestProject", "")).rejects.toThrow(/taskId must be a non-empty string/i);
         });
     });
 });
