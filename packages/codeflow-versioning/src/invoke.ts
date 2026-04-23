@@ -4,8 +4,12 @@ import { saveBranch, loadBranch, loadBranches, deleteBranch } from "./store/inde
 import {
   blueprintGraphSchema,
   type BlueprintGraph,
-  type GraphBranch
+  type GraphBranch,
+  type RunPlan
 } from "@abhinav2203/codeflow-core/schema";
+import { attachObservabilitySnapshot } from "./observability.js";
+import { attachRiskReport } from "./risk.js";
+import { attachSessionSnapshot } from "./session.js";
 
 // Use z.custom() to bypass the ZodType compatibility issue with blueprintGraphSchema
 const createBranchRequestSchema = z.object({
@@ -20,7 +24,15 @@ const createBranchRequestSchema = z.object({
   name: z.string().trim().min(1),
   description: z.string().optional(),
   parentBranchId: z.string().optional(),
-  runId: z.string().optional()
+  runId: z.string().optional(),
+  attachObservability: z.boolean().optional(),
+  attachRisk: z.boolean().optional(),
+  attachSession: z.boolean().optional(),
+  runPlan: z.custom<RunPlan>((val) => {
+    if (val == null) return true; // optional
+    return typeof val === "object" && typeof (val as RunPlan).tasks !== "undefined" && Array.isArray((val as RunPlan).tasks);
+  }).optional(),
+  outputDir: z.string().optional()
 });
 
 export const listBranches = async (projectName: string): Promise<GraphBranch[]> => {
@@ -36,6 +48,11 @@ export const createBranch = async (payload: {
   description?: string;
   parentBranchId?: string;
   runId?: string;
+  attachObservability?: boolean;
+  attachRisk?: boolean;
+  attachSession?: boolean;
+  runPlan?: RunPlan;
+  outputDir?: string;
 }): Promise<GraphBranch> => {
   const parsed = createBranchRequestSchema.parse(payload);
 
@@ -44,7 +61,7 @@ export const createBranch = async (payload: {
     reasoning = await snapshotBranchReasoningFromStore(parsed.runId, parsed.graph.projectName);
   }
 
-  const branch = createBranchGraph({
+  let branch = createBranchGraph({
     graph: parsed.graph,
     name: parsed.name,
     description: parsed.description,
@@ -61,6 +78,24 @@ export const createBranch = async (payload: {
         savedAt: new Date().toISOString()
       }))
     };
+  }
+
+  // v0.3.0: attach observability
+  if (parsed.attachObservability) {
+    branch = await attachObservabilitySnapshot(branch, parsed.graph.projectName);
+  }
+
+  // v0.3.0: attach risk report
+  if (parsed.attachRisk) {
+    if (!parsed.runPlan) {
+      throw new Error("attachRisk requires runPlan to be provided");
+    }
+    branch = await attachRiskReport(branch, parsed.runPlan, parsed.outputDir);
+  }
+
+  // v0.3.0: attach session
+  if (parsed.attachSession) {
+    branch = await attachSessionSnapshot(branch, parsed.graph.projectName);
   }
 
   return saveBranch(branch);
