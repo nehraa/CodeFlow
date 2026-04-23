@@ -1,7 +1,6 @@
 {
   "name": "@abhinav2203/codeflow-versioning",
   "version": "0.2.0",
-  "private": true,
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -11,13 +10,15 @@
     "./store": { "types": "./dist/store/index.d.ts", "default": "./dist/store/index.js" },
     "./reasoning": { "types": "./dist/reasoning/index.d.ts", "default": "./dist/reasoning/index.js" },
     "./coderag": { "types": "./dist/coderag/index.d.ts", "default": "./dist/coderag/index.js" },
+    "./observability": { "types": "./dist/observability/index.d.ts", "default": "./dist/observability/index.js" },
+    "./risk": { "types": "./dist/risk/index.d.ts", "default": "./dist/risk/index.js" },
     "./diff": { "types": "./dist/diff.d.ts", "default": "./dist/diff.js" },
     "./tools": { "types": "./dist/tools.d.ts", "default": "./dist/tools.js" }
   },
   "scripts": {
     "check": "tsc --noEmit",
     "test": "vitest run",
-    "build": "tsc --outDir dist --declaration --declarationMap",
+    "build": "tsc --outDir dist --declaration --declarationMap --noEmit false",
     "clean": "rm -rf dist"
   },
   "dependencies": {
