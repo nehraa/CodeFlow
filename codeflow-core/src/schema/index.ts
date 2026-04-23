@@ -516,6 +516,7 @@ export const observabilityIngestRequestSchema = z.object({
 export type ObservabilityIngestRequest = z.infer<typeof observabilityIngestRequestSchema>;
 
 export const observabilitySnapshotSchema = z.object({
+  schemaVersion: z.literal("1.0").default("1.0"),
   projectName: z.string(),
   updatedAt: z.string(),
   spans: z.array(traceSpanSchema),

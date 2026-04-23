@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { createCheckpointIfNeeded } from "./index.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const STORE_ROOT = path.join(__dirname, "../../.test-store");
+const STORE_ROOT = path.join(__dirname, "../../.test-store-checkpoint");
 
 const cleanStore = () => {
   try {
@@ -24,7 +24,6 @@ const withEnv = async <T>(fn: () => Promise<T>): Promise<T> => {
     return await fn();
   } finally {
     process.env.CODEFLOW_STORE_ROOT = original ?? "";
-    cleanStore();
   }
 };
 

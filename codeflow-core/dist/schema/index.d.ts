@@ -1714,6 +1714,7 @@ export declare const observabilityIngestRequestSchema: z.ZodObject<{
 }, z.core.$strip>;
 export type ObservabilityIngestRequest = z.infer<typeof observabilityIngestRequestSchema>;
 export declare const observabilitySnapshotSchema: z.ZodObject<{
+    schemaVersion: z.ZodDefault<z.ZodLiteral<"1.0">>;
     projectName: z.ZodString;
     updatedAt: z.ZodString;
     spans: z.ZodArray<z.ZodObject<{

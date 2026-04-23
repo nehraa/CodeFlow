@@ -6,10 +6,10 @@ export default defineConfig({
     exclude: ["node_modules", "dist", "test-fixtures", "**/*.test.ts.skip"],
     globals: true,
     environment: "node",
-    pool: "threads",
+    pool: "forks",
     poolOptions: {
-      threads: {
-        singleThread: true
+      forks: {
+        singleFork: true
       }
     }
   }
