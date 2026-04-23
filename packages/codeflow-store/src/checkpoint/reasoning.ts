@@ -1,15 +1,18 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { z } from "zod";
 
 import { reasoningCheckpointDir } from "../shared/utils.js";
 
-export interface ReasoningCheckpoint {
-  runId: string;
-  projectName: string;
-  taskId: string;
-  content: string;
-  savedAt: string;
-}
+export const reasoningCheckpointSchema = z.object({
+  runId: z.string(),
+  projectName: z.string(),
+  taskId: z.string(),
+  content: z.string(),
+  savedAt: z.string()
+});
+
+export interface ReasoningCheckpoint extends z.infer<typeof reasoningCheckpointSchema> {}
 
 const slugify = (value: string): string =>
   value
@@ -70,7 +73,7 @@ export const loadTaskReasoningCheckpoint = async (
   const slugified = slugify(projectName);
   const filePath = path.join(reasoningCheckpointDir(runId), slugified, `${taskId}.json`);
   try {
-    return JSON.parse(await fs.readFile(filePath, "utf8")) as ReasoningCheckpoint;
+    return reasoningCheckpointSchema.parse(JSON.parse(await fs.readFile(filePath, "utf8")));
   } catch {
     return null;
   }
@@ -80,6 +83,12 @@ export const recoverRun = async (
   runId: string,
   projectName: string
 ): Promise<ReasoningCheckpoint[]> => {
+  if (typeof runId !== "string" || runId.trim().length === 0) {
+    throw new Error(`recoverRun: runId must be a non-empty string; received: ${JSON.stringify(runId)}`);
+  }
+  if (typeof projectName !== "string") {
+    throw new Error(`recoverRun: projectName must be a string; received: ${JSON.stringify(projectName)} (type: ${typeof projectName})`);
+  }
   const dir = path.join(reasoningCheckpointDir(runId), slugify(projectName));
   let entries: string[];
   try {
@@ -91,8 +100,8 @@ export const recoverRun = async (
   for (const entry of entries) {
     if (!entry.endsWith(".json")) continue;
     try {
-      const content = await fs.readFile(path.join(dir, entry), "utf8");
-      checkpoints.push(JSON.parse(content) as ReasoningCheckpoint);
+      const parsed = reasoningCheckpointSchema.parse(JSON.parse(await fs.readFile(path.join(dir, entry), "utf8")));
+      checkpoints.push(parsed);
     } catch {
       // skip malformed
     }

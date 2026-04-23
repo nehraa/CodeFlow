@@ -18,6 +18,12 @@ export const loadReasoningForRun = async (
   runId: string,
   projectName?: string
 ): Promise<ReasoningCheckpoint[]> => {
+  if (typeof runId !== "string" || runId.trim().length === 0) {
+    throw new Error(`loadReasoningForRun: runId must be a non-empty string; received: ${JSON.stringify(runId)}`);
+  }
+  if (projectName != null && typeof projectName !== "string") {
+    throw new Error(`loadReasoningForRun: projectName must be a non-empty string; received: ${JSON.stringify(projectName)}`);
+  }
   if (projectName) {
     return recoverRun(runId, projectName);
   }

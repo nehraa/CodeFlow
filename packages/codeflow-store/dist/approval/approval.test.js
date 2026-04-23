@@ -77,6 +77,158 @@ describe("approval", () => {
                 expect(parsed.status).toBe("pending");
             });
         });
+        it("should throw clear error when projectName is missing", async () => {
+            await withEnv(async () => {
+                await expect(
+                // @ts-expect-error — deliberately missing required field
+                createApprovalRecord({
+                    fingerprint: "fingerprint-abc",
+                    outputDir: "/tmp/output",
+                    runPlan: { generatedAt: new Date().toISOString(), tasks: [], batches: [], warnings: [] },
+                    riskReport: { score: 0, level: "low", requiresApproval: false, factors: [] }
+                })).rejects.toThrow(/projectName is required/);
+            });
+        });
+        it("should throw clear error when projectName is empty", async () => {
+            await withEnv(async () => {
+                await expect(createApprovalRecord({
+                    projectName: "",
+                    fingerprint: "fingerprint-abc",
+                    outputDir: "/tmp/output",
+                    runPlan: { generatedAt: new Date().toISOString(), tasks: [], batches: [], warnings: [] },
+                    riskReport: { score: 0, level: "low", requiresApproval: false, factors: [] }
+                })).rejects.toThrow(/projectName is required.*non-empty string/);
+            });
+        });
+        it("should throw clear error when fingerprint is missing", async () => {
+            await withEnv(async () => {
+                await expect(
+                // @ts-expect-error — deliberately missing required field
+                createApprovalRecord({
+                    projectName: "test-project",
+                    outputDir: "/tmp/output",
+                    runPlan: { generatedAt: new Date().toISOString(), tasks: [], batches: [], warnings: [] },
+                    riskReport: { score: 0, level: "low", requiresApproval: false, factors: [] }
+                })).rejects.toThrow(/fingerprint is required/);
+            });
+        });
+        it("should throw clear error when outputDir is missing", async () => {
+            await withEnv(async () => {
+                await expect(
+                // @ts-expect-error — deliberately missing required field
+                createApprovalRecord({
+                    projectName: "test-project",
+                    fingerprint: "fingerprint-abc",
+                    runPlan: { generatedAt: new Date().toISOString(), tasks: [], batches: [], warnings: [] },
+                    riskReport: { score: 0, level: "low", requiresApproval: false, factors: [] }
+                })).rejects.toThrow(/outputDir is required/);
+            });
+        });
+        it("should throw clear error when runPlan is missing", async () => {
+            await withEnv(async () => {
+                await expect(
+                // @ts-expect-error — deliberately missing required field
+                createApprovalRecord({
+                    projectName: "test-project",
+                    fingerprint: "fingerprint-abc",
+                    outputDir: "/tmp/output",
+                    riskReport: { score: 0, level: "low", requiresApproval: false, factors: [] }
+                })).rejects.toThrow(/runPlan is required/);
+            });
+        });
+        it("should throw clear error when riskReport is missing", async () => {
+            await withEnv(async () => {
+                await expect(
+                // @ts-expect-error — deliberately missing required field
+                createApprovalRecord({
+                    projectName: "test-project",
+                    fingerprint: "fingerprint-abc",
+                    outputDir: "/tmp/output",
+                    runPlan: { generatedAt: new Date().toISOString(), tasks: [], batches: [], warnings: [] }
+                })).rejects.toThrow(/riskReport is required/);
+            });
+        });
+        it("should throw clear error when called with empty object", async () => {
+            await withEnv(async () => {
+                await expect(
+                // @ts-expect-error — deliberately passing empty object
+                createApprovalRecord({})).rejects.toThrow(/projectName is required/);
+            });
+        });
+        it("should throw clear error when called with only approver and status", async () => {
+            await withEnv(async () => {
+                await expect(
+                // @ts-expect-error — deliberately passing partial data
+                createApprovalRecord({ approver: "alice", status: "approved" })).rejects.toThrow(/projectName is required/);
+            });
+        });
+        it("should correctly write and retrieve a complete record with all fields", async () => {
+            await withEnv(async () => {
+                const runPlan = { generatedAt: new Date().toISOString(), tasks: [], batches: [], warnings: [] };
+                const riskReport = { score: 0, level: "low", requiresApproval: false, factors: [] };
+                const record = await createApprovalRecord({
+                    approvalId: "custom-approval-id",
+                    runId: "run-123",
+                    projectName: "full-test-project",
+                    fingerprint: "abc123",
+                    outputDir: "/output/dir",
+                    runPlan,
+                    riskReport,
+                    status: "pending"
+                });
+                expect(record.id).toBe("custom-approval-id");
+                expect(record.runId).toBe("run-123");
+                expect(record.projectName).toBe("full-test-project");
+                expect(record.fingerprint).toBe("abc123");
+                expect(record.outputDir).toBe("/output/dir");
+                expect(record.status).toBe("pending");
+                expect(record.action).toBe("export");
+                expect(record.requestedAt).toBeDefined();
+                // Verify it's on disk
+                const retrieved = await getApprovalRecord("custom-approval-id");
+                expect(retrieved).not.toBeNull();
+                expect(retrieved.projectName).toBe("full-test-project");
+            });
+        });
+        it("should store approver when provided at creation time", async () => {
+            await withEnv(async () => {
+                const runPlan = { generatedAt: new Date().toISOString(), tasks: [], batches: [], warnings: [] };
+                const riskReport = { score: 0, level: "low", requiresApproval: false, factors: [] };
+                const record = await createApprovalRecord({
+                    approvalId: "with-approver-id",
+                    projectName: "approver-test-project",
+                    fingerprint: "fingerprint-xyz",
+                    outputDir: "/output/dir",
+                    runPlan,
+                    riskReport,
+                    approver: "alice"
+                });
+                expect(record.approver).toBe("alice");
+                // Verify approver is persisted on disk
+                const retrieved = await getApprovalRecord("with-approver-id");
+                expect(retrieved).not.toBeNull();
+                expect(retrieved.approver).toBe("alice");
+            });
+        });
+        it("should NOT store approver when omitted at creation time (matches schema)", async () => {
+            await withEnv(async () => {
+                const runPlan = { generatedAt: new Date().toISOString(), tasks: [], batches: [], warnings: [] };
+                const riskReport = { score: 0, level: "low", requiresApproval: false, factors: [] };
+                const record = await createApprovalRecord({
+                    approvalId: "no-approver-id",
+                    projectName: "no-approver-test",
+                    fingerprint: "fingerprint-abc",
+                    outputDir: "/output/dir",
+                    runPlan,
+                    riskReport
+                });
+                expect(record.approver).toBeUndefined();
+                // Verify no approver on disk
+                const retrieved = await getApprovalRecord("no-approver-id");
+                expect(retrieved).not.toBeNull();
+                expect(retrieved.approver).toBeUndefined();
+            });
+        });
     });
     describe("getApprovalRecord", () => {
         it("returns null for a record that does not exist", async () => {

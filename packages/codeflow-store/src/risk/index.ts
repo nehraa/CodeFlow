@@ -68,7 +68,7 @@ const resolveOutputDir = (graph: BlueprintGraph, outputDir?: string): string =>
     : resolveDefaultOutputDir(graph);
 
 export const assessExportRisk = async (
-  graphOrOptions: BlueprintGraph | { graph: BlueprintGraph; runPlan: RunPlan; outputDir?: string },
+  graphOrOptions: BlueprintGraph | { graph: BlueprintGraph; runPlan: RunPlan; outputDir?: string } | null,
   runPlanOrUndefined?: RunPlan,
   outputDir?: string
 ): Promise<ExportRiskAssessment> => {
@@ -77,8 +77,9 @@ export const assessExportRisk = async (
 
   // Support both assessExportRisk(graph, runPlan, outputDir) and assessExportRisk({ graph, runPlan, outputDir })
   if (
+    graphOrOptions != null &&
     typeof graphOrOptions === "object" &&
-    graphOrOptions !== null &&
+    !Array.isArray(graphOrOptions) &&
     "graph" in graphOrOptions &&
     "runPlan" in (graphOrOptions as any)
   ) {
@@ -86,21 +87,42 @@ export const assessExportRisk = async (
     graph = opts.graph;
     runPlan = opts.runPlan;
     outputDir = opts.outputDir;
+  } else if (graphOrOptions != null && typeof graphOrOptions === "object" && !Array.isArray(graphOrOptions)) {
+    // graphOrOptions is a plain object but NOT in object form (missing graph or runPlan).
+    // Check which key was provided to give a helpful error.
+    const keys = Object.keys(graphOrOptions as object);
+    if (keys.includes("plan")) {
+      throw new Error(
+        `assessExportRisk: found key 'plan' but expected 'runPlan'. ` +
+        `Use { runPlan: RunPlan, ... } not { plan: RunPlan, ... }`
+      );
+    }
+    // Treat it as a BlueprintGraph passed in the positional form: assessExportRisk(graph, runPlan, outputDir).
+    graph = graphOrOptions as BlueprintGraph;
+    runPlan = runPlanOrUndefined as RunPlan;
   } else {
     if (graphOrOptions == null) {
       throw new Error(
         `assessExportRisk: graph must be a BlueprintGraph or { graph, runPlan, outputDir }; received null`
       );
     }
-    if (typeof graphOrOptions !== "object") {
-      throw new Error(
-        `assessExportRisk: graph must be a BlueprintGraph or { graph, runPlan, outputDir }; received: ${JSON.stringify(graphOrOptions)}`
-      );
-    }
-    // graphOrOptions is an object but lacks both 'graph' and 'runPlan' keys.
-    // Treat it as a BlueprintGraph passed in the positional form: assessExportRisk(graph, runPlan, outputDir).
-    graph = graphOrOptions as BlueprintGraph;
-    runPlan = runPlanOrUndefined as RunPlan;
+    throw new Error(
+      `assessExportRisk: graph must be a BlueprintGraph or { graph, runPlan, outputDir }; received: ${JSON.stringify(graphOrOptions)}`
+    );
+  }
+
+  // Validate graph has required properties
+  if (!graph || typeof graph !== "object" || !graph.projectName || typeof graph.projectName !== "string") {
+    throw new Error(
+      `assessExportRisk: graph.projectName is required and must be a non-empty string; received: ${JSON.stringify(graph?.projectName)}`
+    );
+  }
+
+  // Validate runPlan
+  if (!runPlan || typeof runPlan !== "object" || !Array.isArray(runPlan.tasks)) {
+    throw new Error(
+      `assessExportRisk: runPlan is required and must be a RunPlan object with tasks array; received: ${JSON.stringify(runPlan)}`
+    );
   }
   const resolvedOutputDir = resolveOutputDir(graph, outputDir);
   const factors: RiskFactor[] = [];

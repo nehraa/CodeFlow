@@ -9,5 +9,5 @@ export declare const assessExportRisk: (graphOrOptions: BlueprintGraph | {
     graph: BlueprintGraph;
     runPlan: RunPlan;
     outputDir?: string;
-}, runPlanOrUndefined?: RunPlan, outputDir?: string) => Promise<ExportRiskAssessment>;
+} | null, runPlanOrUndefined?: RunPlan, outputDir?: string) => Promise<ExportRiskAssessment>;
 //# sourceMappingURL=index.d.ts.map

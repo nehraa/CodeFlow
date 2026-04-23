@@ -14,12 +14,20 @@ export const createRunId = (projectId) => {
 };
 export const saveRunRecord = async (runRecord) => {
     if (runRecord == null) {
-        throw new Error("runRecord is required; received null");
+        throw new Error("saveRunRecord: runRecord is required; received null");
     }
-    if (typeof runRecord.runId === "string") {
-        throw new Error("runRecord.runId is not valid — use runRecord.id");
+    if (typeof runRecord !== "object") {
+        throw new Error(`saveRunRecord: runRecord must be an object; received: ${JSON.stringify(runRecord)} (type: ${typeof runRecord})`);
     }
-    const validated = runRecordSchema.parse(runRecord);
+    if (Array.isArray(runRecord)) {
+        throw new Error(`saveRunRecord: runRecord must be an object, not an array`);
+    }
+    // Normalize common caller mistake: runId → id
+    const normalized = {
+        ...runRecord,
+        id: runRecord.id ?? runRecord.runId
+    };
+    const validated = runRecordSchema.parse(normalized);
     const filePath = runPath(validated.id);
     await ensureDir(path.dirname(filePath));
     await fs.writeFile(filePath, `${JSON.stringify(validated, null, 2)}\n`, "utf8");

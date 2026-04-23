@@ -31,6 +31,15 @@ describe("reasoning module", () => {
             const checkpoints = await loadReasoningForRun("run-all-projects");
             expect(checkpoints).toHaveLength(2);
         });
+        it("should throw clear error when runId is null", async () => {
+            await expect(loadReasoningForRun(null, "SomeProject")).rejects.toThrow(/runId must be a non-empty string.*null/i);
+        });
+        it("should throw clear error when runId is undefined", async () => {
+            await expect(loadReasoningForRun(undefined, "SomeProject")).rejects.toThrow(/runId must be a non-empty string/i);
+        });
+        it("should throw clear error when projectName is a number", async () => {
+            await expect(loadReasoningForRun("run-1", 42)).rejects.toThrow(/projectName must be a (?:non-empty string|string)/i);
+        });
     });
     describe("loadReasoningForProject", () => {
         it("should return summaries across all run ids for a project", async () => {

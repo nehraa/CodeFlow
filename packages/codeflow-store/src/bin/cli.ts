@@ -6,7 +6,7 @@ import { assessExportRisk } from "../risk/index.js";
 import { loadBranches } from "../branch/index.js";
 import { saveRunRecord, createRunId } from "../run/index.js";
 import { loadObservabilitySnapshot, mergeObservabilitySnapshot } from "../observability/index.js";
-import type { BlueprintGraph, RunPlan } from "@abhinav2203/codeflow-core/schema";
+import type { BlueprintGraph, ObservabilitySnapshot, RunPlan } from "@abhinav2203/codeflow-core/schema";
 
 const USAGE = `CodeFlow Store CLI
 
@@ -165,8 +165,8 @@ const main = async () => {
       const logs = await parseJsonFile<unknown[]>(logsJson);
       const snapshot = await mergeObservabilitySnapshot({
         projectName,
-        spans: spans as Parameters<typeof mergeObservabilitySnapshot>[0]["spans"],
-        logs: logs as Parameters<typeof mergeObservabilitySnapshot>[0]["logs"]
+        spans: spans as ObservabilitySnapshot["spans"],
+        logs: logs as ObservabilitySnapshot["logs"]
       });
       console.log(JSON.stringify(snapshot, null, 2));
       break;

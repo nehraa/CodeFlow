@@ -67,6 +67,131 @@ describe("branch", () => {
                 expect(stat.isFile()).toBe(true);
             });
         });
+        it("should throw clear error when called with null", async () => {
+            await withEnv(async () => {
+                await expect(saveBranch(null)).rejects.toThrow(/branch is required.*received null/i);
+            });
+        });
+        it("should throw clear error when called with undefined", async () => {
+            await withEnv(async () => {
+                await expect(saveBranch(undefined)).rejects.toThrow(/branch is required/i);
+            });
+        });
+        it("should throw clear error when id is missing", async () => {
+            await withEnv(async () => {
+                const branch = {
+                    name: "branch-name",
+                    projectName: "test-project",
+                    createdAt: new Date().toISOString(),
+                    graph: { projectName: "test-project", mode: "essential", phase: "spec", generatedAt: "", nodes: [], edges: [], workflows: [], warnings: [] }
+                };
+                await expect(saveBranch(branch)).rejects.toThrow(/branch.id is required/);
+            });
+        });
+        it("should throw clear error when id is empty string", async () => {
+            await withEnv(async () => {
+                const branch = {
+                    id: "",
+                    name: "branch-name",
+                    projectName: "test-project",
+                    createdAt: new Date().toISOString(),
+                    graph: { projectName: "test-project", mode: "essential", phase: "spec", generatedAt: "", nodes: [], edges: [], workflows: [], warnings: [] }
+                };
+                await expect(saveBranch(branch)).rejects.toThrow(/branch.id is required.*non-empty string/i);
+            });
+        });
+        it("should succeed when name is provided via branchName (normalized to name)", async () => {
+            await withEnv(async () => {
+                const branch = {
+                    id: "branch-id",
+                    // name intentionally missing - but branchName is provided
+                    branchName: "normalized-from-branchName",
+                    projectName: "test-project",
+                    createdAt: new Date().toISOString(),
+                    graph: { projectName: "test-project", mode: "essential", phase: "spec", generatedAt: "", nodes: [], edges: [], workflows: [], warnings: [] }
+                };
+                const result = await saveBranch(branch);
+                expect(result.name).toBe("normalized-from-branchName");
+            });
+        });
+        it("should succeed when projectName is provided via projectId (normalized to projectName)", async () => {
+            await withEnv(async () => {
+                const branch = {
+                    id: "branch-id",
+                    name: "branch-name",
+                    // projectName intentionally missing - but projectId is provided
+                    projectId: "normalized-from-projectId",
+                    createdAt: new Date().toISOString(),
+                    graph: { projectName: "test-project", mode: "essential", phase: "spec", generatedAt: "", nodes: [], edges: [], workflows: [], warnings: [] }
+                };
+                const result = await saveBranch(branch);
+                expect(result.projectName).toBe("normalized-from-projectId");
+            });
+        });
+        it("should throw clear error when both projectId and branchName are used (common mistake)", async () => {
+            await withEnv(async () => {
+                const branch = {
+                    projectId: "my-project",
+                    branchName: "my-branch"
+                    // missing id, name, projectName
+                };
+                await expect(saveBranch(branch)).rejects.toThrow(/branch.id is required/);
+            });
+        });
+        it("should accept branch with minimal required fields", async () => {
+            await withEnv(async () => {
+                const branch = {
+                    id: "minimal-branch",
+                    name: "minimal-branch",
+                    projectName: "minimal-test",
+                    createdAt: new Date().toISOString(),
+                    graph: { projectName: "minimal-test", mode: "essential", phase: "spec", generatedAt: "", nodes: [], edges: [], workflows: [], warnings: [] }
+                };
+                const result = await saveBranch(branch);
+                expect(result.id).toBe("minimal-branch");
+                expect(result.name).toBe("minimal-branch");
+                expect(result.projectName).toBe("minimal-test");
+            });
+        });
+        it("should preserve optional description field", async () => {
+            await withEnv(async () => {
+                const branch = makeBranch({
+                    id: "with-description",
+                    name: "with-description",
+                    description: "This is a test branch with a description"
+                });
+                await saveBranch(branch);
+                const result = await loadBranch("test-project", "with-description");
+                expect(result.description).toBe("This is a test branch with a description");
+            });
+        });
+        it("should handle common mistake: saveBranch({ projectId, branchName }) — previously crashed with cryptic path error", async () => {
+            // This is the bug from the issue - intuitive field names caused cryptic errors
+            await withEnv(async () => {
+                const branch = {
+                    id: "feature-branch",
+                    projectId: "my-test-project",
+                    branchName: "my-feature"
+                    // Note: name and projectName are missing, but projectId and branchName are provided
+                };
+                // Should NOT throw "path argument must be of type string" anymore
+                const result = await saveBranch(branch);
+                expect(result.name).toBe("my-feature");
+                expect(result.projectName).toBe("my-test-project");
+            });
+        });
+        it("should throw clear error when id is missing entirely (even with all intuitive fields)", async () => {
+            await withEnv(async () => {
+                const branch = {
+                    // id intentionally missing
+                    name: "some-branch",
+                    projectName: "some-project",
+                    createdAt: new Date().toISOString(),
+                    graph: { projectName: "some-project", mode: "essential", phase: "spec", generatedAt: "", nodes: [], edges: [], workflows: [], warnings: [] }
+                };
+                await expect(saveBranch(branch)).rejects.toThrow(/branch.id is required/);
+            });
+        });
     });
     describe("loadBranch", () => {
         it("returns null when the branch does not exist", async () => {
@@ -180,6 +305,41 @@ describe("branch", () => {
         it("does not throw when the branch does not exist", async () => {
             await withEnv(async () => {
                 await expect(deleteBranch("test-project", "does-not-exist")).resolves.toBeUndefined();
+            });
+        });
+        it("should throw clear error when projectName is null", async () => {
+            await withEnv(async () => {
+                await expect(deleteBranch(null, "branch-id")).rejects.toThrow(/projectName must be a non-empty string.*null/i);
+            });
+        });
+        it("should throw clear error when projectName is undefined", async () => {
+            await withEnv(async () => {
+                await expect(deleteBranch(undefined, "branch-id")).rejects.toThrow(/projectName must be a non-empty string/i);
+            });
+        });
+        it("should throw clear error when branchId is null", async () => {
+            await withEnv(async () => {
+                await expect(deleteBranch("test-project", null)).rejects.toThrow(/branchId must be a non-empty string.*null/i);
+            });
+        });
+        it("should throw clear error when branchId is undefined", async () => {
+            await withEnv(async () => {
+                await expect(deleteBranch("test-project", undefined)).rejects.toThrow(/branchId must be a non-empty string/i);
+            });
+        });
+        it("should throw clear error when projectName is empty string", async () => {
+            await withEnv(async () => {
+                await expect(deleteBranch("", "branch-id")).rejects.toThrow(/projectName must be a non-empty string/i);
+            });
+        });
+        it("should throw clear error when branchId is empty string", async () => {
+            await withEnv(async () => {
+                await expect(deleteBranch("test-project", "")).rejects.toThrow(/branchId must be a non-empty string/i);
+            });
+        });
+        it("should throw clear error when both projectName and branchId are null", async () => {
+            await withEnv(async () => {
+                await expect(deleteBranch(null, null)).rejects.toThrow(/projectName must be a non-empty string.*null/i);
             });
         });
     });

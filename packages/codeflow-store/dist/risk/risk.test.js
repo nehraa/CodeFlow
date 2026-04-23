@@ -53,6 +53,80 @@ describe("risk", () => {
     beforeEach(() => {
         cleanStore();
     });
+    describe("assessExportRisk positional form (3 arguments)", () => {
+        it("should work with positional arguments: assessExportRisk(graph, runPlan, outputDir)", async () => {
+            await withEnv(async () => {
+                const graph = makeGraph({ projectName: "positional-test" });
+                const plan = makeRunPlan();
+                const assessment = await assessExportRisk(graph, plan, "/tmp/positional-output");
+                expect(assessment.riskReport).toBeDefined();
+                expect(assessment.fingerprint).toBeDefined();
+                expect(assessment.outputDir).toBe("/tmp/positional-output");
+            });
+        });
+        it("should work with positional arguments and no outputDir", async () => {
+            await withEnv(async () => {
+                const graph = makeGraph({ projectName: "positional-no-outdir" });
+                const plan = makeRunPlan();
+                const assessment = await assessExportRisk(graph, plan);
+                expect(assessment.riskReport).toBeDefined();
+                expect(assessment.riskReport.level).toBe("low");
+            });
+        });
+    });
+    describe("assessExportRisk object form", () => {
+        it("should work with object form: assessExportRisk({ graph, runPlan, outputDir })", async () => {
+            await withEnv(async () => {
+                const graph = makeGraph({ projectName: "object-form-test" });
+                const plan = makeRunPlan();
+                const assessment = await assessExportRisk({ graph, runPlan: plan, outputDir: "/tmp/object-output" });
+                expect(assessment.riskReport).toBeDefined();
+                expect(assessment.outputDir).toBe("/tmp/object-output");
+            });
+        });
+    });
+    describe("assessExportRisk error handling", () => {
+        it("should throw clear error when called with null", async () => {
+            await withEnv(async () => {
+                await expect(assessExportRisk(null, makeRunPlan())).rejects.toThrow(/graph must be a BlueprintGraph.*received null/i);
+            });
+        });
+        it("should throw clear error when called with undefined", async () => {
+            await withEnv(async () => {
+                await expect(assessExportRisk(undefined, makeRunPlan())).rejects.toThrow(/graph must be a BlueprintGraph/i);
+            });
+        });
+        it("should throw clear error when object form uses 'plan' instead of 'runPlan'", async () => {
+            await withEnv(async () => {
+                const graph = makeGraph({ projectName: "wrong-key-test" });
+                await expect(
+                // @ts-expect-error — deliberately using wrong key 'plan' instead of 'runPlan'
+                assessExportRisk({ graph, plan: makeRunPlan() })).rejects.toThrow(/found key 'plan' but expected 'runPlan'/i);
+            });
+        });
+        it("should throw clear error when graph lacks projectName", async () => {
+            await withEnv(async () => {
+                const badGraph = { projectName: undefined, mode: "essential", nodes: [], edges: [], workflows: [], warnings: [], generatedAt: "" };
+                await expect(assessExportRisk(badGraph, makeRunPlan())).rejects.toThrow(/graph.projectName is required.*undefined/i);
+            });
+        });
+        it("should throw clear error when runPlan is invalid", async () => {
+            await withEnv(async () => {
+                const graph = makeGraph({ projectName: "bad-runplan-test" });
+                await expect(assessExportRisk(graph, { invalid: "runPlan" })).rejects.toThrow(/runPlan is required.*must be a RunPlan/i);
+            });
+        });
+        it("should throw clear error when graph is a primitive string", async () => {
+            await withEnv(async () => {
+                await expect(assessExportRisk("graph", makeRunPlan())).rejects.toThrow(/graph must be a BlueprintGraph/i);
+            });
+        });
+        it("should throw clear error when graph is a number", async () => {
+            await withEnv(async () => {
+                await expect(assessExportRisk(123, makeRunPlan())).rejects.toThrow(/graph must be a BlueprintGraph/i);
+            });
+        });
+    });
     describe("assessExportRisk", () => {
         it("returns low risk for an empty blueprint with no output dir", async () => {
             await withEnv(async () => {
