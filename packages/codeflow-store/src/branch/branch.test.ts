@@ -8,7 +8,7 @@ import { saveBranch, loadBranch, loadBranches, deleteBranch } from "./index.js";
 import type { GraphBranch } from "@abhinav2203/codeflow-core/schema";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const STORE_ROOT = path.join(__dirname, "../../.test-store");
+const STORE_ROOT = path.join(__dirname, "../../.test-store-branch");
 
 const cleanStore = () => {
   try {
@@ -25,7 +25,6 @@ const withEnv = async <T>(fn: () => Promise<T>): Promise<T> => {
     return await fn();
   } finally {
     process.env.CODEFLOW_STORE_ROOT = original ?? "";
-    cleanStore();
   }
 };
 

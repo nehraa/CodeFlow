@@ -406,6 +406,7 @@ export const observabilityIngestRequestSchema = z.object({
     logs: z.array(observabilityLogSchema).default([])
 });
 export const observabilitySnapshotSchema = z.object({
+    schemaVersion: z.literal("1.0").default("1.0"),
     projectName: z.string(),
     updatedAt: z.string(),
     spans: z.array(traceSpanSchema),

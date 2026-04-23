@@ -62,10 +62,30 @@ const resolveOutputDir = (graph: BlueprintGraph, outputDir?: string): string =>
     : resolveDefaultOutputDir(graph);
 
 export const assessExportRisk = async (
-  graph: BlueprintGraph,
-  runPlan: RunPlan,
-  outputDir?: string
+  graphOrOptions: BlueprintGraph | { graph: BlueprintGraph; runPlan: RunPlan; outputDir?: string },
+  runPlanOrUndefined?: RunPlan,
+  outputDirOverride?: string
 ): Promise<ExportRiskAssessment> => {
+  let graph: BlueprintGraph;
+  let runPlan: RunPlan;
+  let outputDir: string | undefined;
+
+  if (
+    graphOrOptions != null &&
+    typeof graphOrOptions === "object" &&
+    !Array.isArray(graphOrOptions) &&
+    "graph" in graphOrOptions &&
+    "runPlan" in (graphOrOptions as any)
+  ) {
+    const opts = graphOrOptions as { graph: BlueprintGraph; runPlan: RunPlan; outputDir?: string };
+    graph = opts.graph;
+    runPlan = opts.runPlan;
+    outputDir = opts.outputDir;
+  } else {
+    graph = graphOrOptions as BlueprintGraph;
+    runPlan = runPlanOrUndefined as RunPlan;
+    outputDir = outputDirOverride;
+  }
   const resolvedOutputDir = resolveOutputDir(graph, outputDir);
   const factors: RiskFactor[] = [];
   const repoBackedNodeCount = graph.nodes.filter((node) =>

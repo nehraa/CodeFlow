@@ -25,9 +25,10 @@ const writeSessionFile = async (filePath: string, session: PersistedSession): Pr
 export const createSessionId = (): string => crypto.randomUUID();
 
 export const saveSession = async (session: PersistedSession): Promise<void> => {
-  await ensureDir(sessionDirForProject(session.projectName));
-  await writeSessionFile(latestSessionPath(session.projectName), session);
-  await writeSessionFile(sessionHistoryPath(session.projectName, session.sessionId), session);
+  const validated = persistedSessionSchema.parse(session);
+  await ensureDir(sessionDirForProject(validated.projectName));
+  await writeSessionFile(latestSessionPath(validated.projectName), validated);
+  await writeSessionFile(sessionHistoryPath(validated.projectName, validated.sessionId), validated);
 };
 
 export const loadLatestSession = async (projectName: string): Promise<PersistedSession | null> => {

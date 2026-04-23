@@ -12,7 +12,7 @@ import {
 } from "./index.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const STORE_ROOT = path.join(__dirname, "../../.test-store");
+const STORE_ROOT = path.join(__dirname, "../../.test-store-approval");
 const STORE_ROOT_ENV = { CODEFLOW_STORE_ROOT: STORE_ROOT };
 
 const cleanStore = () => {
@@ -30,7 +30,6 @@ const withEnv = async <T>(fn: () => Promise<T>): Promise<T> => {
     return await fn();
   } finally {
     process.env.CODEFLOW_STORE_ROOT = original ?? "";
-    cleanStore();
   }
 };
 
