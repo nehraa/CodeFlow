@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
-
 import { z } from "zod";
-
-import { diffBranches } from "@/lib/blueprint/branches";
-import { blueprintGraphSchema } from "@/lib/blueprint/schema";
+import { computeDiff } from "@abhinav2203/codeflow-versioning/diff";
+import { blueprintGraphSchema } from "@abhinav2203/codeflow-core/schema";
 
 const diffRequestSchema = z.object({
   baseGraph: blueprintGraphSchema,
@@ -15,11 +13,13 @@ const diffRequestSchema = z.object({
 export async function POST(request: Request) {
   try {
     const payload = diffRequestSchema.parse(await request.json());
-    const diff = diffBranches(
-      payload.baseGraph,
-      payload.compareGraph,
-      payload.baseId ?? "base",
-      payload.compareId ?? "compare"
+    const diff = await computeDiff(
+      {
+        baseGraph: payload.baseGraph,
+        compareGraph: payload.compareGraph,
+        baseId: payload.baseId ?? "base",
+        compareId: payload.compareId ?? "compare"
+      }
     );
 
     return NextResponse.json({ diff });

@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
-
 import { z } from "zod";
-
-import { createBranch } from "@/lib/blueprint/branches";
-import { loadBranches, saveBranch } from "@/lib/blueprint/branch-store";
-import { blueprintGraphSchema } from "@/lib/blueprint/schema";
+import { createBranch, listBranches } from "@abhinav2203/codeflow-versioning";
+import { blueprintGraphSchema } from "@abhinav2203/codeflow-core/schema";
 
 const createBranchRequestSchema = z.object({
   graph: blueprintGraphSchema,
@@ -22,7 +19,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "projectName query param is required." }, { status: 400 });
     }
 
-    const branches = await loadBranches(projectName);
+    const branches = await listBranches(projectName);
     return NextResponse.json({ branches });
   } catch (error) {
     return NextResponse.json(
@@ -35,14 +32,12 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const payload = createBranchRequestSchema.parse(await request.json());
-    const branch = createBranch({
+    const branch = await createBranch({
       graph: payload.graph,
       name: payload.name,
       description: payload.description,
       parentBranchId: payload.parentBranchId
     });
-
-    await saveBranch(branch);
 
     return NextResponse.json({ branch });
   } catch (error) {

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-
-import { deleteBranch, loadBranch } from "@/lib/blueprint/branch-store";
+import { getBranch, removeBranch } from "@abhinav2203/codeflow-versioning";
 
 function isValidBranchId(id: string): boolean {
   // Allow only simple, safe identifiers (no path separators or traversal characters)
@@ -24,7 +23,7 @@ export async function GET(
       return NextResponse.json({ error: "Invalid branch id." }, { status: 400 });
     }
 
-    const branch = await loadBranch(projectName, id);
+    const branch = await getBranch(projectName, id);
     if (!branch) {
       return NextResponse.json({ error: "Branch not found." }, { status: 404 });
     }
@@ -55,7 +54,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Invalid branch id." }, { status: 400 });
     }
 
-    await deleteBranch(projectName, id);
+    await removeBranch(projectName, id);
 
     return NextResponse.json({ deleted: true });
   } catch (error) {
