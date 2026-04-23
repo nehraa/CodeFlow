@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { saveBranch, loadBranch, loadBranches, deleteBranch } from "./index.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const STORE_ROOT = path.join(__dirname, "../../.test-store");
+const STORE_ROOT = path.join(__dirname, "../../.test-store-branch");
 const cleanStore = () => {
     try {
         fsSync.rmSync(STORE_ROOT, { recursive: true, force: true });
@@ -22,7 +22,6 @@ const withEnv = async (fn) => {
     }
     finally {
         process.env.CODEFLOW_STORE_ROOT = original ?? "";
-        cleanStore();
     }
 };
 const makeBranch = (overrides = {}) => ({

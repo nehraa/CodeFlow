@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createApprovalId, createApprovalRecord, getApprovalRecord, approveRecord } from "./index.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const STORE_ROOT = path.join(__dirname, "../../.test-store");
+const STORE_ROOT = path.join(__dirname, "../../.test-store-approval");
 const STORE_ROOT_ENV = { CODEFLOW_STORE_ROOT: STORE_ROOT };
 const cleanStore = () => {
     try {
@@ -23,7 +23,6 @@ const withEnv = async (fn) => {
     }
     finally {
         process.env.CODEFLOW_STORE_ROOT = original ?? "";
-        cleanStore();
     }
 };
 describe("approval", () => {
