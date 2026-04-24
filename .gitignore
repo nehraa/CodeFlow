@@ -24,3 +24,4 @@ claude-code/
 # Qwen Code working directories
 .qwen/
 .qwen*
+.worktrees
