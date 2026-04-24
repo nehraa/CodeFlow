@@ -6,15 +6,15 @@ import {
   emptyContract,
   nodeKindSchema,
   sourceRefSchema
-} from "@/lib/blueprint/schema";
+} from "@abhinav2203/codeflow-core/schema";
 import { getNvidiaKeySource, requestNvidiaChatCompletion, resolveNvidiaApiKey } from "@/lib/blueprint/nvidia";
-import { withSpecDrafts } from "@/lib/blueprint/phases";
+import { withSpecDrafts } from "@abhinav2203/codeflow-core/internal/phases";
 import { withCodeflowGovernance } from "@/lib/blueprint/prompt-governance";
-import type { BlueprintEdgeKind, BlueprintGraph, DesignCall } from "@/lib/blueprint/schema";
+import type { BlueprintEdgeKind, BlueprintGraph, DesignCall } from "@abhinav2203/codeflow-core/schema";
 import { createRunPlan } from "@/lib/blueprint/plan";
 import { createRunId, saveRunRecord } from "@/lib/blueprint/run-store";
 import { upsertSession } from "@/lib/blueprint/session-store";
-import { createNode, createNodeId } from "@/lib/blueprint/utils";
+import { createNode, createNodeId } from "@abhinav2203/codeflow-core/internal/utils";
 
 const requestSchema = z.object({
   projectName: z.string(),

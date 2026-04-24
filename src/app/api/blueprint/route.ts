@@ -2,11 +2,11 @@ import path from "node:path";
 
 import { NextResponse } from "next/server";
 
-import { buildBlueprintGraph } from "@/lib/blueprint/build";
+import { buildBlueprintGraph } from "@abhinav2203/codeflow-prd/build";
 import { summarizeObservability } from "@/lib/blueprint/observability";
 import { loadObservabilitySnapshot } from "@/lib/blueprint/observability-store";
 import { createRunPlan } from "@/lib/blueprint/plan";
-import { buildBlueprintRequestSchema } from "@/lib/blueprint/schema";
+import { buildBlueprintRequestSchema } from "@abhinav2203/codeflow-core/schema";
 import { createRunId, saveRunRecord } from "@/lib/blueprint/run-store";
 import { upsertSession } from "@/lib/blueprint/session-store";
 
