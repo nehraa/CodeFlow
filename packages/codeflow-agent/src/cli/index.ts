@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { spawn } from 'child_process';
-import { readFile } from 'fs/promises';
+import { readFile, writeFile } from 'fs/promises';
 import { AgentSpawner } from '../agent/agent-spawner.js';
 import { resultAggregator } from '../agent/result-aggregator.js';
 import { TaskQueue } from '../agent/task-queue.js';
@@ -12,7 +12,10 @@ import { CodeflowSessionStore } from '../store/session.js';
 import { McpToolClient } from '../mcp/client.js';
 import { executeWithContext, executeBlueprint, type ExecutionContext } from '../agent/execution-context.js';
 import type { AgentTask, AgentConfig } from '../agent/types.js';
-import type { BlueprintGraph } from '@abhinav2203/codeflow-core/schema';
+import type { BlueprintGraph } from '../types/blueprint.js';
+import { generateBlueprint, buildNodePrompt, estimateNodeRisk, generateNodeCode } from '../ai/index.js';
+import { PermissionManager } from '../ai/index.js';
+import type { PermissionMode } from '../ai/index.js';
 
 interface CliOptions {
   planFile: string;
@@ -27,6 +30,13 @@ interface CliOptions {
   port?: number;
   projectName?: string;
   mcpServerUrl?: string;
+  // AI orchestration flags
+  permission?: PermissionMode;
+  generateBlueprint?: boolean;
+  blueprintPrompt?: string;
+  inspectPrompts?: boolean;
+  nvidiaApiKey?: string;
+  opencodeUrl?: string;
 }
 
 async function main() {
@@ -76,6 +86,23 @@ async function main() {
         break;
       case '--mcp':
         options.mcpServerUrl = args[++i];
+        break;
+      // AI orchestration flags
+      case '--permission':
+        options.permission = args[++i] as PermissionMode;
+        break;
+      case '--generate':
+        options.generateBlueprint = true;
+        options.blueprintPrompt = args[++i];
+        break;
+      case '--inspect':
+        options.inspectPrompts = true;
+        break;
+      case '--nvidia-api-key':
+        options.nvidiaApiKey = args[++i];
+        break;
+      case '--opencode-url':
+        options.opencodeUrl = args[++i];
         break;
       default:
         if (!args[i].startsWith('--')) {
@@ -144,6 +171,122 @@ async function main() {
     return;
   }
 
+  // Handle AI blueprint generation
+  if (options.generateBlueprint) {
+    const projectName = options.projectName || 'codeflow-project';
+    const prompt = options.blueprintPrompt || 'build a user authentication system';
+
+    console.log(`# Generating Blueprint\n`);
+    console.log(`Project: ${projectName}`);
+    console.log(`Prompt: ${prompt}`);
+    console.log(`Permission mode: ${options.permission || 'always-ask'}`);
+    console.log();
+
+    try {
+      // Generate blueprint using NVIDIA Llama
+      const blueprint = await generateBlueprint({
+        prompt,
+        projectName,
+        mode: options.permission === 'yolo' ? 'yolo' : 'essential',
+        nvidiaApiKey: options.nvidiaApiKey,
+      });
+
+      console.log(`Generated blueprint with ${blueprint.nodes.length} nodes and ${blueprint.edges.length} edges\n`);
+
+      // Save blueprint to file
+      const blueprintFile = `${projectName}-blueprint.json`;
+      await writeFile(blueprintFile, JSON.stringify(blueprint, null, 2));
+      console.log(`Saved blueprint to: ${blueprintFile}\n`);
+
+      // Set up permission manager
+      const permissionManager = new PermissionManager({
+        mode: options.permission || 'always-ask',
+      });
+
+      // System prompt for code generation
+      const systemPrompt = `You are an expert software engineer implementing blueprint nodes. Write clean, production-ready code following best practices.`;
+
+      // Execute each node
+      const results: Array<{ nodeId: string; success: boolean; error?: string; code?: string }> = [];
+
+      for (const node of blueprint.nodes) {
+        console.log(`\n--- Processing node: ${node.name} (${node.id}) ---`);
+
+        // Build the implementation prompt
+        const nodePrompt = buildNodePrompt({ graph: blueprint, node });
+        const risk = estimateNodeRisk(node);
+
+        console.log(`Risk level: ${risk}`);
+        console.log(`Target file: ${node.path || 'N/A'}`);
+
+        // Check if approval is needed
+        const needsApproval = permissionManager.needsApproval(node.id, risk as 'low' | 'medium' | 'high');
+
+        if (needsApproval) {
+          console.log(`\n=== Approval Required ===`);
+          console.log(`Node: ${node.name}`);
+          console.log(`Risk: ${risk}`);
+
+          if (options.inspectPrompts) {
+            console.log(`\nPrompt:\n${nodePrompt}\n`);
+          }
+
+          // For now, we require explicit --permission=yolo to auto-approve
+          // In always-ask/important modes, we'd prompt here
+          console.log(`Add --permission=yolo to skip approvals`);
+          console.log(`Skipping node ${node.id}`);
+          results.push({ nodeId: node.id, success: false, error: 'Approval required' });
+          continue;
+        }
+
+        try {
+          // Generate code via OpenCode
+          const code = await generateNodeCode({
+            systemPrompt,
+            userPrompt: nodePrompt,
+            timeout: 120000,
+          });
+
+          console.log(`Generated ${code.length} characters of code`);
+
+          // Save code to file if path is specified
+          if (node.path) {
+            await writeFile(node.path, code);
+            console.log(`Saved to: ${node.path}`);
+          }
+
+          results.push({ nodeId: node.id, success: true, code });
+        } catch (err) {
+          const errorMsg = err instanceof Error ? err.message : String(err);
+          console.error(`Failed to generate code for ${node.id}: ${errorMsg}`);
+          results.push({ nodeId: node.id, success: false, error: errorMsg });
+        }
+      }
+
+      // Print summary
+      const successful = results.filter((r) => r.success).length;
+      const failed = results.filter((r) => !r.success).length;
+
+      console.log(`\n# Generation Summary\n`);
+      console.log(`Total nodes: ${blueprint.nodes.length}`);
+      console.log(`Successful: ${successful}`);
+      console.log(`Failed: ${failed}`);
+
+      if (failed > 0) {
+        console.log(`\nFailed nodes:`);
+        for (const r of results.filter((r) => !r.success)) {
+          console.log(`  - ${r.nodeId}: ${r.error}`);
+        }
+        process.exit(1);
+      }
+
+      return;
+    } catch (err) {
+      console.error(`Blueprint generation failed:`, err instanceof Error ? err.message : String(err));
+      process.exit(1);
+    }
+  }
+
   if (!options.planFile && !options.blueprintFile) {
     console.error('Error: --plan <file> or --blueprint <file> is required');
     console.log('\nUsage:');
@@ -154,6 +297,16 @@ async function main() {
     console.log('                  Execute a plan (optionally with session store + MCP)');
     console.log('  codeflow-agent --blueprint <file> [--project <name>]');
     console.log('                  Execute a blueprint graph');
+    console.log('  codeflow-agent --generate "<prompt>" [--project <name>] [--permission <mode>]');
+    console.log('                  Generate blueprint and code via AI');
+    console.log('\nPermission modes:');
+    console.log('  --permission=yolo       No approvals, auto-execute');
+    console.log('  --permission=always-ask Approve every node (default)');
+    console.log('  --permission=important  Only approve high-risk nodes');
+    console.log('\nOther options:');
+    console.log('  --inspect               Show prompts before generation');
+    console.log('  --nvidia-api-key <key>  NVIDIA API key for blueprint generation');
+    console.log('  --opencode-url <url>    OpenCode server URL (default: http://127.0.0.1:8080)');
     process.exit(1);
   }
 

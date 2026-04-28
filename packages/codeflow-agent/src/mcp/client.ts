@@ -31,7 +31,8 @@ export class McpToolClient {
   /**
    * Extract plain-text content from an MCP tool result.
    */
-  getText(result: McpToolResult): string {
-    return extractTextFromMcpResult(result);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  getText(result: { content: Array<{ type: string; text?: string }> }): string {
+    return extractTextFromMcpResult(result as Parameters<typeof extractTextFromMcpResult>[0]);
   }
 }
