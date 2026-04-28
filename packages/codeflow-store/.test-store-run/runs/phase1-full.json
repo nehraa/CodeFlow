@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "1.0",
+  "id": "phase1-full",
+  "projectName": "test-project",
+  "action": "build",
+  "createdAt": "2026-04-23T04:50:38.783Z",
+  "runPlan": {
+    "generatedAt": "2026-04-23T04:50:38.783Z",
+    "tasks": [
+      {
+        "id": "task-1",
+        "nodeId": "n1",
+        "title": "Implement auth",
+        "kind": "module",
+        "dependsOn": [],
+        "batchIndex": 0
+      }
+    ],
+    "batches": [
+      {
+        "index": 0,
+        "taskIds": [
+          "task-1"
+        ]
+      }
+    ],
+    "warnings": []
+  },
+  "executionReport": {
+    "startedAt": "2026-04-23T04:50:38.783Z",
+    "completedAt": "2026-04-23T04:50:38.783Z",
+    "results": [
+      {
+        "taskId": "task-1",
+        "nodeId": "n1",
+        "status": "completed",
+        "batchIndex": 0,
+        "outputPaths": [
+          "dist/auth.js"
+        ],
+        "managedRegionIds": [],
+        "message": "Task completed successfully",
+        "errors": [],
+        "taskType": "code_generation",
+        "reasoning": "Test reasoning",
+        "changes": [
+          {
+            "file": "test.ts",
+            "action": "created",
+            "summary": "Test change"
+          }
+        ]
+      }
+    ],
+    "ownership": [],
+    "steps": [],
+    "artifacts": []
+  }
+}

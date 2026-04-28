@@ -1,3 +1,4 @@
+import { execa, type ExecaError } from 'execa';
 import type { AgentConfig, AgentTask, AgentResult } from './types.js';
 import { TaskQueue } from './task-queue.js';
 
@@ -22,11 +23,78 @@ export class AgentSpawner {
     };
   }
 
+  /**
+   * Spawns an agent execution using opencode CLI.
+   * @throws Error if opencode is not installed or execution fails
+   */
   async spawnAgent(
     task: AgentTask,
     context: { systemPrompt?: string; userPrompt: string; model?: 'sonnet' | 'opus' | 'haiku' }
   ): Promise<SpawnResult> {
-    throw new Error('Agent execution not implemented - requires Claude Code API integration');
+    const startTime = Date.now();
+
+    // Build the full prompt with system context
+    const systemContext = context.systemPrompt ?? '';
+    const fullPrompt = `${systemContext}\n\n${context.userPrompt}`.trim();
+
+    // Build opencode command args
+    const args = ['run', '--', fullPrompt];
+    if (context.model) {
+      args.push('--model', context.model);
+    }
+    // Pass agent type as context for the session
+    if (task.agentType) {
+      args.push('--session', `codeflow-${task.agentType}-${task.id}`);
+    }
+
+    try {
+      const { stdout, stderr, exitCode } = await execa('opencode', args, {
+        cwd: this.config.workingDirectory,
+        timeout: 5 * 60 * 1000, // 5 min timeout
+        encoding: 'utf8',
+        stderr: 'pipe',
+      });
+
+      // Convert stdout/stderr to string (they can be string | Uint8Array | unknown[])
+      const outputStr = typeof stdout === 'string' ? stdout : String(stdout);
+      const errorStr = typeof stderr === 'string' ? stderr : (stderr ? String(stderr) : undefined);
+
+      if (exitCode !== 0) {
+        return {
+          taskId: task.id,
+          success: false,
+          output: outputStr,
+          error: errorStr || `opencode exited with code ${exitCode}`,
+        };
+      }
+
+      return {
+        taskId: task.id,
+        success: true,
+        output: outputStr,
+      };
+    } catch (err) {
+      const execaError = err as ExecaError;
+      if (execaError.failed) {
+        const stdoutStr = typeof execaError.stdout === 'string' ? execaError.stdout : String(execaError.stdout);
+        const stderrStr = typeof execaError.stderr === 'string' ? execaError.stderr : (execaError.stderr ? String(execaError.stderr) : undefined);
+        return {
+          taskId: task.id,
+          success: false,
+          output: stdoutStr,
+          error: stderrStr || `opencode execution failed: ${execaError.message}`,
+        };
+      }
+      // Check if opencode command was not found
+      if (execaError.code === 'ENOENT') {
+        throw new Error(
+          'opencode CLI not found. Please install opencode and ensure it is in your PATH.\n' +
+          'Installation: https://github.com/opencode-ai/opencode\n' +
+          'Or via: npm install -g opencode'
+        );
+      }
+      throw err;
+    }
   }
 
   async executeWithQueue(

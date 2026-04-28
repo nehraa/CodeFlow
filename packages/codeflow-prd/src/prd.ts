@@ -108,7 +108,11 @@ const extractName = (item: string, fallbackKind: BlueprintNodeKind | null): stri
 
   const apiMatch = item.match(API_PATTERN);
   if (apiMatch) {
-    return `${apiMatch[1].toUpperCase()} ${apiMatch[2]}`;
+    const path = apiMatch[2];
+    // Handle API paths with function signatures like "POST /api/users/create(name: string, email: string)"
+    // Truncate at first '(' if present (function signature in the path)
+    const cleanPath = path.includes("(") ? path.split("(")[0] : path;
+    return `${apiMatch[1].toUpperCase()} ${cleanPath}`;
   }
 
   if (fallbackKind === "ui-screen" && !/screen$/i.test(item)) {

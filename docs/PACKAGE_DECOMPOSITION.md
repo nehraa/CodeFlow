@@ -36,15 +36,15 @@ src/lib/blueprint/
 | `codeflow-execution` | Execution runner, task planning, phases, VCR recording, runtime tests |
 | `codeflow-analysis` | Cycle detection, architecture smells, graph metrics, refactor/heal |
 | `codeflow-evolution` | Ghost nodes (AI-suggested components), genetic algorithm for architecture variants |
-| `codeflow-codegen` | AI code generation per-node, TypeScript validation, code suggestions |
+| `codeflow-agent` | Unified AI agent: OpenCode server + NVIDIA NIM + per-node codegen + TS validation |
 | `codeflow-dtwin` | Digital twin simulation, active node highlighting from trace data |
 | `codeflow-versioning` | Blueprint branching, branch diff/compare |
-| `codeflow-ai` | NVIDIA Llama integration, AI blueprint generation |
-| `codeflow-opencode` | OpenCode agent server, multi-model AI backend (Anthropic, OpenAI, etc.) |
-| `codeflow-mcp` | MCP server configuration and tool registry |
+| `codeflow-mcp` | MCP server configuration and tool registry (stays separate — protocol interface for all packages) |
 | `codeflow-store` | Local session storage, project-scoped state, checkpointing |
 
-**Total: 14 packages (12 new + 2 existing)**
+**Total: 11 packages (9 new + 2 existing)**
+
+> **Note:** `codeflow-ai`, `codeflow-codegen`, and `codeflow-opencode` have been merged into `codeflow-agent`. `codeflow-mcp` is kept separate because it is a protocol-level interface (stdin/stdout JSON-RPC) that should be reusable by all packages, not just the agent.
 
 ---
 
@@ -64,28 +64,26 @@ src/lib/blueprint/
 | 3 | `codeflow-versioning` | Branches + diff — produces/consumes graph metadata, minimal deps |
 | 4 | `codeflow-prd` | PRD parsing → produces blueprint graph |
 | 5 | `codeflow-analysis` | Cycles, smells, metrics, refactor/heal → analyze graph |
-| 6 | `codeflow-ai` | NVIDIA Llama blueprint generation → produces graph |
 
-### Phase 3 — Middle Layer (depend on core + schema producers)
+### Phase 3 — Agent Layer (depend on core + schema producers)
 
 | # | Package | Why |
 |---|---------|-----|
-| 7 | `codeflow-execution` | Runner, task planning, phases, VCR — needs schema + analysis |
-| 8 | `codeflow-opencode` | OpenCode server — standalone AI backend |
+| 6 | `codeflow-execution` | Runner, task planning, phases, VCR — needs schema + analysis |
+| 7 | `codeflow-agent` | OpenCode server + NVIDIA NIM + codegen + TS validation — needs core + execution |
 
 ### Phase 4 — High-Level (depend on multiple layers)
 
 | # | Package | Why |
 |---|---------|-----|
-| 9 | `codeflow-codegen` | AI code gen + TS validation — needs ai + schema |
-| 10 | `codeflow-evolution` | Ghost nodes + genetic algo — needs ai + schema |
+| 8 | `codeflow-evolution` | Ghost nodes + genetic algo — needs agent (for LLM calls) |
 
 ### Phase 5 — Top Layer (full stack)
 
 | # | Package | Why |
 |---|---------|-----|
-| 11 | `codeflow-canvas` | React Flow UI — needs schema + execution traces |
-| 12 | `codeflow-dtwin` | Digital twin simulation — needs execution + canvas |
+| 9 | `codeflow-canvas` | React Flow UI — needs schema + execution traces |
+| 10 | `codeflow-dtwin` | Digital twin simulation — needs execution + canvas |
 
 ### Dependency Graph
 
@@ -94,18 +92,22 @@ codeflow-store
 codeflow-mcp
        │
        ▼
-codeflow-versioning   codeflow-prd   codeflow-analysis   codeflow-ai
-       │                      │                │               │
-       └──────────────────────┴────────────────┴───────────────┘
+codeflow-versioning   codeflow-prd   codeflow-analysis
+       │                      │                │
+       └──────────────────────┴────────────────┘
                                │
-                         codeflow-execution    codeflow-opencode
+                          codeflow-execution
                                │
-                          codeflow-codegen    codeflow-evolution
+                          codeflow-agent
                                │
-                          codeflow-canvas
+                     codeflow-evolution
                                │
-                          codeflow-dtwin
+                     codeflow-canvas
+                               │
+                     codeflow-dtwin
 ```
+
+> **Merged note:** `codeflow-agent` replaces `codeflow-ai`, `codeflow-codegen`, and `codeflow-opencode`. These three were merged because they are not independently useful — `codeflow-opencode` already does code generation (which `codeflow-codegen` would duplicate), and `codeflow-ai` is a thin NVIDIA NIM wrapper that feeds into the same codegen pipeline. `codeflow-mcp` is kept separate because it is a protocol interface (stdin/stdout JSON-RPC) that all packages can use, not just the agent.
 
 ---
 
@@ -136,20 +138,16 @@ codeflow-prd         → @abhinav2203/codeflow-core
 codeflow-analysis    → @abhinav2203/codeflow-core
                      → @abhinav2203/codeflow-store
 
-codeflow-ai         → @abhinav2203/codeflow-core
-
 codeflow-execution   → @abhinav2203/codeflow-core
                      → @abhinav2203/codeflow-analysis
                      → @abhinav2203/codeflow-store
 
-codeflow-opencode   → @abhinav2203/codeflow-core
-
-codeflow-codegen    → @abhinav2203/codeflow-core
-                     → @abhinav2203/codeflow-ai
+codeflow-agent      → @abhinav2203/codeflow-core
                      → @abhinav2203/codeflow-execution
+                     → @abhinav2203/codeflow-store
 
 codeflow-evolution   → @abhinav2203/codeflow-core
-                     → @abhinav2203/codeflow-ai
+                     → @abhinav2203/codeflow-agent
 
 codeflow-canvas     → @abhinav2203/codeflow-core
                      → @abhinav2203/codeflow-store
@@ -480,54 +478,7 @@ FROM: src/app/api/conflicts/route.test.ts
 
 ---
 
-### 6. `codeflow-ai`
-
-**Package name:** `@abhinav2203/codeflow-ai`
-
-**Description:** NVIDIA Llama integration for AI blueprint generation.
-
-**Source files to isolate:**
-
-```text
-FROM: src/lib/blueprint/
-  - nvidia.ts
-  - prompt-governance.ts
-  - prompt-governance.test.ts
-```
-
-**API routes to wire:**
-
-```text
-FROM: src/app/api/generate-blueprint/route.ts   (NVIDIA AI generation endpoint)
-```
-
-> **Note:** `generate-blueprint` is a **single shared route** that dispatches to either PRD build (reverse mode) or AI generation (nvidia.ts) based on request parameters. Both `codeflow-prd` and `codeflow-ai` contribute to this route's implementation.
-
-**`package.json` fields:**
-
-```json
-{
-  "name": "@abhinav2203/codeflow-ai",
-  "exports": {
-    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
-    "./nvidia": { "types": "./dist/nvidia.d.ts", "default": "./dist/nvidia.js" },
-    "./prompt-governance": { "types": "./dist/prompt-governance.d.ts", "default": "./dist/prompt-governance.js" }
-  },
-  "bin": {
-    "codeflow-ai": "./dist/bin/cli.js"
-  },
-  "dependencies": {
-    "@abhinav2203/codeflow-core": "workspace:*"
-  }
-}
-```
-
-**Developer prompt:**
-> "Extract the NVIDIA AI layer. Move `src/lib/blueprint/{nvidia,prompt-governance,prompt-governance.test}.ts` into `packages/codeflow-ai/src/`. Wire `src/app/api/generate-blueprint/route.ts` to import from the new package. Publish as `@abhinav2203/codeflow-ai`. This package wraps the NVIDIA API (Llama 3.1 405B) for natural language to blueprint generation."
-
----
-
-### 7. `codeflow-execution`
+### 6. `codeflow-execution`
 
 **Package name:** `@abhinav2203/codeflow-execution`
 
@@ -599,15 +550,24 @@ FROM: src/app/api/code-completions/route.ts
 
 ---
 
-### 8. `codeflow-opencode`
+### 7. `codeflow-agent`
 
-**Package name:** `@abhinav2203/codeflow-opencode`
+**Package name:** `@abhinav2203/codeflow-agent`
 
-**Description:** OpenCode agent server, multi-model AI backend (Anthropic, OpenAI, Google, Azure, Groq, Mistral, Cohere, Perplexity, OpenRouter, AWS Bedrock).
+**Description:** Unified AI agent — OpenCode agent server + NVIDIA NIM wrapper + per-node codegen + TS validation + prompt governance. This is the "heavy lifting" layer: it runs code models, generates blueprint-adherent code stubs, validates them with TypeScript, and exposes everything via an API server and MCP tools.
 
 **Source files to isolate:**
 
 ```text
+FROM: src/lib/blueprint/
+  - nvidia.ts              ← NVIDIA NIM wrapper (blueprint → prompt for Llama 3.1 405B)
+  - prompt-governance.ts   ← prompt sanitization, size limits, rate limiting
+  - prompt-governance.test.ts
+  - codegen.ts             ← per-node TS/TSX code generation (wraps opencode)
+  - compile-validation.ts  ← TypeScript compiler validation of generated code
+  - compile-validation.test.ts
+  - code-assist.ts         ← AI-powered code improvement suggestions
+
 FROM: src/lib/opencode/
   - index.ts
   - agent.ts
@@ -619,16 +579,16 @@ FROM: src/lib/opencode/
   - config.test.ts
   - modelFetcher.ts
   - modelFetcher.test.ts
-  - types.ts              ← OpencodeProvider, OpencodeConfig, McpServerConfig types
+  - types.ts               ← OpencodeProvider, OpencodeConfig, McpServerConfig types
   - api-key-validator.tsx
-
-FROM: src/lib/server/
-  (already separated — check if any opencode-specific deps)
 ```
 
 **API routes to wire:**
 
 ```text
+FROM: src/app/api/generate-blueprint/route.ts   (NVIDIA AI generation — merged handler)
+FROM: src/app/api/code-suggestions/route.ts
+FROM: src/app/api/implement-node/route.ts
 FROM: src/app/api/opencode/status/route.ts
 FROM: src/app/api/opencode/start/route.ts
 FROM: src/app/api/opencode/stop/route.ts
@@ -636,7 +596,6 @@ FROM: src/app/api/opencode/restart/route.ts
 FROM: src/app/api/opencode/agent/route.ts
 FROM: src/app/api/opencode/sessions/route.ts
 FROM: src/app/api/opencode/sessions/[id]/route.ts
-FROM: src/app/api/opencode/mcp/route.ts
 FROM: src/app/api/opencode/permissions/route.ts
 (all corresponding .test.ts files too)
 ```
@@ -645,79 +604,35 @@ FROM: src/app/api/opencode/permissions/route.ts
 
 ```json
 {
-  "name": "@abhinav2203/codeflow-opencode",
+  "name": "@abhinav2203/codeflow-agent",
   "exports": {
     ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
-    "./agent": { "types": "./dist/agent.d.ts", "default": "./dist/agent.js" },
-    "./server": { "types": "./dist/server.d.ts", "default": "./dist/server.js" },
-    "./client": { "types": "./dist/client.d.ts", "default": "./dist/client.js" },
-    "./config": { "types": "./dist/config.d.ts", "default": "./dist/config.js" },
-    "./model-fetcher": { "types": "./dist/model-fetcher.d.ts", "default": "./dist/model-fetcher.js" }
-  },
-  "bin": {
-    "codeflow-opencode": "./dist/bin/cli.js"
-  },
-  "dependencies": {
-    "@abhinav2203/codeflow-core": "workspace:*"
-  }
-}
-```
-
-**Developer prompt:**
-> "Extract the OpenCode integration. Move the entire `src/lib/opencode/` directory and all `src/app/api/opencode/` route files (with all tests) into `packages/codeflow-opencode/src/`. This package is the OpenCode agent server wrapper supporting 10+ AI providers. Publish as `@abhinav2203/codeflow-opencode`. This can be a large package — keep internal sub-modules clearly separated."
-
----
-
-### 9. `codeflow-codegen`
-
-**Package name:** `@abhinav2203/codeflow-codegen`
-
-**Description:** AI code generation per-node, TypeScript validation, code suggestions.
-
-**Source files to isolate:**
-
-```text
-FROM: src/lib/blueprint/
-  - codegen.ts
-  - compile-validation.ts
-  - compile-validation.test.ts
-  - code-assist.ts
-```
-
-**API routes to wire:**
-
-```text
-FROM: src/app/api/code-suggestions/route.ts
-FROM: src/app/api/implement-node/route.ts
-```
-
-**`package.json` fields:**
-
-```json
-{
-  "name": "@abhinav2203/codeflow-codegen",
-  "exports": {
-    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+    "./opencode": { "types": "./dist/opencode.d.ts", "default": "./dist/opencode.js" },
+    "./nvidia": { "types": "./dist/nvidia.d.ts", "default": "./dist/nvidia.js" },
+    "./prompt-governance": { "types": "./dist/prompt-governance.d.ts", "default": "./dist/prompt-governance.js" },
+    "./codegen": { "types": "./dist/codegen.d.ts", "default": "./dist/codegen.js" },
     "./compile": { "types": "./dist/compile.d.ts", "default": "./dist/compile.js" },
     "./code-assist": { "types": "./dist/code-assist.d.ts", "default": "./dist/code-assist.js" }
   },
   "bin": {
-    "codeflow-codegen": "./dist/bin/cli.js"
+    "codeflow-agent": "./dist/bin/cli.js"
   },
   "dependencies": {
     "@abhinav2203/codeflow-core": "workspace:*",
-    "@abhinav2203/codeflow-ai": "workspace:*",
-    "@abhinav2203/codeflow-execution": "workspace:*"
+    "@abhinav2203/codeflow-execution": "workspace:*",
+    "@abhinav2203/codeflow-store": "workspace:*"
   }
 }
 ```
 
+> **Why does `codeflow-agent` depend on `codeflow-store`?** Because agent **reasoning** (session context, tool-use history, generated artifacts, agent logs) needs to be persisted and replayable. Rather than inventing its own storage layer, `codeflow-agent` uses `codeflow-store` as its persistence backend. Reasoning is stored as structured session data in `codeflow-store`, enabling checkpointing and replay without a separate storage mechanism.
+
 **Developer prompt:**
-> "Extract AI code generation. Move `src/lib/blueprint/{codegen,compile-validation,compile-validation.test,code-assist}.ts` and `src/app/api/code-suggestions/route.ts`, `src/app/api/implement-node/route.ts` into `packages/codeflow-codegen/src/`. The `codegen.ts` generates TypeScript/TSX stubs from blueprint nodes. `compile-validation.ts` validates generated code with the TypeScript compiler. Publish as `@abhinav2203/codeflow-codegen`."
+> "Extract and merge the AI layer. Move `src/lib/opencode/` (entire directory), `src/lib/blueprint/{nvidia,prompt-governance,codegen,compile-validation,compile-validation.test,code-assist}.ts` (with all tests), and all `src/app/api/opencode/` + `src/app/api/generate-blueprint/` + `src/app/api/code-suggestions/` + `src/app/api/implement-node/` routes into `packages/codeflow-agent/src/`. This package is the unified AI agent: OpenCode server (multi-model: Anthropic, OpenAI, NVIDIA, etc.), NVIDIA NIM wrapper (Llama 3.1 405B), per-node code generation, TypeScript validation, and prompt governance. Wire `src/app/api/generate-blueprint/route.ts` to call `nvidia.ts` within this package. Publish as `@abhinav2203/codeflow-agent`."
 
 ---
 
-### 10. `codeflow-evolution`
+### 8. `codeflow-evolution`
 
 **Package name:** `@abhinav2203/codeflow-evolution`
 
@@ -758,17 +673,17 @@ FROM: src/app/api/ghost-nodes/route.ts
   },
   "dependencies": {
     "@abhinav2203/codeflow-core": "workspace:*",
-    "@abhinav2203/codeflow-ai": "workspace:*"
+    "@abhinav2203/codeflow-agent": "workspace:*"
   }
 }
 ```
 
 **Developer prompt:**
-> "Extract the evolution layer. Move `src/lib/blueprint/genetic*.ts` and `src/app/api/genetic/evolve/route.ts`, `src/app/api/ghost-nodes/route.ts` into `packages/codeflow-evolution/src/`. Genetic algorithms evolve architecture variants. Ghost nodes are AI-suggested next components. Heatmap lives in `codeflow-canvas` — do not copy it here. Publish as `@abhinav2203/codeflow-evolution`."
+> "Extract the evolution layer. Move `src/lib/blueprint/genetic*.ts` and `src/app/api/genetic/evolve/route.ts`, `src/app/api/ghost-nodes/route.ts` into `packages/codeflow-evolution/src/`. Genetic algorithms evolve architecture variants. Ghost nodes are AI-suggested next components (powered by `codeflow-agent`'s LLM). Heatmap lives in `codeflow-canvas` — do not copy it here. Publish as `@abhinav2203/codeflow-evolution`."
 
 ---
 
-### 11. `codeflow-canvas`
+### 9. `codeflow-canvas`
 
 **Package name:** `@abhinav2203/codeflow-canvas`
 
@@ -852,7 +767,7 @@ FROM: src/app/api/observability/latest/route.ts
 
 ---
 
-### 12. `codeflow-dtwin`
+### 10. `codeflow-dtwin`
 
 **Package name:** `@abhinav2203/codeflow-dtwin`
 
@@ -924,7 +839,7 @@ These files are used by multiple packages. They should be moved to `@abhinav2203
 | `src/lib/blueprint/file-tree.ts` | `@abhinav2203/codeflow-core` | `codeflow-prd`, `codeflow-store` |
 | `src/lib/server/run-command.ts` | `@abhinav2203/codeflow-core` | `codeflow-store` |
 | `src/lib/server/terminal-sessions.ts` | `@abhinav2203/codeflow-core` | `codeflow-store` |
-| `src/lib/blueprint/typescript-workspace.ts` | `@abhinav2203/codeflow-core` | `codeflow-execution`, `codeflow-codegen` |
+| `src/lib/blueprint/typescript-workspace.ts` | `@abhinav2203/codeflow-core` | `codeflow-execution`, `codeflow-agent` |
 | `src/lib/blueprint/sandbox.ts` | `@abhinav2203/codeflow-core` | `codeflow-execution`, `codeflow-store` |
 
 ---
@@ -953,21 +868,15 @@ codeflow-analysis:
   src/app/api/analysis/{cycles,metrics,smells}/route.ts
   src/app/api/{refactor/{detect,heal},conflicts}/route.ts
 
-codeflow-ai:
-  src/lib/blueprint/{nvidia,prompt-governance,prompt-governance.test}.ts
-  src/app/api/generate-blueprint/route.ts
-
 codeflow-execution:
   src/lib/blueprint/{runner,plan,phases,execute,vcr,runtime-contracts,runtime-tests,runtime-workspace,sandbox,mermaid}*.ts
   src/app/api/{executions/run,vcr,export/mermaid,code-completions}/route.ts
 
-codeflow-opencode:
+codeflow-agent:
+  src/lib/blueprint/{nvidia,prompt-governance,codegen,compile-validation,code-assist}*.ts
   src/lib/opencode/*.ts
-  src/app/api/opencode/{status,start,stop,restart,agent,sessions,sessions/[id],mcp,permissions}/route.ts
-
-codeflow-codegen:
-  src/lib/blueprint/{codegen,compile-validation,code-assist}.ts
-  src/app/api/{code-suggestions,implement-node}/route.ts
+  src/app/api/{generate-blueprint,code-suggestions,implement-node}/route.ts
+  src/app/api/opencode/{status,start,stop,restart,agent,sessions,sessions/[id],permissions}/route.ts
 
 codeflow-evolution:
   src/lib/blueprint/genetic*.ts
@@ -1104,27 +1013,6 @@ codeflow-analysis refactor heal ./blueprint.json ./src --auto
 
 ---
 
-### `codeflow-ai`
-
-**CLI surface:**
-
-```bash
-codeflow-ai generate "build a user authentication module with login and signup" --output blueprint.json
-codeflow-ai status
-```
-
-**Mock/test mode (no API key needed):**
-
-```bash
-codeflow-ai generate "test prompt" --mock --output blueprint.json
-```
-
-**Isolation test:** With `--mock`, assert deterministic output. With a real API key, assert output is a valid BlueprintGraph JSON with at least one node. `status` → assert it reports API key presence and model name.
-
-**Success signal:** `generate` produces a BlueprintGraph. `status` returns connectivity info.
-
----
-
 ### `codeflow-execution`
 
 **CLI surface:**
@@ -1145,41 +1033,43 @@ codeflow-execution sandbox exec ./blueprint.json --node <node-id> --input '{}'
 
 ---
 
-### `codeflow-opencode`
+### `codeflow-agent`
 
 **CLI surface:**
 
 ```bash
-codeflow-opencode start --port 3101
-codeflow-opencode stop
-codeflow-opencode restart
-codeflow-opencode agent send "fix the login bug in auth.ts"
-codeflow-opencode sessions list
-codeflow-opencode sessions create --model claude-sonnet
-codeflow-opencode config list-models
+# Agent server
+codeflow-agent start --port 3101
+codeflow-agent stop
+codeflow-agent restart
+codeflow-agent sessions list
+codeflow-agent sessions create --model claude-sonnet
+codeflow-agent config list-models
+
+# AI generation (NVIDIA NIM / Llama)
+codeflow-agent generate "build a user authentication module with login and signup" --output blueprint.json
+codeflow-agent status
+
+# Mock/test mode (no API key needed)
+codeflow-agent generate "test prompt" --mock --output blueprint.json
+
+# Per-node code generation + TS validation
+codeflow-agent codegen generate ./blueprint.json --node <node-id> --output ./generated/
+codeflow-agent codegen validate ./generated/auth-module.ts
+
+# Code improvement suggestions
+codeflow-agent codegen suggest ./blueprint.json --node <node-id>
+
+# Agent reasoning (persisted to codeflow-store)
+codeflow-agent sessions reasoning <session-id>   # view reasoning trace
+codeflow-agent sessions replay <session-id>      # replay reasoning + tool calls
 ```
 
-**MCP server surface:** Runs as an MCP server other tools can connect to.
+**Reasoning persistence:** Agent reasoning (thoughts, tool calls, generated artifacts, session context) is stored in `codeflow-store`. This means reasoning survives restarts and can be checkpointed alongside codeflow execution. `codeflow-versioning` can version reasoning traces — you can `git diff` the reasoning from branch A vs branch B. See [Interaction Model: Reasoning → Store → Versioning](#interaction-model-reasoning--store--versioning) below.
 
-**Isolation test:** `start` → wait for daemon → `agent send "hello"` → assert response. `sessions list` → assert at least one session. `stop` → assert daemon is down.
+**Isolation test:** `start` → wait for daemon → `agent send "hello"` → assert response. `sessions list` → assert at least one session. `stop` → assert daemon is down. With `--mock`, assert deterministic output. `codegen generate` → assert `.ts`/`.tsx` files created. `codegen validate` → assert TypeScript compiler returns zero errors.
 
-**Success signal:** Daemon starts and responds to agent messages. Sessions persist across restarts.
-
----
-
-### `codeflow-codegen`
-
-**CLI surface:**
-
-```bash
-codeflow-codegen generate ./blueprint.json --node <node-id> --output ./generated/
-codeflow-codegen validate ./generated/auth-module.ts
-codeflow-codegen suggest ./blueprint.json --node <node-id>
-```
-
-**Isolation test:** Take a real blueprint (e.g., from `codeflow-prd`) → `generate` for each code-bearing node → assert `.ts`/`.tsx` files are created → `validate` each → assert TypeScript compiler returns zero errors.
-
-**Success signal:** Generated code passes `tsc --noEmit` with zero errors. `suggest` returns an improvement suggestion string.
+**Success signal:** Daemon starts and responds to agent messages. Sessions persist across restarts. Generated code passes `tsc --noEmit`. Reasoning traces are stored and retrievable from `codeflow-store`.
 
 ---
 
@@ -1237,6 +1127,64 @@ codeflow-dtwin active-nodes ./blueprint.json ./trace-data.json
 
 ---
 
+## Interaction Model: Reasoning → Store → Versioning
+
+This section answers the question: **does `codeflow-agent` save reasoning on its own, and does it sync with `codeflow-store` or `codeflow-versioning`?**
+
+### How Reasoning Is Stored
+
+`codeflow-agent` does **not** invent its own storage layer. It uses `codeflow-store` as its persistence backend:
+
+```
+codeflow-agent session
+    │
+    ├── reasoning trace    →  stored in codeflow-store (session-store)
+    ├── tool-use history   →  stored in codeflow-store (session-store)
+    ├── generated artifacts →  stored in codeflow-store (run-store / checkpoint-store)
+    └── LLM context window  →  stored in codeflow-store (session-store)
+```
+
+Specifically, every `codeflow-agent` session has a corresponding `session` entry in `codeflow-store`. The agent's reasoning (thought process, tool calls, intermediate results) is serialized as structured JSON and stored as part of the session record. This makes reasoning **checkpointable** — you can snapshot the entire agent state before a risky operation and restore it if something goes wrong.
+
+### How Versioning Syncs With Reasoning
+
+`codeflow-store` and `codeflow-versioning` are designed to be used together:
+
+```
+codeflow-versioning
+    │
+    ├── branch metadata     →  stored in codeflow-versioning (branch-store)
+    ├── blueprint diffs    →  stored in codeflow-versioning
+    └── reasoning traces   →  references to codeflow-store session records
+```
+
+When you create a branch in `codeflow-versioning`, the agent's reasoning for that branch is stored as a session in `codeflow-store` with a `branchId` tag. Switching branches (`checkout`) can restore both the blueprint state **and** the agent's reasoning context for that branch — so if you check out `feature-auth` branch, the agent resumes with the reasoning it had when working on that branch.
+
+### Sync Flow
+
+```
+1. codeflow-agent does work → reasoning stored in codeflow-store (session)
+2. User creates a branch    → codeflow-versioning snapshots branch
+                            → codeflow-store session tagged with branchId
+3. User switches branches   → codeflow-versioning restores blueprint
+                            → codeflow-agent reasoning context = session from that branch
+4. Checkpoint created       → codeflow-store captures run + reasoning checkpoint
+                            → codeflow-versioning captures branch state
+```
+
+This means **reasoning is versioned by proxy** — there's no separate versioning mechanism for reasoning. A branch contains everything (blueprint + agent sessions + checkpoints) through the combined use of `codeflow-versioning` and `codeflow-store`.
+
+### Key Design Decisions
+
+| Question | Answer |
+|----------|--------|
+| Does `codeflow-agent` have its own storage? | **No.** It uses `codeflow-store` as its persistence backend. |
+| Is reasoning versioned? | **By proxy.** `codeflow-store` sessions are tagged with `branchId`. Branch switching restores both blueprint + reasoning context. |
+| Can I replay an agent reasoning trace? | **Yes.** `codeflow-store` sessions are replayable. Use `codeflow-agent sessions replay <session-id>`. |
+| Is reasoning checkpointed? | **Yes.** `codeflow-store` checkpoint captures agent session state alongside execution state. |
+
+---
+
 ## Test Fixtures
 
 Each package should ship with a `test-fixtures/` directory containing minimal inputs to run the CLI tests without needing the full monorepo:
@@ -1265,3 +1213,39 @@ Each package's CI should run (in order):
 4. `npm run build` — TypeScript compile to `dist/`
 
 All four must pass for the package to be considered working.
+
+---
+
+## Post-Decomposition Follow-Up: `openflow-guard` (deferred)
+
+After the backend package extraction is complete (including `codeflow-agent`), add a guard package that enforces commit gates before allowing `git commit` to proceed.
+
+### Purpose
+
+`openflow-guard` is a policy/hook orchestration layer. It does not replace analyzers; it composes existing package capabilities into one pre-commit quality gate.
+
+### Proposed Pre-Commit Gate Order
+
+1. Lint gate (`npm run lint` or package-scoped equivalent)
+2. Test gate (`npm test` or package-scoped equivalent)
+3. Security/diff gate (change-aware checks, security-focused rules, and high-risk findings)
+4. Documentation gate (required doc updates/sync for changed behavior)
+
+Commit is blocked until all gates pass.
+
+### Integration points
+
+- `codeflow-analysis`: cycles/smells/metrics/refactor/conflict and risk-oriented checks
+- `codeflow-versioning` + `codeflow-store`: persist gate reports, failure reasons, and reasoning checkpoints
+- `codeflow-agent`: optional auto-remediation loop that attempts to fix failing gates
+
+### Prompt Packs
+
+Ship prebuilt system prompts for:
+- security review/remediation
+- documentation sync/update
+- optional fix-plan generation for failed gates
+
+### Scope note
+
+This is intentionally deferred until the package backend and OpenCode surfaces are stable, so the guard can reuse package APIs instead of hardcoding monolith paths.

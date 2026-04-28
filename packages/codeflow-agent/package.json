@@ -18,6 +18,7 @@
   "dependencies": {
     "@abhinav2203/codeflow-core": "workspace:*",
     "@abhinav2203/codeflow-store": "workspace:*",
+    "execa": "^9.0.0",
     "zod": "^3.0.0"
   },
   "devDependencies": {

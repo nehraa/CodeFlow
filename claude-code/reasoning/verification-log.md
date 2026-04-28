@@ -836,3 +836,597 @@
 2026-04-02T15:03:37+05:30 - PASS FINAL: Compiling verification results
 2026-04-02T15:03:37+05:30 - PASS 7: Documentation issues found
 2026-04-02T15:03:37+05:30 - PASS FINAL: Compiling verification results
+2026-04-23T10:40:31+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T10:40:31+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T10:40:31+05:30 - PASS 1: Checking if tests need updates for changed files
+2026-04-23T10:40:33+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-23T10:40:33+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-23T10:40:38+05:30 - PASS 2: Running type check
+2026-04-23T10:40:38+05:30 - PASS 2: Using typescript
+2026-04-23T10:40:41+05:30 - PASS 2: Type check failed - errors detected
+2026-04-23T10:40:41+05:30 - PASS 3: Running tests
+2026-04-23T10:41:13+05:30 - PASS 3: Tests failed (attempt 1/3)
+2026-04-23T10:41:13+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T10:41:49+05:30 - PASS 3: Tests failed (attempt 2/3)
+2026-04-23T10:41:49+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T10:42:18+05:30 - PASS 1: Checking if tests need updates for changed files
+2026-04-23T10:42:18+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T10:42:18+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T10:42:21+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-23T10:42:21+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-23T10:42:27+05:30 - PASS 2: Running type check
+2026-04-23T10:42:27+05:30 - PASS 2: Using typescript
+2026-04-23T10:42:28+05:30 - PASS 3: Tests failed (attempt 3/3)
+2026-04-23T10:42:28+05:30 - PASS 3: Tests failed after 3 attempts
+2026-04-23T10:42:28+05:30 - PASS 4: Running security scan
+2026-04-23T10:42:31+05:30 - PASS 2: Type check failed - errors detected
+2026-04-23T10:42:31+05:30 - PASS 3: Running tests
+2026-04-23T10:43:07+05:30 - PASS 3: Tests failed (attempt 1/3)
+2026-04-23T10:43:07+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T10:43:45+05:30 - PASS 3: Tests failed (attempt 2/3)
+2026-04-23T10:43:45+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T10:44:25+05:30 - PASS 3: Tests failed (attempt 3/3)
+2026-04-23T10:44:25+05:30 - PASS 3: Tests failed after 3 attempts
+2026-04-23T10:44:25+05:30 - PASS 4: Running security scan
+2026-04-23T10:44:32+05:30 - PASS 4: Security issues detected
+2026-04-23T10:44:32+05:30 - PASS 5: Running verification pass - checking for anti-patterns
+2026-04-23T10:44:33+05:30 - PASS 5: Verification issues found
+2026-04-23T10:44:33+05:30 - PASS 6: Checking prompt compliance
+2026-04-23T10:44:33+05:30 - PASS 6: No prompt file found
+2026-04-23T10:44:33+05:30 - PASS 7: Checking documentation
+2026-04-23T10:44:33+05:30 - PASS 7: Documentation sufficient
+2026-04-23T10:44:33+05:30 - PASS FINAL: Compiling verification results
+2026-04-23T10:45:20+05:30 - PASS 4: Security issues detected
+2026-04-23T10:45:20+05:30 - PASS 5: Running verification pass - checking for anti-patterns
+2026-04-23T10:45:21+05:30 - PASS 5: Verification issues found
+2026-04-23T10:45:21+05:30 - PASS 6: Checking prompt compliance
+2026-04-23T10:45:21+05:30 - PASS 6: No prompt file found
+2026-04-23T10:45:21+05:30 - PASS 7: Checking documentation
+2026-04-23T10:45:21+05:30 - PASS 7: Documentation sufficient
+2026-04-23T10:45:21+05:30 - PASS FINAL: Compiling verification results
+2026-04-23T11:07:07+05:30 - PASS 1: Checking if tests need updates for changed files
+2026-04-23T11:07:07+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T11:07:07+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T11:07:07+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-23T11:07:07+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-23T11:07:09+05:30 - PASS 2: Running type check
+2026-04-23T11:07:09+05:30 - PASS 2: Using typescript
+2026-04-23T11:07:13+05:30 - PASS 2: Type check failed - errors detected
+2026-04-23T11:07:13+05:30 - PASS 3: Running tests
+2026-04-23T11:07:47+05:30 - PASS 3: Tests failed (attempt 1/3)
+2026-04-23T11:07:47+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T11:08:21+05:30 - PASS 3: Tests failed (attempt 2/3)
+2026-04-23T11:08:21+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T11:08:55+05:30 - PASS 3: Tests failed (attempt 3/3)
+2026-04-23T11:08:55+05:30 - PASS 3: Tests failed after 3 attempts
+2026-04-23T11:08:55+05:30 - PASS 4: Running security scan
+2026-04-23T11:09:55+05:30 - PASS 4: Security issues detected
+2026-04-23T11:09:56+05:30 - PASS 5: Running verification pass - checking for anti-patterns
+2026-04-23T11:10:00+05:30 - PASS 5: Verification issues found
+2026-04-23T11:10:00+05:30 - PASS 6: Checking prompt compliance
+2026-04-23T11:10:00+05:30 - PASS 6: No prompt file found
+2026-04-23T11:10:00+05:30 - PASS 7: Checking documentation
+2026-04-23T11:10:00+05:30 - PASS 7: Documentation sufficient
+2026-04-23T11:10:00+05:30 - PASS FINAL: Compiling verification results
+2026-04-23T11:40:00+05:30 - PASS 1: Checking if tests need updates for changed files
+2026-04-23T11:40:00+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T11:40:00+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T11:40:00+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-23T11:40:00+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-23T11:40:02+05:30 - PASS 2: Running type check
+2026-04-23T11:40:02+05:30 - PASS 2: Using typescript
+2026-04-23T11:40:06+05:30 - PASS 2: Type check failed - errors detected
+2026-04-23T11:40:06+05:30 - PASS 3: Running tests
+2026-04-23T11:40:41+05:30 - PASS 3: Tests failed (attempt 1/3)
+2026-04-23T11:40:41+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T11:41:18+05:30 - PASS 3: Tests failed (attempt 2/3)
+2026-04-23T11:41:18+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T11:41:36+05:30 - PASS 1: Checking if tests need updates for changed files
+2026-04-23T11:41:36+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T11:41:36+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T11:41:37+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-23T11:41:37+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-23T11:41:39+05:30 - PASS 2: Running type check
+2026-04-23T11:41:39+05:30 - PASS 2: Using typescript
+2026-04-23T11:41:47+05:30 - PASS 2: Type check failed - errors detected
+2026-04-23T11:41:47+05:30 - PASS 3: Running tests
+2026-04-23T11:42:13+05:30 - PASS 3: Tests failed (attempt 3/3)
+2026-04-23T11:42:13+05:30 - PASS 3: Tests failed after 3 attempts
+2026-04-23T11:42:13+05:30 - PASS 4: Running security scan
+2026-04-23T11:42:36+05:30 - PASS 3: Tests failed (attempt 1/3)
+2026-04-23T11:42:36+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T11:44:01+05:30 - PASS 3: Tests failed (attempt 2/3)
+2026-04-23T11:44:01+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T11:45:00+05:30 - PASS 1: Checking if tests need updates for changed files
+2026-04-23T11:45:00+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T11:45:00+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T11:45:02+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-23T11:45:02+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-23T11:45:05+05:30 - PASS 2: Running type check
+2026-04-23T11:45:05+05:30 - PASS 2: Using typescript
+2026-04-23T11:45:11+05:30 - PASS 2: Type check failed - errors detected
+2026-04-23T11:45:11+05:30 - PASS 3: Running tests
+2026-04-23T11:45:12+05:30 - PASS 3: Tests failed (attempt 3/3)
+2026-04-23T11:45:12+05:30 - PASS 3: Tests failed after 3 attempts
+2026-04-23T11:45:12+05:30 - PASS 4: Running security scan
+2026-04-23T11:45:46+05:30 - PASS 4: Security issues detected
+2026-04-23T11:45:47+05:30 - PASS 5: Running verification pass - checking for anti-patterns
+2026-04-23T11:45:56+05:30 - PASS 3: Tests failed (attempt 1/3)
+2026-04-23T11:45:56+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T11:45:56+05:30 - PASS 5: Verification issues found
+2026-04-23T11:45:56+05:30 - PASS 6: Checking prompt compliance
+2026-04-23T11:45:56+05:30 - PASS 6: No prompt file found
+2026-04-23T11:45:56+05:30 - PASS 7: Checking documentation
+2026-04-23T11:45:57+05:30 - PASS 7: Documentation sufficient
+2026-04-23T11:45:57+05:30 - PASS FINAL: Compiling verification results
+2026-04-23T11:46:36+05:30 - PASS 3: Tests failed (attempt 2/3)
+2026-04-23T11:46:36+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T11:47:20+05:30 - PASS 3: Tests failed (attempt 3/3)
+2026-04-23T11:47:20+05:30 - PASS 3: Tests failed after 3 attempts
+2026-04-23T11:47:20+05:30 - PASS 4: Running security scan
+2026-04-23T11:47:32+05:30 - PASS 4: Security issues detected
+2026-04-23T11:47:33+05:30 - PASS 5: Running verification pass - checking for anti-patterns
+2026-04-23T11:47:39+05:30 - PASS 5: Verification issues found
+2026-04-23T11:47:39+05:30 - PASS 6: Checking prompt compliance
+2026-04-23T11:47:39+05:30 - PASS 6: No prompt file found
+2026-04-23T11:47:39+05:30 - PASS 7: Checking documentation
+2026-04-23T11:47:39+05:30 - PASS 7: Documentation sufficient
+2026-04-23T11:47:39+05:30 - PASS FINAL: Compiling verification results
+2026-04-23T11:48:19+05:30 - PASS 4: Security issues detected
+2026-04-23T11:48:20+05:30 - PASS 5: Running verification pass - checking for anti-patterns
+2026-04-23T11:48:24+05:30 - PASS 5: Verification issues found
+2026-04-23T11:48:24+05:30 - PASS 6: Checking prompt compliance
+2026-04-23T11:48:24+05:30 - PASS 6: No prompt file found
+2026-04-23T11:48:24+05:30 - PASS 7: Checking documentation
+2026-04-23T11:48:24+05:30 - PASS 7: Documentation sufficient
+2026-04-23T11:48:24+05:30 - PASS FINAL: Compiling verification results
+2026-04-23T11:51:33+05:30 - PASS 1: Checking if tests need updates for changed files
+2026-04-23T11:51:33+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T11:51:33+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T11:51:34+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-23T11:51:34+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-23T11:51:35+05:30 - PASS 2: Running type check
+2026-04-23T11:51:35+05:30 - PASS 2: Using typescript
+2026-04-23T11:51:39+05:30 - PASS 2: Type check failed - errors detected
+2026-04-23T11:51:39+05:30 - PASS 3: Running tests
+2026-04-23T11:52:16+05:30 - PASS 3: Tests failed (attempt 1/3)
+2026-04-23T11:52:16+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T11:53:32+05:30 - PASS 3: Tests failed (attempt 2/3)
+2026-04-23T11:53:32+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T11:54:29+05:30 - PASS 3: Tests failed (attempt 3/3)
+2026-04-23T11:54:29+05:30 - PASS 3: Tests failed after 3 attempts
+2026-04-23T11:54:29+05:30 - PASS 4: Running security scan
+2026-04-23T11:54:58+05:30 - PASS 1: Checking if tests need updates for changed files
+2026-04-23T11:54:58+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T11:54:58+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T11:54:59+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-23T11:54:59+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-23T11:55:01+05:30 - PASS 2: Running type check
+2026-04-23T11:55:01+05:30 - PASS 2: Using typescript
+2026-04-23T11:55:06+05:30 - PASS 2: Type check failed - errors detected
+2026-04-23T11:55:06+05:30 - PASS 3: Running tests
+2026-04-23T11:55:50+05:30 - PASS 3: Tests failed (attempt 1/3)
+2026-04-23T11:55:50+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T11:56:30+05:30 - PASS 3: Tests failed (attempt 2/3)
+2026-04-23T11:56:30+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T11:56:40+05:30 - PASS 4: Security issues detected
+2026-04-23T11:56:42+05:30 - PASS 5: Running verification pass - checking for anti-patterns
+2026-04-23T11:56:55+05:30 - PASS 5: Verification issues found
+2026-04-23T11:56:55+05:30 - PASS 6: Checking prompt compliance
+2026-04-23T11:56:55+05:30 - PASS 6: No prompt file found
+2026-04-23T11:56:55+05:30 - PASS 7: Checking documentation
+2026-04-23T11:56:56+05:30 - PASS 7: Documentation sufficient
+2026-04-23T11:56:56+05:30 - PASS FINAL: Compiling verification results
+2026-04-23T11:56:56+05:30 - PASS 1: Checking if tests need updates for changed files
+2026-04-23T11:56:56+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T11:56:56+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T11:56:58+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-23T11:56:58+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-23T11:57:02+05:30 - PASS 2: Running type check
+2026-04-23T11:57:02+05:30 - PASS 2: Using typescript
+2026-04-23T11:57:10+05:30 - PASS 2: Type check failed - errors detected
+2026-04-23T11:57:10+05:30 - PASS 3: Running tests
+2026-04-23T11:57:17+05:30 - PASS 3: Tests failed (attempt 3/3)
+2026-04-23T11:57:17+05:30 - PASS 3: Tests failed after 3 attempts
+2026-04-23T11:57:17+05:30 - PASS 4: Running security scan
+2026-04-23T11:57:53+05:30 - PASS 3: Tests failed (attempt 1/3)
+2026-04-23T11:57:53+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T11:58:41+05:30 - PASS 3: Tests failed (attempt 2/3)
+2026-04-23T11:58:41+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T11:59:24+05:30 - PASS 3: Tests failed (attempt 3/3)
+2026-04-23T11:59:24+05:30 - PASS 3: Tests failed after 3 attempts
+2026-04-23T11:59:24+05:30 - PASS 4: Running security scan
+2026-04-23T11:59:49+05:30 - PASS 4: Security issues detected
+2026-04-23T11:59:51+05:30 - PASS 5: Running verification pass - checking for anti-patterns
+2026-04-23T12:00:11+05:30 - PASS 5: Verification issues found
+2026-04-23T12:00:11+05:30 - PASS 6: Checking prompt compliance
+2026-04-23T12:00:11+05:30 - PASS 6: No prompt file found
+2026-04-23T12:00:11+05:30 - PASS 7: Checking documentation
+2026-04-23T12:00:11+05:30 - PASS 7: Documentation sufficient
+2026-04-23T12:00:11+05:30 - PASS FINAL: Compiling verification results
+2026-04-23T12:01:30+05:30 - PASS 4: Security issues detected
+2026-04-23T12:01:31+05:30 - PASS 5: Running verification pass - checking for anti-patterns
+2026-04-23T12:01:33+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T12:01:33+05:30 - PASS 1: Checking if tests need updates for changed files
+2026-04-23T12:01:33+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T12:01:34+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-23T12:01:34+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-23T12:01:35+05:30 - PASS 2: Running type check
+2026-04-23T12:01:35+05:30 - PASS 2: Using typescript
+2026-04-23T12:01:37+05:30 - PASS 5: Verification issues found
+2026-04-23T12:01:37+05:30 - PASS 6: Checking prompt compliance
+2026-04-23T12:01:37+05:30 - PASS 6: No prompt file found
+2026-04-23T12:01:37+05:30 - PASS 7: Checking documentation
+2026-04-23T12:01:38+05:30 - PASS 7: Documentation sufficient
+2026-04-23T12:01:38+05:30 - PASS FINAL: Compiling verification results
+2026-04-23T12:01:40+05:30 - PASS 2: Type check failed - errors detected
+2026-04-23T12:01:40+05:30 - PASS 3: Running tests
+2026-04-23T12:02:18+05:30 - PASS 3: Tests failed (attempt 1/3)
+2026-04-23T12:02:18+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T12:02:55+05:30 - PASS 3: Tests failed (attempt 2/3)
+2026-04-23T12:02:55+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T12:03:40+05:30 - PASS 3: Tests failed (attempt 3/3)
+2026-04-23T12:03:40+05:30 - PASS 3: Tests failed after 3 attempts
+2026-04-23T12:03:40+05:30 - PASS 4: Running security scan
+2026-04-23T12:06:30+05:30 - PASS 4: Security issues detected
+2026-04-23T12:06:32+05:30 - PASS 5: Running verification pass - checking for anti-patterns
+2026-04-23T12:06:47+05:30 - PASS 5: Verification issues found
+2026-04-23T12:06:47+05:30 - PASS 6: Checking prompt compliance
+2026-04-23T12:06:47+05:30 - PASS 6: No prompt file found
+2026-04-23T12:06:47+05:30 - PASS 7: Checking documentation
+2026-04-23T12:06:48+05:30 - PASS 7: Documentation sufficient
+2026-04-23T12:06:48+05:30 - PASS FINAL: Compiling verification results
+2026-04-23T12:07:20+05:30 - PASS 1: Checking if tests need updates for changed files
+2026-04-23T12:07:20+05:30 - PASS 2: Running type check
+2026-04-23T12:07:20+05:30 - PASS 2: Using typescript
+2026-04-23T12:07:20+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T12:07:20+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T12:07:20+05:30 - PASS 1 (TEST SYNC): PASS - All changed files have tests
+2026-04-23T12:07:20+05:30 - PASS 1 (TEST SYNC): PASS - All changed files have tests
+2026-04-23T12:07:20+05:30 - PASS 2 (TYPE CHECK): RUNNING - Running type checker for project
+2026-04-23T12:07:20+05:30 - PASS 2 (TYPE CHECK): RUNNING - Running type checker for project
+2026-04-23T12:07:36+05:30 - PASS 2 (TYPE CHECK): FAIL - Type errors detected in TypeScript
+2026-04-23T12:07:37+05:30 - PASS 2: Type check failed - errors detected
+2026-04-23T12:07:37+05:30 - PASS 3: Running tests
+2026-04-23T12:07:37+05:30 - PASS 2 (TYPE CHECK): FAIL - Type errors detected in TypeScript
+2026-04-23T12:09:03+05:30 - PASS 3: Tests failed (attempt 1/3)
+2026-04-23T12:09:03+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T12:09:44+05:30 - PASS 1: Checking if tests need updates for changed files
+2026-04-23T12:09:44+05:30 - PASS 2: Running type check
+2026-04-23T12:09:44+05:30 - PASS 2: Using typescript
+2026-04-23T12:09:44+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T12:09:44+05:30 - PASS 1 (TEST SYNC): PASS - All changed files have tests
+2026-04-23T12:09:44+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T12:09:44+05:30 - PASS 1 (TEST SYNC): PASS - All changed files have tests
+2026-04-23T12:09:44+05:30 - PASS 2 (TYPE CHECK): RUNNING - Running type checker for project
+2026-04-23T12:09:44+05:30 - PASS 2 (TYPE CHECK): RUNNING - Running type checker for project
+2026-04-23T12:10:01+05:30 - PASS 2 (TYPE CHECK): FAIL - Type errors detected in TypeScript
+2026-04-23T12:10:02+05:30 - PASS 2: Type check failed - errors detected
+2026-04-23T12:10:02+05:30 - PASS 3: Running tests
+2026-04-23T12:10:02+05:30 - PASS 2 (TYPE CHECK): FAIL - Type errors detected in TypeScript
+2026-04-23T12:10:40+05:30 - PASS 3: Tests failed (attempt 2/3)
+2026-04-23T12:10:40+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T12:11:15+05:30 - PASS 3: Tests failed (attempt 1/3)
+2026-04-23T12:11:15+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T12:12:17+05:30 - PASS 3: Tests failed (attempt 3/3)
+2026-04-23T12:12:17+05:30 - PASS 3: Tests failed after 3 attempts
+2026-04-23T12:12:17+05:30 - PASS 4: Running security scan
+2026-04-23T12:12:31+05:30 - PASS 1: Checking if tests need updates for changed files
+2026-04-23T12:12:31+05:30 - PASS 2: Running type check
+2026-04-23T12:12:31+05:30 - PASS 2: Using typescript
+2026-04-23T12:12:31+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T12:12:31+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T12:12:31+05:30 - PASS 1 (TEST SYNC): PASS - All changed files have tests
+2026-04-23T12:12:31+05:30 - PASS 1 (TEST SYNC): PASS - All changed files have tests
+2026-04-23T12:12:31+05:30 - PASS 2 (TYPE CHECK): RUNNING - Running type checker for project
+2026-04-23T12:12:31+05:30 - PASS 2 (TYPE CHECK): RUNNING - Running type checker for project
+2026-04-23T12:12:43+05:30 - PASS 2 (TYPE CHECK): FAIL - Type errors detected in TypeScript
+2026-04-23T12:12:43+05:30 - PASS 2 (TYPE CHECK): FAIL - Type errors detected in TypeScript
+2026-04-23T12:12:43+05:30 - PASS 2: Type check failed - errors detected
+2026-04-23T12:12:43+05:30 - PASS 3: Running tests
+2026-04-23T12:12:57+05:30 - PASS 3: Tests failed (attempt 2/3)
+2026-04-23T12:12:57+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T12:13:59+05:30 - PASS 3: Tests failed (attempt 1/3)
+2026-04-23T12:13:59+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T12:14:25+05:30 - PASS 3: Tests failed (attempt 3/3)
+2026-04-23T12:14:25+05:30 - PASS 3: Tests failed after 3 attempts
+2026-04-23T12:14:25+05:30 - PASS 4: Running security scan
+2026-04-23T12:14:50+05:30 - PASS 3: Tests failed (attempt 2/3)
+2026-04-23T12:14:50+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T12:15:39+05:30 - PASS 3: Tests failed (attempt 3/3)
+2026-04-23T12:15:39+05:30 - PASS 3: Tests failed after 3 attempts
+2026-04-23T12:15:39+05:30 - PASS 4: Running security scan
+2026-04-23T12:15:42+05:30 - PASS 4: Security issues detected
+2026-04-23T12:15:42+05:30 - PASS 5: Running verification pass - checking for anti-patterns
+2026-04-23T12:15:50+05:30 - PASS 5: Verification issues found
+2026-04-23T12:15:50+05:30 - PASS 6: Checking prompt compliance
+2026-04-23T12:15:50+05:30 - PASS 6: No prompt file found
+2026-04-23T12:15:50+05:30 - PASS 7: Checking documentation
+2026-04-23T12:15:50+05:30 - PASS 7: Documentation sufficient
+2026-04-23T12:15:50+05:30 - PASS FINAL: Compiling verification results
+2026-04-23T12:16:22+05:30 - PASS 4: Security issues detected
+2026-04-23T12:16:23+05:30 - PASS 1: Checking if tests need updates for changed files
+2026-04-23T12:16:23+05:30 - PASS 2: Running type check
+2026-04-23T12:16:23+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T12:16:23+05:30 - PASS 2: Using typescript
+2026-04-23T12:16:23+05:30 - PASS 1 (TEST SYNC): PASS - All changed files have tests
+2026-04-23T12:16:23+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T12:16:23+05:30 - PASS 1 (TEST SYNC): PASS - All changed files have tests
+2026-04-23T12:16:23+05:30 - PASS 2 (TYPE CHECK): RUNNING - Running type checker for project
+2026-04-23T12:16:23+05:30 - PASS 5: Running verification pass - checking for anti-patterns
+2026-04-23T12:16:23+05:30 - PASS 2 (TYPE CHECK): RUNNING - Running type checker for project
+2026-04-23T12:16:31+05:30 - PASS 2 (TYPE CHECK): FAIL - Type errors detected in TypeScript
+2026-04-23T12:16:31+05:30 - PASS 2 (TYPE CHECK): FAIL - Type errors detected in TypeScript
+2026-04-23T12:16:31+05:30 - PASS 2: Type check failed - errors detected
+2026-04-23T12:16:31+05:30 - PASS 3: Running tests
+2026-04-23T12:16:35+05:30 - PASS 5: Verification issues found
+2026-04-23T12:16:35+05:30 - PASS 6: Checking prompt compliance
+2026-04-23T12:16:35+05:30 - PASS 6: No prompt file found
+2026-04-23T12:16:35+05:30 - PASS 7: Checking documentation
+2026-04-23T12:16:35+05:30 - PASS 7: Documentation sufficient
+2026-04-23T12:16:35+05:30 - PASS FINAL: Compiling verification results
+2026-04-23T12:17:12+05:30 - PASS 3: Tests failed (attempt 1/3)
+2026-04-23T12:17:12+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T12:17:26+05:30 - PASS 4: Security issues detected
+2026-04-23T12:17:28+05:30 - PASS 5: Running verification pass - checking for anti-patterns
+2026-04-23T12:17:39+05:30 - PASS 5: Verification issues found
+2026-04-23T12:17:39+05:30 - PASS 6: Checking prompt compliance
+2026-04-23T12:17:39+05:30 - PASS 6: No prompt file found
+2026-04-23T12:17:39+05:30 - PASS 7: Checking documentation
+2026-04-23T12:17:39+05:30 - PASS 7: Documentation sufficient
+2026-04-23T12:17:39+05:30 - PASS FINAL: Compiling verification results
+2026-04-23T12:18:13+05:30 - PASS 3: Tests failed (attempt 2/3)
+2026-04-23T12:18:13+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T12:18:58+05:30 - PASS 3: Tests failed (attempt 3/3)
+2026-04-23T12:18:58+05:30 - PASS 3: Tests failed after 3 attempts
+2026-04-23T12:18:58+05:30 - PASS 4: Running security scan
+2026-04-23T12:20:18+05:30 - PASS 4: Security issues detected
+2026-04-23T12:20:18+05:30 - PASS 5: Running verification pass - checking for anti-patterns
+2026-04-23T12:20:23+05:30 - PASS 5: Verification issues found
+2026-04-23T12:20:23+05:30 - PASS 6: Checking prompt compliance
+2026-04-23T12:20:23+05:30 - PASS 6: No prompt file found
+2026-04-23T12:20:23+05:30 - PASS 7: Checking documentation
+2026-04-23T12:20:23+05:30 - PASS 7: Documentation sufficient
+2026-04-23T12:20:23+05:30 - PASS FINAL: Compiling verification results
+2026-04-23T16:28:10+05:30 - PASS 1: Checking if tests need updates for changed files
+2026-04-23T16:28:10+05:30 - PASS 2: Running type check
+2026-04-23T16:28:10+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T16:28:10+05:30 - PASS 2: Using typescript
+2026-04-23T16:28:10+05:30 - PASS 1 (TEST SYNC): PASS - All changed files have tests
+2026-04-23T16:28:10+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T16:28:10+05:30 - PASS 1 (TEST SYNC): PASS - All changed files have tests
+2026-04-23T16:28:10+05:30 - PASS 2 (TYPE CHECK): RUNNING - Running type checker for project
+2026-04-23T16:28:10+05:30 - PASS 2 (TYPE CHECK): RUNNING - Running type checker for project
+2026-04-23T16:28:16+05:30 - PASS 2 (TYPE CHECK): FAIL - Type errors detected in TypeScript
+2026-04-23T16:28:16+05:30 - PASS 2: Type check failed - errors detected
+2026-04-23T16:28:16+05:30 - PASS 3: Running tests
+2026-04-23T16:28:16+05:30 - PASS 2 (TYPE CHECK): FAIL - Type errors detected in TypeScript
+2026-04-23T16:28:55+05:30 - PASS 3: Tests failed (attempt 1/3)
+2026-04-23T16:28:55+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T16:29:40+05:30 - PASS 3: Tests failed (attempt 2/3)
+2026-04-23T16:29:40+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T16:30:19+05:30 - PASS 3: Tests failed (attempt 3/3)
+2026-04-23T16:30:19+05:30 - PASS 3: Tests failed after 3 attempts
+2026-04-23T16:30:19+05:30 - PASS 4: Running security scan
+2026-04-23T16:31:42+05:30 - PASS 4: Security issues detected
+2026-04-23T16:31:42+05:30 - PASS 5: Running verification pass - checking for anti-patterns
+2026-04-23T16:31:47+05:30 - PASS 5: Verification issues found
+2026-04-23T16:31:47+05:30 - PASS 6: Checking prompt compliance
+2026-04-23T16:31:47+05:30 - PASS 6: No prompt file found
+2026-04-23T16:31:47+05:30 - PASS 7: Checking documentation
+2026-04-23T16:31:47+05:30 - PASS 7: Documentation sufficient
+2026-04-23T16:31:47+05:30 - PASS FINAL: Compiling verification results
+2026-04-23T16:44:06+05:30 - PASS 1: Checking if tests need updates for changed files
+2026-04-23T16:44:06+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T16:44:06+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T16:44:07+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-23T16:44:07+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-23T16:44:09+05:30 - PASS 2: Running type check
+2026-04-23T16:44:09+05:30 - PASS 2: Using typescript
+2026-04-23T16:44:13+05:30 - PASS 2: Type check failed - errors detected
+2026-04-23T16:44:13+05:30 - PASS 3: Running tests
+2026-04-23T16:45:07+05:30 - PASS 3: Tests failed (attempt 1/3)
+2026-04-23T16:45:07+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T16:45:58+05:30 - PASS 3: Tests failed (attempt 2/3)
+2026-04-23T16:45:58+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T16:46:46+05:30 - PASS 3: Tests failed (attempt 3/3)
+2026-04-23T16:46:46+05:30 - PASS 3: Tests failed after 3 attempts
+2026-04-23T16:46:46+05:30 - PASS 4: Running security scan
+2026-04-23T16:49:17+05:30 - PASS 4: Security issues detected
+2026-04-23T16:49:19+05:30 - PASS 5: Running verification pass - checking for anti-patterns
+2026-04-23T16:49:35+05:30 - PASS 5: Verification issues found
+2026-04-23T16:49:35+05:30 - PASS 6: Checking prompt compliance
+2026-04-23T16:49:35+05:30 - PASS 6: No prompt file found
+2026-04-23T16:49:35+05:30 - PASS 7: Checking documentation
+2026-04-23T16:49:35+05:30 - PASS 7: Documentation sufficient
+2026-04-23T16:49:35+05:30 - PASS FINAL: Compiling verification results
+2026-04-23T16:50:49+05:30 - PASS 1: Checking if tests need updates for changed files
+2026-04-23T16:50:49+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T16:50:49+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T16:50:49+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-23T16:50:50+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-23T16:50:51+05:30 - PASS 2: Running type check
+2026-04-23T16:50:51+05:30 - PASS 2: Using typescript
+2026-04-23T16:50:54+05:30 - PASS 2: Type check failed - errors detected
+2026-04-23T16:50:54+05:30 - PASS 3: Running tests
+2026-04-23T16:51:29+05:30 - PASS 3: Tests failed (attempt 1/3)
+2026-04-23T16:51:29+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T16:52:06+05:30 - PASS 3: Tests failed (attempt 2/3)
+2026-04-23T16:52:06+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T16:52:40+05:30 - PASS 3: Tests failed (attempt 3/3)
+2026-04-23T16:52:40+05:30 - PASS 3: Tests failed after 3 attempts
+2026-04-23T16:52:40+05:30 - PASS 4: Running security scan
+2026-04-23T16:53:45+05:30 - PASS 4: Security issues detected
+2026-04-23T16:53:45+05:30 - PASS 5: Running verification pass - checking for anti-patterns
+2026-04-23T16:53:52+05:30 - PASS 5: Verification issues found
+2026-04-23T16:53:52+05:30 - PASS 6: Checking prompt compliance
+2026-04-23T16:53:52+05:30 - PASS 6: No prompt file found
+2026-04-23T16:53:52+05:30 - PASS 7: Checking documentation
+2026-04-23T16:53:52+05:30 - PASS 7: Documentation sufficient
+2026-04-23T16:53:52+05:30 - PASS FINAL: Compiling verification results
+2026-04-23T16:58:13+05:30 - PASS 1: Checking if tests need updates for changed files
+2026-04-23T16:58:13+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T16:58:13+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T16:58:13+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-23T16:58:13+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-23T16:58:14+05:30 - PASS 1: Missing test for: packages/codeflow-versioning/src/tools.ts
+2026-04-23T16:58:14+05:30 - PASS 2: Running type check
+2026-04-23T16:58:14+05:30 - PASS 2: Using typescript
+2026-04-23T16:58:16+05:30 - PASS 2: Type check failed - errors detected
+2026-04-23T16:58:16+05:30 - PASS 3: Running tests
+2026-04-23T16:58:38+05:30 - PASS 3: Tests failed (attempt 1/3)
+2026-04-23T16:58:38+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T16:59:03+05:30 - PASS 3: Tests failed (attempt 2/3)
+2026-04-23T16:59:03+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T16:59:31+05:30 - PASS 3: Tests failed (attempt 3/3)
+2026-04-23T16:59:31+05:30 - PASS 3: Tests failed after 3 attempts
+2026-04-23T16:59:31+05:30 - PASS 4: Running security scan
+2026-04-23T17:00:15+05:30 - PASS 4: Security issues detected
+2026-04-23T17:00:16+05:30 - PASS 5: Running verification pass - checking for anti-patterns
+2026-04-23T17:00:19+05:30 - PASS 5: Verification issues found
+2026-04-23T17:00:19+05:30 - PASS 6: Checking prompt compliance
+2026-04-23T17:00:19+05:30 - PASS 6: No prompt file found
+2026-04-23T17:00:19+05:30 - PASS 7: Checking documentation
+2026-04-23T17:00:19+05:30 - PASS 7: Documentation sufficient
+2026-04-23T17:00:19+05:30 - PASS FINAL: Compiling verification results
+2026-04-23T17:00:44+05:30 - PASS 1: Checking if tests need updates for changed files
+2026-04-23T17:00:44+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T17:00:44+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-23T17:00:45+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-23T17:00:45+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-23T17:00:45+05:30 - PASS 1: Missing test for: packages/codeflow-versioning/src/tools.ts
+2026-04-23T17:00:45+05:30 - PASS 2: Running type check
+2026-04-23T17:00:45+05:30 - PASS 2: Using typescript
+2026-04-23T17:00:47+05:30 - PASS 2: Type check failed - errors detected
+2026-04-23T17:00:47+05:30 - PASS 3: Running tests
+2026-04-23T17:01:10+05:30 - PASS 3: Tests failed (attempt 1/3)
+2026-04-23T17:01:10+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T17:01:36+05:30 - PASS 3: Tests failed (attempt 2/3)
+2026-04-23T17:01:36+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-23T17:02:04+05:30 - PASS 3: Tests failed (attempt 3/3)
+2026-04-23T17:02:04+05:30 - PASS 3: Tests failed after 3 attempts
+2026-04-23T17:02:04+05:30 - PASS 4: Running security scan
+2026-04-23T17:03:20+05:30 - PASS 4: Security issues detected
+2026-04-23T17:03:21+05:30 - PASS 5: Running verification pass - checking for anti-patterns
+2026-04-23T17:03:27+05:30 - PASS 5: Verification issues found
+2026-04-23T17:03:27+05:30 - PASS 6: Checking prompt compliance
+2026-04-23T17:03:27+05:30 - PASS 6: No prompt file found
+2026-04-23T17:03:27+05:30 - PASS 7: Checking documentation
+2026-04-23T17:03:27+05:30 - PASS 7: Documentation sufficient
+2026-04-23T17:03:27+05:30 - PASS FINAL: Compiling verification results
+2026-04-24T10:27:05+05:30 - PASS 1: Checking if tests need updates for changed files
+2026-04-24T10:27:05+05:30 - PASS 2: Running type check
+2026-04-24T10:27:05+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-24T10:27:05+05:30 - PASS 2: Using typescript
+2026-04-24T10:27:05+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-24T10:27:05+05:30 - PASS 1 (TEST SYNC): PASS - All changed files have tests
+2026-04-24T10:27:05+05:30 - PASS 1 (TEST SYNC): PASS - All changed files have tests
+2026-04-24T10:27:05+05:30 - PASS 2 (TYPE CHECK): RUNNING - Running type checker for project
+2026-04-24T10:27:05+05:30 - PASS 2 (TYPE CHECK): RUNNING - Running type checker for project
+2026-04-24T10:27:14+05:30 - PASS 2: Type check failed - errors detected
+2026-04-24T10:27:14+05:30 - PASS 3: Running tests
+2026-04-24T10:27:14+05:30 - PASS 2 (TYPE CHECK): FAIL - Type errors detected in TypeScript
+2026-04-24T10:27:14+05:30 - PASS 2 (TYPE CHECK): FAIL - Type errors detected in TypeScript
+2026-04-24T10:27:56+05:30 - PASS 3: Tests failed (attempt 1/3)
+2026-04-24T10:27:56+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-24T10:28:34+05:30 - PASS 3: Tests failed (attempt 2/3)
+2026-04-24T10:28:34+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-24T10:29:07+05:30 - PASS 3: Tests failed (attempt 3/3)
+2026-04-24T10:29:07+05:30 - PASS 3: Tests failed after 3 attempts
+2026-04-24T10:29:07+05:30 - PASS 4: Running security scan
+2026-04-24T10:30:08+05:30 - PASS 4: Security issues detected
+2026-04-24T10:30:09+05:30 - PASS 5: Running verification pass - checking for anti-patterns
+2026-04-24T10:30:13+05:30 - PASS 5: Verification issues found
+2026-04-24T10:30:13+05:30 - PASS 6: Checking prompt compliance
+2026-04-24T10:30:13+05:30 - PASS 6: No prompt file found
+2026-04-24T10:30:13+05:30 - PASS 7: Checking documentation
+2026-04-24T10:30:14+05:30 - PASS 7: Documentation sufficient
+2026-04-24T10:30:14+05:30 - PASS FINAL: Compiling verification results
+2026-04-28T13:42:32+05:30 - PASS 1: Checking if tests need updates for changed files
+2026-04-28T13:42:32+05:30 - PASS 1: Checking if tests need updates for changed files
+2026-04-28T13:42:32+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-28T13:42:32+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-28T13:42:32+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-28T13:42:32+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-28T13:42:43+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-28T13:42:43+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-28T13:42:43+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-28T13:42:43+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-28T13:43:10+05:30 - PASS 2: Running type check
+2026-04-28T13:43:10+05:30 - PASS 2: Running type check
+2026-04-28T13:43:10+05:30 - PASS 2: Using typescript
+2026-04-28T13:43:10+05:30 - PASS 2: Using typescript
+2026-04-28T13:44:09+05:30 - PASS 2: Type check failed - errors detected
+2026-04-28T13:44:10+05:30 - PASS 3: Running tests
+2026-04-28T13:44:10+05:30 - PASS 2: Type check failed - errors detected
+2026-04-28T13:44:10+05:30 - PASS 3: Running tests
+2026-04-28T13:44:12+05:30 - PASS 1: Checking if tests need updates for changed files
+2026-04-28T13:44:12+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-28T13:44:12+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-28T13:44:12+05:30 - PASS 1: Checking if tests need updates for changed files
+2026-04-28T13:44:12+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-28T13:44:12+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-28T13:45:02+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-28T13:45:02+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-28T13:45:02+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-28T13:45:02+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-28T13:47:34+05:30 - PASS 2: Running type check
+2026-04-28T13:47:34+05:30 - PASS 2: Running type check
+2026-04-28T13:47:35+05:30 - PASS 2: Using typescript
+2026-04-28T13:47:35+05:30 - PASS 2: Using typescript
+2026-04-28T13:52:59+05:30 - PASS 1: Checking if tests need updates for changed files
+2026-04-28T13:52:59+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-28T13:52:59+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-28T13:52:59+05:30 - PASS 1: Checking if tests need updates for changed files
+2026-04-28T13:53:00+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-28T13:53:01+05:30 - PASS 1: Checking if tests need updates for changed files
+2026-04-28T13:53:02+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-28T13:53:02+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-28T13:53:02+05:30 - PASS 1: Checking if tests need updates for changed files
+2026-04-28T13:53:03+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-28T13:53:03+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-28T13:53:03+05:30 - PASS 1 (TEST SYNC): RUNNING - Checking if tests exist for changed files
+2026-04-28T13:53:21+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-28T13:53:28+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-28T13:53:28+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-28T13:53:30+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-28T13:53:30+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-28T13:53:30+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-28T13:53:30+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-28T13:53:30+05:30 - PASS 1 (TEST SYNC): FAIL - Missing tests detected
+2026-04-28T13:53:46+05:30 - PASS 1: Missing test for: packages/codeflow-agent/src/mcp/connector.ts
+2026-04-28T13:53:46+05:30 - PASS 1: Missing test for: packages/codeflow-agent/src/mcp/connector.ts
+2026-04-28T13:53:46+05:30 - PASS 1: Missing test for: packages/codeflow-agent/src/mcp/connector.ts
+2026-04-28T13:53:47+05:30 - PASS 1: Missing test for: packages/codeflow-agent/src/mcp/connector.ts
+2026-04-28T13:53:52+05:30 - PASS 1: Missing test for: packages/codeflow-agent/src/mcp/registry.ts
+2026-04-28T13:53:52+05:30 - PASS 1: Missing test for: packages/codeflow-agent/src/mcp/registry.ts
+2026-04-28T13:53:52+05:30 - PASS 1: Missing test for: packages/codeflow-agent/src/mcp/registry.ts
+2026-04-28T13:53:52+05:30 - PASS 1: Missing test for: packages/codeflow-agent/src/mcp/registry.ts
+2026-04-28T13:54:11+05:30 - PASS 1: Missing test for: packages/codeflow-agent/src/skills/registry.ts
+2026-04-28T13:54:11+05:30 - PASS 1: Missing test for: packages/codeflow-agent/src/skills/registry.ts
+2026-04-28T13:54:11+05:30 - PASS 1: Missing test for: packages/codeflow-agent/src/skills/registry.ts
+2026-04-28T13:54:11+05:30 - PASS 1: Missing test for: packages/codeflow-agent/src/skills/registry.ts
+2026-04-28T13:54:18+05:30 - PASS 2: Running type check
+2026-04-28T13:54:18+05:30 - PASS 2: Running type check
+2026-04-28T13:54:18+05:30 - PASS 2: Running type check
+2026-04-28T13:54:18+05:30 - PASS 2: Running type check
+2026-04-28T13:54:18+05:30 - PASS 2: Using typescript
+2026-04-28T13:54:18+05:30 - PASS 2: Using typescript
+2026-04-28T13:54:18+05:30 - PASS 2: Using typescript
+2026-04-28T13:54:18+05:30 - PASS 2: Using typescript
+2026-04-28T13:55:51+05:30 - PASS 3: Tests failed (attempt 1/3)
+2026-04-28T13:55:51+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-28T13:55:53+05:30 - PASS 2: Type check failed - errors detected
+2026-04-28T13:55:53+05:30 - PASS 3: Running tests
+2026-04-28T13:55:54+05:30 - PASS 2: Type check failed - errors detected
+2026-04-28T13:55:54+05:30 - PASS 3: Running tests
+2026-04-28T13:59:49+05:30 - PASS 3: Tests failed (attempt 1/3)
+2026-04-28T13:59:49+05:30 - PASS 3: Waiting 2 seconds before retry...
+2026-04-28T14:01:16+05:30 - PASS 2: Type check failed - errors detected
+2026-04-28T14:01:17+05:30 - PASS 3: Running tests
+2026-04-28T14:01:17+05:30 - PASS 2: Type check failed - errors detected
+2026-04-28T14:01:17+05:30 - PASS 3: Running tests
+2026-04-28T14:01:24+05:30 - PASS 2: Type check failed - errors detected
+2026-04-28T14:01:25+05:30 - PASS 3: Running tests
+2026-04-28T14:01:38+05:30 - PASS 2: Type check failed - errors detected
+2026-04-28T14:01:38+05:30 - PASS 3: Running tests

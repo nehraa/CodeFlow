@@ -1,0 +1,22 @@
+{
+  "sessionId": "95afa04f-163f-4a9f-9766-72f905ebaf10",
+  "projectName": "test-project",
+  "updatedAt": "2026-04-23T04:50:38.283Z",
+  "graph": {
+    "projectName": "test-project",
+    "mode": "essential",
+    "phase": "spec",
+    "generatedAt": "2026-04-23T04:50:38.268Z",
+    "nodes": [],
+    "edges": [],
+    "workflows": [],
+    "warnings": []
+  },
+  "runPlan": {
+    "generatedAt": "2026-04-23T04:50:38.268Z",
+    "tasks": [],
+    "batches": [],
+    "warnings": []
+  },
+  "approvalIds": []
+}
