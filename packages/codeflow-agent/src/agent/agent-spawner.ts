@@ -68,27 +68,45 @@ export class AgentSpawner {
     results: Map<string, AgentResult>,
     queue: TaskQueue
   ): Promise<void> {
-    const startTime = Date.now();
-    try {
-      const output = await executeFn(task);
-      const result: AgentResult = {
-        taskId: task.id,
-        success: true,
-        output,
-        duration: Date.now() - startTime,
-      };
-      results.set(task.id, result);
-      queue.markCompleted(task.id, result);
-    } catch (err) {
-      const error = err instanceof Error ? err.message : String(err);
-      const result: AgentResult = {
-        taskId: task.id,
-        success: false,
-        error,
-        duration: Date.now() - startTime,
-      };
-      results.set(task.id, result);
-      queue.markCompleted(task.id, result);
+    let lastError: string | undefined;
+    const maxRetries = this.config.maxRetries;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const startTime = Date.now();
+      try {
+        const output = await executeFn(task);
+        const result: AgentResult = {
+          taskId: task.id,
+          success: true,
+          output,
+          duration: Date.now() - startTime,
+        };
+        results.set(task.id, result);
+        queue.markCompleted(task.id, result.success, result);
+        return;
+      } catch (err) {
+        lastError = err instanceof Error ? err.message : String(err);
+        const result: AgentResult = {
+          taskId: task.id,
+          success: false,
+          error: lastError,
+          duration: Date.now() - startTime,
+        };
+        results.set(task.id, result);
+
+        if (attempt < maxRetries) {
+          // Reset task to pending so it can be retried
+          const s = queue.getStatus(task.id);
+          if (s) {
+            s.status = 'pending';
+            s.startedAt = undefined;
+            s.completedAt = undefined;
+          }
+        } else {
+          // Final failure
+          queue.markCompleted(task.id, result.success, result);
+        }
+      }
     }
   }
 }

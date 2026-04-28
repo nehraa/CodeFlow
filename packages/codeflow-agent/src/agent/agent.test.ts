@@ -34,7 +34,7 @@ describe('TaskQueue', () => {
     const queue = new TaskQueue(tasks);
     expect(queue.getReadyTasks().map((t) => t.id)).toEqual(['1']);
 
-    queue.markCompleted('1', { taskId: '1', success: true, duration: 0 });
+    queue.markCompleted('1', true, { taskId: '1', success: true, duration: 0 });
     expect(queue.getReadyTasks().map((t) => t.id)).toEqual(['2']);
   });
 
@@ -49,7 +49,7 @@ describe('TaskQueue', () => {
     expect(status?.status).toBe('running');
     expect(status?.startedAt).toBeDefined();
 
-    queue.markCompleted('1', { taskId: '1', success: true, duration: 0 });
+    queue.markCompleted('1', true, { taskId: '1', success: true, duration: 0 });
     const completed = queue.getStatus('1');
     expect(completed?.status).toBe('completed');
     expect(completed?.completedAt).toBeDefined();
@@ -63,10 +63,10 @@ describe('TaskQueue', () => {
     const queue = new TaskQueue(tasks);
     expect(queue.isAllCompleted()).toBe(false);
 
-    queue.markCompleted('1', { taskId: '1', success: true, duration: 0 });
+    queue.markCompleted('1', true, { taskId: '1', success: true, duration: 0 });
     expect(queue.isAllCompleted()).toBe(false);
 
-    queue.markCompleted('2', { taskId: '2', success: true, duration: 0 });
+    queue.markCompleted('2', true, { taskId: '2', success: true, duration: 0 });
     expect(queue.isAllCompleted()).toBe(true);
   });
 
@@ -76,10 +76,55 @@ describe('TaskQueue', () => {
     ];
     const queue = new TaskQueue(tasks);
     const result: AgentResult = { taskId: '1', success: true, output: 'ok', duration: 0 };
-    queue.markCompleted('1', result);
+    queue.markCompleted('1', true, result);
 
     const results = queue.getResults();
     expect(results.get('1')).toBe(result);
+  });
+
+  it('getFailedCount returns correct count', () => {
+    const tasks: AgentTask[] = [
+      { id: '1', name: 't1', description: '', files: [], verify: '', done: '', dependsOn: [] },
+      { id: '2', name: 't2', description: '', files: [], verify: '', done: '', dependsOn: [] },
+      { id: '3', name: 't3', description: '', files: [], verify: '', done: '', dependsOn: [] },
+    ];
+    const queue = new TaskQueue(tasks);
+    expect(queue.getFailedCount()).toBe(0);
+
+    queue.markCompleted('1', true, { taskId: '1', success: true, duration: 0 });
+    expect(queue.getFailedCount()).toBe(0);
+
+    queue.markCompleted('2', false, { taskId: '2', success: false, error: 'fail', duration: 0 });
+    expect(queue.getFailedCount()).toBe(1);
+
+    queue.markCompleted('3', false, { taskId: '3', success: false, error: 'fail2', duration: 0 });
+    expect(queue.getFailedCount()).toBe(2);
+  });
+
+  it('getReadyTasks ignores non-existent dependency task ID', () => {
+    const tasks: AgentTask[] = [
+      { id: '1', name: 't1', description: '', files: [], verify: '', done: '', dependsOn: ['999'] },
+    ];
+    const queue = new TaskQueue(tasks);
+    // Task with non-existent dependency should not be ready since dependency is not completed
+    const ready = queue.getReadyTasks();
+    expect(ready).toHaveLength(0);
+  });
+
+  it('throws error on circular dependency detection', async () => {
+    const spawner = new AgentSpawner({ maxConcurrent: 2 });
+    const tasks: AgentTask[] = [
+      { id: '1', name: 't1', description: '', files: [], verify: '', done: '', dependsOn: ['2'] },
+      { id: '2', name: 't2', description: '', files: [], verify: '', done: '', dependsOn: ['1'] },
+    ];
+
+    const executeFn = async (task: AgentTask): Promise<string> => {
+      return `executed ${task.id}`;
+    };
+
+    await expect(spawner.executeWithQueue(tasks, executeFn)).rejects.toThrow(
+      'Circular dependency detected - no ready tasks but pending tasks exist'
+    );
   });
 });
 
