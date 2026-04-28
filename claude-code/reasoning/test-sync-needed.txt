@@ -478,3 +478,17 @@ NEEDS_TEST:src/lib/browser/storage.ts
 NEEDS_TEST:src/lib/browser/storage.ts
 NEEDS_TEST:src/lib/server/run-command.ts
 NEEDS_TEST:src/lib/server/run-command.ts
+NEEDS_TEST:packages/codeflow-versioning/src/tools.ts
+NEEDS_TEST:packages/codeflow-versioning/src/tools.ts
+NEEDS_TEST:packages/codeflow-agent/src/mcp/connector.ts
+NEEDS_TEST:packages/codeflow-agent/src/mcp/connector.ts
+NEEDS_TEST:packages/codeflow-agent/src/mcp/connector.ts
+NEEDS_TEST:packages/codeflow-agent/src/mcp/connector.ts
+NEEDS_TEST:packages/codeflow-agent/src/mcp/registry.ts
+NEEDS_TEST:packages/codeflow-agent/src/mcp/registry.ts
+NEEDS_TEST:packages/codeflow-agent/src/mcp/registry.ts
+NEEDS_TEST:packages/codeflow-agent/src/mcp/registry.ts
+NEEDS_TEST:packages/codeflow-agent/src/skills/registry.ts
+NEEDS_TEST:packages/codeflow-agent/src/skills/registry.ts
+NEEDS_TEST:packages/codeflow-agent/src/skills/registry.ts
+NEEDS_TEST:packages/codeflow-agent/src/skills/registry.ts
