@@ -205,13 +205,16 @@ describe('AgentSpawner', () => {
     expect((spawner as any).config.defaultModel).toBe('opus');
   });
 
-  it('spawnAgent throws not implemented error', async () => {
+  it('spawnAgent returns failure result when opencode is not available', async () => {
     const spawner = new AgentSpawner();
     const task: AgentTask = { id: '1', name: 't', description: '', files: [], verify: '', done: '', dependsOn: [] };
 
-    await expect(
-      spawner.spawnAgent(task, { userPrompt: 'hello' })
-    ).rejects.toThrow('Agent execution not implemented');
+    const result = await spawner.spawnAgent(task, { userPrompt: 'hello' });
+
+    // opencode is not properly installed, so it should return a failure result
+    expect(result.success).toBe(false);
+    expect(result.taskId).toBe('1');
+    expect(result.error).toBeDefined();
   });
 
   it('executeWithQueue runs tasks respecting dependencies', async () => {

@@ -19,11 +19,13 @@
   },
   "dependencies": {
     "@abhinav2203/coderag": "^0.2.1",
+    "@lancedb/lancedb": "^0.27.2",
     "@monaco-editor/react": "^4.7.0",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
     "@xyflow/react": "^12.10.1",
     "cross-spawn": "^7.0.6",
+    "execa": "^9.6.1",
     "framer-motion": "^12.38.0",
     "monaco-editor": "^0.55.1",
     "next": "^16.2.4",

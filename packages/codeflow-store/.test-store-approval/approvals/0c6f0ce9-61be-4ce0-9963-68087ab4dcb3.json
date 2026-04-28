@@ -1,0 +1,23 @@
+{
+  "id": "0c6f0ce9-61be-4ce0-9963-68087ab4dcb3",
+  "action": "export",
+  "projectName": "test-project",
+  "status": "approved",
+  "fingerprint": "fingerprint-abc",
+  "requestedAt": "2026-04-23T04:50:38.804Z",
+  "outputDir": "/tmp/output",
+  "runPlan": {
+    "generatedAt": "2026-04-23T04:50:38.804Z",
+    "tasks": [],
+    "batches": [],
+    "warnings": []
+  },
+  "riskReport": {
+    "score": 0,
+    "level": "low",
+    "requiresApproval": false,
+    "factors": []
+  },
+  "approver": "test-approver",
+  "approvedAt": "2026-04-23T04:50:38.805Z"
+}

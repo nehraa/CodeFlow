@@ -1,0 +1,33 @@
+{
+  "name": "@abhinav2203/codeflow-analysis",
+  "version": "0.1.1",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+    "./cycles": { "types": "./dist/cycles.d.ts", "default": "./dist/cycles.js" },
+    "./smells": { "types": "./dist/smells.d.ts", "default": "./dist/smells.js" },
+    "./metrics": { "types": "./dist/metrics.d.ts", "default": "./dist/metrics.js" },
+    "./refactor": { "types": "./dist/refactor.d.ts", "default": "./dist/refactor.js" },
+    "./conflicts": { "types": "./dist/conflicts.d.ts", "default": "./dist/conflicts.js" }
+  },
+  "bin": {
+    "codeflow-analysis": "./dist/bin/cli.js"
+  },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "vitest run",
+    "build": "tsc --outDir dist --declaration --declarationMap --noEmit false"
+  },
+  "dependencies": {
+    "@abhinav2203/codeflow-core": "^1.1.5",
+    "@abhinav2203/codeflow-store": "^1.0.13",
+    "zod": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
