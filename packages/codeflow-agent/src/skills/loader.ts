@@ -18,10 +18,10 @@ export function getSkillPrompt(skillId: string, taskContext: string): string {
   const skill = skillRegistry.get(skillId);
   if (!skill) return '';
 
-  return '\n\n## SKILL: ${skill.name}\n\n' +
-    '**Trigger Phrases:** ${skill.triggerPhrases.join(', ')}\n\n' +
-    '**Description:** ${skill.description}\n\n' +
-    '**Task Context:** ${taskContext}\n\n' +
-    '**Skill File:** ${skill.path}\n\n' +
-    'Load this skill using the Skill tool to activate its capabilities.';
+  return `\n\n## SKILL: ${skill.name}\n\n` +
+    `**Trigger Phrases:** ${skill.triggerPhrases.join(', ')}\n\n` +
+    `**Description:** ${skill.description}\n\n` +
+    `**Task Context:** ${taskContext}\n\n` +
+    `**Skill File:** ${skill.path}\n\n` +
+    `Load this skill using the Skill tool to activate its capabilities.`;
 }
