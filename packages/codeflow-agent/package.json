@@ -1,0 +1,28 @@
+{
+  "name": "@abhinav2203/codeflow-agent",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+    "./agent": { "types": "./dist/agent/index.d.ts", "default": "./dist/agent/index.js" },
+    "./skills": { "types": "./dist/skills/index.d.ts", "default": "./dist/skills/index.js" },
+    "./mcp": { "types": "./dist/mcp/index.d.ts", "default": "./dist/mcp/index.js" }
+  },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "vitest run",
+    "build": "tsc --outDir dist --declaration --declarationMap --noEmit false"
+  },
+  "dependencies": {
+    "@abhinav2203/codeflow-core": "workspace:*",
+    "@abhinav2203/codeflow-store": "workspace:*",
+    "zod": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
