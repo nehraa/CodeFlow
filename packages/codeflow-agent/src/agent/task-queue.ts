@@ -1,4 +1,4 @@
-import type { AgentTask, TaskStatus } from './types.js';
+import type { AgentResult, AgentTask, TaskStatus } from './types.js';
 
 export class TaskQueue {
   private tasks: Map<string, AgentTask> = new Map();
@@ -47,10 +47,10 @@ export class TaskQueue {
     }
   }
 
-  markCompleted(taskId: string, result: TaskStatus['result']): void {
+  markCompleted(taskId: string, success: boolean, result?: AgentResult): void {
     const s = this.status.get(taskId);
     if (s) {
-      s.status = result && 'success' in result && result.success === false ? 'failed' : 'completed';
+      s.status = success ? 'completed' : 'failed';
       s.result = result;
       s.completedAt = new Date();
     }
