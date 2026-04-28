@@ -1,17 +1,22 @@
 #!/usr/bin/env node
 
 import { spawn } from 'child_process';
+import { readFile } from 'fs/promises';
 import { AgentSpawner } from '../agent/agent-spawner.js';
 import { resultAggregator } from '../agent/result-aggregator.js';
 import { TaskQueue } from '../agent/task-queue.js';
 import { skillRegistry } from '../skills/registry.js';
 import { mcpRegistry } from '../mcp/registry.js';
 import { pluginRegistry } from '../plugins/registry.js';
+import { CodeflowSessionStore } from '../store/session.js';
+import { McpToolClient } from '../mcp/client.js';
+import { executeWithContext, executeBlueprint, type ExecutionContext } from '../agent/execution-context.js';
 import type { AgentTask, AgentConfig } from '../agent/types.js';
-import { readFile } from 'fs/promises';
+import type { BlueprintGraph } from '@abhinav2203/codeflow-core/schema';
 
 interface CliOptions {
   planFile: string;
+  blueprintFile: string;
   maxConcurrent?: number;
   model?: 'sonnet' | 'opus' | 'haiku';
   listSkills?: boolean;
@@ -20,12 +25,15 @@ interface CliOptions {
   serve?: boolean;
   acp?: boolean;
   port?: number;
+  projectName?: string;
+  mcpServerUrl?: string;
 }
 
 async function main() {
   const args = process.argv.slice(2);
   const options: CliOptions = {
     planFile: '',
+    blueprintFile: '',
     maxConcurrent: 3,
     model: 'sonnet'
   };
@@ -35,6 +43,9 @@ async function main() {
     switch (args[i]) {
       case '--plan':
         options.planFile = args[++i];
+        break;
+      case '--blueprint':
+        options.blueprintFile = args[++i];
         break;
       case '--max-concurrent':
         options.maxConcurrent = parseInt(args[++i], 10);
@@ -59,6 +70,12 @@ async function main() {
         break;
       case '--port':
         options.port = parseInt(args[++i], 10);
+        break;
+      case '--project':
+        options.projectName = args[++i];
+        break;
+      case '--mcp':
+        options.mcpServerUrl = args[++i];
         break;
       default:
         if (!args[i].startsWith('--')) {
@@ -127,16 +144,63 @@ async function main() {
     return;
   }
 
-  if (!options.planFile) {
-    console.error('Error: --plan <file> is required');
+  if (!options.planFile && !options.blueprintFile) {
+    console.error('Error: --plan <file> or --blueprint <file> is required');
     console.log('\nUsage:');
-    console.log('  codeflow-agent --plan <plan-file>    Execute a plan');
-    console.log('  codeflow-agent --serve [--port <n>]  Start opencode headless server');
-    console.log('  codeflow-agent --acp [--port <n>]    Start ACP multi-agent server');
     console.log('  codeflow-agent --list-skills        List available skills');
     console.log('  codeflow-agent --list-mcp          List available MCP servers');
     console.log('  codeflow-agent --list-plugins      List available plugins');
+    console.log('  codeflow-agent --plan <file> [--project <name>] [--mcp <url>]');
+    console.log('                  Execute a plan (optionally with session store + MCP)');
+    console.log('  codeflow-agent --blueprint <file> [--project <name>]');
+    console.log('                  Execute a blueprint graph');
     process.exit(1);
+  }
+
+  // Handle blueprint execution
+  if (options.blueprintFile) {
+    const projectName = options.projectName || 'codeflow-agent';
+    const store = new CodeflowSessionStore();
+    const mcp = new McpToolClient();
+    const config: AgentConfig = {
+      maxConcurrent: options.maxConcurrent,
+      defaultModel: options.model
+    };
+    const spawner = new AgentSpawner(config);
+
+    const ctx: ExecutionContext = {
+      projectName,
+      store,
+      mcp,
+      spawner
+    };
+
+    // Load blueprint file
+    const blueprintContent = await readFile(options.blueprintFile, 'utf-8');
+    const graph = JSON.parse(blueprintContent) as BlueprintGraph;
+
+    console.log(`# Executing Blueprint\n`);
+    console.log(`Project: ${projectName}`);
+    console.log(`Total Nodes: ${graph.nodes.length}`);
+    console.log(`Total Edges: ${graph.edges.length}`);
+    console.log();
+
+    const startTime = Date.now();
+    const orchestrationResult = await executeBlueprint(ctx, {
+      graph,
+      workingDirectory: options.projectName ? process.cwd() : undefined
+    });
+
+    console.log(`\n# Results\n`);
+    console.log(`Completed: ${orchestrationResult.completedTasks}/${orchestrationResult.totalTasks}`);
+    console.log(`Failed: ${orchestrationResult.failedTasks}`);
+    console.log(`Duration: ${((Date.now() - startTime) / 1000).toFixed(1)}s\n`);
+
+    if (orchestrationResult.failedTasks > 0) {
+      console.log(resultAggregator.generateReport(orchestrationResult));
+      process.exit(1);
+    }
+    return;
   }
 
   // Load plan file
@@ -150,13 +214,52 @@ async function main() {
 
   console.log(`# Executing Plan\n`);
   console.log(`Total Tasks: ${plan.tasks.length}`);
-  console.log(`Max Concurrent: ${options.maxConcurrent}\n`);
+  console.log(`Max Concurrent: ${options.maxConcurrent}`);
+  if (options.projectName) console.log(`Project: ${options.projectName}`);
+  if (options.mcpServerUrl) console.log(`MCP Server: ${options.mcpServerUrl}`);
+  console.log();
 
   const config: AgentConfig = {
     maxConcurrent: options.maxConcurrent,
     defaultModel: options.model
   };
 
+  // When --project and/or --mcp are provided, use the full execution context
+  if (options.projectName || options.mcpServerUrl) {
+    const projectName = options.projectName || 'codeflow-agent';
+    const store = new CodeflowSessionStore();
+    const mcp = new McpToolClient();
+    const spawner = new AgentSpawner(config);
+
+    const ctx: ExecutionContext = {
+      projectName,
+      store,
+      mcp,
+      spawner
+    };
+
+    const startTime = Date.now();
+    const orchestrationResult = await executeWithContext(ctx, {
+      projectName,
+      tasks: plan.tasks,
+      mcpServerUrl: options.mcpServerUrl,
+      maxConcurrent: options.maxConcurrent,
+      model: options.model
+    });
+
+    console.log(`\n# Results\n`);
+    console.log(`Completed: ${orchestrationResult.completedTasks}/${orchestrationResult.totalTasks}`);
+    console.log(`Failed: ${orchestrationResult.failedTasks}`);
+    console.log(`Duration: ${((Date.now() - startTime) / 1000).toFixed(1)}s\n`);
+
+    if (orchestrationResult.failedTasks > 0) {
+      console.log(resultAggregator.generateReport(orchestrationResult));
+      process.exit(1);
+    }
+    return;
+  }
+
+  // Legacy execution path (no session/MCP integration)
   const spawner = new AgentSpawner(config);
   const queue = new TaskQueue(plan.tasks);
 
