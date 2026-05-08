@@ -1,0 +1,92 @@
+{
+  "name": "@abhinav2203/codeflow-execution",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Runtime execution engine for CodeFlow blueprint graphs — execute, test, and validate generated code in isolated TypeScript workspaces",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./plan": {
+      "types": "./dist/plan.d.ts",
+      "default": "./dist/plan.js"
+    },
+    "./phases": {
+      "types": "./dist/phases.d.ts",
+      "default": "./dist/phases.js"
+    },
+    "./execute": {
+      "types": "./dist/execute.d.ts",
+      "default": "./dist/execute.js"
+    },
+    "./vcr": {
+      "types": "./dist/vcr.d.ts",
+      "default": "./dist/vcr.js"
+    },
+    "./runtime-tests": {
+      "types": "./dist/runtime-tests.d.ts",
+      "default": "./dist/runtime-tests.js"
+    },
+    "./mermaid": {
+      "types": "./dist/mermaid.d.ts",
+      "default": "./dist/mermaid.js"
+    },
+    "./sandbox": {
+      "types": "./dist/sandbox.d.ts",
+      "default": "./dist/sandbox.js"
+    },
+    "./runner": {
+      "types": "./dist/runner.d.ts",
+      "default": "./dist/runner.js"
+    },
+    "./runtime-contracts": {
+      "types": "./dist/runtime-contracts.d.ts",
+      "default": "./dist/runtime-contracts.js"
+    },
+    "./runtime-workspace": {
+      "types": "./dist/runtime-workspace.d.ts",
+      "default": "./dist/runtime-workspace.js"
+    },
+    "./runtime-workspace-local": {
+      "types": "./dist/runtime-workspace-local.d.ts",
+      "default": "./dist/runtime-workspace-local.js"
+    },
+    "./utils": {
+      "types": "./dist/utils.d.ts",
+      "default": "./dist/utils.js"
+    }
+  },
+  "bin": {
+    "codeflow-execution": "./dist/bin/cli.js"
+  },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "vitest run",
+    "build": "node node_modules/typescript/lib/tsc.js src/bin/cli.ts src/index.ts src/plan.ts src/phases.ts src/execute.ts src/vcr.ts src/mermaid.ts src/sandbox.ts src/runner.ts src/utils.ts src/runtime-contracts.ts src/runtime-tests.ts src/runtime-workspace.ts src/runtime-workspace-local.ts --outDir dist --module NodeNext --moduleResolution NodeNext --target ES2022 --skipLibCheck --declaration --declarationMap && node scripts/wrap-cli.mjs",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@abhinav2203/codeflow-core": "^1.1.5",
+    "typescript": "^5.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "vitest": "^1.6.0"
+  },
+  "keywords": [
+    "codeflow",
+    "blueprint",
+    "execution",
+    "runtime",
+    "typescript",
+    "testing",
+    "validation"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
