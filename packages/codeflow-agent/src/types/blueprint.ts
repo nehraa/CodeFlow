@@ -155,6 +155,11 @@ export interface BlueprintNode {
   implementationDraft?: string;
   lastVerification?: LastVerification;
   mcpServers?: MCPServerConfig[];
+  /**
+   * Target language for code generation. Defaults to 'typescript'.
+   * When set, codeflow-agent generates scaffold code in the specified language.
+   */
+  language?: 'typescript' | 'python' | 'go' | 'rust';
 }
 
 /**
