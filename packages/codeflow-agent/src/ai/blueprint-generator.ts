@@ -4,10 +4,10 @@
  * Uses the NVIDIA API to generate BlueprintGraph from natural language prompts.
  */
 
-import type { BlueprintGraph, BlueprintNode, BlueprintEdge } from '../types/blueprint.js';
+import type { BlueprintGraph, BlueprintNode, BlueprintEdge } from '@abhinav2203/codeflow-core/schema';
 
 // Re-export for convenience
-export type { BlueprintGraph, BlueprintNode, BlueprintEdge } from '../types/blueprint.js';
+export type { BlueprintGraph, BlueprintNode, BlueprintEdge } from '@abhinav2203/codeflow-core/schema';
 
 export interface GenerateBlueprintOptions {
   prompt: string;

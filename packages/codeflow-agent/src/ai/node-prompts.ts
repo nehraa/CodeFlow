@@ -4,7 +4,7 @@
  * These prompts are used to generate code via OpenCode.
  */
 
-import type { BlueprintGraph, BlueprintNode } from '../types/blueprint.js';
+import type { BlueprintGraph, BlueprintNode } from '@abhinav2203/codeflow-core/schema';
 
 export interface NodePromptOptions {
   graph: BlueprintGraph;

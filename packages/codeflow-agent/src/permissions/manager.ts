@@ -5,7 +5,10 @@
  * based on the selected permission mode.
  */
 
-import type { RiskLevel } from '../types/blueprint.js';
+/**
+ * Risk levels for node risk assessment.
+ */
+export type RiskLevel = 'low' | 'medium' | 'high' | 'critical';
 
 /**
  * Permission modes:
