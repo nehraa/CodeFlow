@@ -12,7 +12,7 @@ import { CodeflowSessionStore } from '../store/session.js';
 import { McpToolClient } from '../mcp/client.js';
 import { executeWithContext, executeBlueprint, type ExecutionContext } from '../agent/execution-context.js';
 import type { AgentTask, AgentConfig } from '../agent/types.js';
-import type { BlueprintGraph } from '../types/blueprint.js';
+import type { BlueprintGraph } from '@abhinav2203/codeflow-core/schema';
 import { generateBlueprint, buildNodePrompt, estimateNodeRisk, generateNodeCode } from '../ai/index.js';
 import { PermissionManager } from '../ai/index.js';
 import type { PermissionMode } from '../ai/index.js';
@@ -436,11 +436,11 @@ async function main() {
 
     if (result.success) {
       console.log(`[${task.id}] Completed: ${task.name}`);
-      return result.output || `Task ${task.id} completed successfully`;
     } else {
       console.log(`[${task.id}] Failed: ${task.name} - ${result.error}`);
-      throw new Error(result.error || 'Agent execution failed');
     }
+
+    return result;
   });
 
   const aggregation = resultAggregator.aggregate(results);
