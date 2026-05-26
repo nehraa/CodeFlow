@@ -1,0 +1,70 @@
+{
+  "projectName": "test-project",
+  "phase": "spec",
+  "nodes": [
+    {
+      "id": "node1",
+      "name": "User API",
+      "kind": "api",
+      "summary": "Handles user requests",
+      "path": "/api/users",
+      "contract": {
+        "summary": "User API contract",
+        "responsibilities": ["authenticate", "authorize"],
+        "inputs": [],
+        "outputs": []
+      },
+      "sourceRefs": [],
+      "status": "spec_only"
+    },
+    {
+      "id": "node2",
+      "name": "Database",
+      "kind": "module",
+      "summary": "Stores user data",
+      "path": "/lib/db",
+      "contract": {
+        "summary": "Database module",
+        "responsibilities": ["CRUD operations"],
+        "inputs": [],
+        "outputs": []
+      },
+      "sourceRefs": [],
+      "status": "spec_only"
+    },
+    {
+      "id": "node3",
+      "name": "Auth Service",
+      "kind": "module",
+      "summary": "Authentication service",
+      "path": "/services/auth",
+      "contract": {
+        "summary": "Auth service",
+        "responsibilities": ["login", "logout"],
+        "inputs": [],
+        "outputs": []
+      },
+      "sourceRefs": [],
+      "status": "spec_only"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge1",
+      "from": "node1",
+      "to": "node3",
+      "kind": "calls",
+      "required": true,
+      "confidence": 0.95
+    },
+    {
+      "id": "edge2",
+      "from": "node3",
+      "to": "node2",
+      "kind": "calls",
+      "required": true,
+      "confidence": 0.9
+    }
+  ],
+  "workflows": []
+}

@@ -397,7 +397,7 @@ export const analyzeTypeScriptRepo = async (repoPath) => {
             if (caller && targetNode) {
                 nodes.set(entry.nodeId, {
                     ...caller,
-                    contract: mergeContracts(caller.contract, {
+                    contract: mergeContracts((caller.contract ?? emptyContract()), {
                         ...emptyContract(),
                         calls: [
                             {
@@ -417,10 +417,10 @@ export const analyzeTypeScriptRepo = async (repoPath) => {
             continue;
         }
         const ownedMethodIds = callableNodeIdsByClassId.get(node.id) ?? [];
-        if (!ownedMethodIds.length || !node.contract.methods.length) {
+        if (!ownedMethodIds.length || !(node.contract.methods?.length ?? 0)) {
             continue;
         }
-        const methods = node.contract.methods.map((methodSpec) => {
+        const methods = (node.contract.methods ?? []).map((methodSpec) => {
             const ownedMethodNode = ownedMethodIds
                 .map((methodId) => nodes.get(methodId))
                 .find((methodNode) => methodNode?.name.split(".").pop() === methodSpec.name);
@@ -429,8 +429,8 @@ export const analyzeTypeScriptRepo = async (repoPath) => {
             }
             return {
                 ...methodSpec,
-                sideEffects: [...new Set([...methodSpec.sideEffects, ...ownedMethodNode.contract.sideEffects])],
-                calls: mergeDesignCalls(methodSpec.calls, ownedMethodNode.contract.calls)
+                sideEffects: [...new Set([...(methodSpec.sideEffects ?? []), ...(ownedMethodNode.contract.sideEffects ?? [])])],
+                calls: mergeDesignCalls(methodSpec.calls ?? [], ownedMethodNode.contract.calls ?? [])
             };
         });
         nodes.set(node.id, {
@@ -438,7 +438,7 @@ export const analyzeTypeScriptRepo = async (repoPath) => {
             contract: {
                 ...node.contract,
                 methods,
-                dependencies: [...new Set([...node.contract.dependencies, ...methods.flatMap((method) => method.calls.map((call) => call.target))])]
+                dependencies: [...new Set([...(node.contract.dependencies ?? []), ...methods.flatMap((method) => (method.calls ?? []).map((call) => call.target))])]
             }
         });
     }

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { buildVcrRecording } from "@/lib/blueprint/vcr";
-import { loadObservabilitySnapshot } from "@/lib/blueprint/observability-store";
-import { loadLatestSession } from "@/lib/blueprint/session-store";
+import { buildVcrRecording } from "@abhinav2203/codeflow-execution/vcr";
+import { loadObservabilitySnapshot } from "@abhinav2203/codeflow-store/observability";
+import { loadLatestSession } from "@abhinav2203/codeflow-store/session";
 
 export const GET = async (request: NextRequest): Promise<NextResponse> => {
   const projectName = request.nextUrl.searchParams.get("projectName");

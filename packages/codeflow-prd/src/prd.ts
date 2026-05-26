@@ -178,6 +178,15 @@ const parseContractFromItem = (item: string): CodeContract => {
       contract.summary = `Handle ${apiMatch[1].toUpperCase()} ${apiMatch[2]}`;
       contract.responsibilities = [contract.summary];
     }
+    // Ensure other array fields are explicitly set even when no signature/API match
+    contract.attributes = contract.attributes ?? [];
+    contract.sideEffects = contract.sideEffects ?? [];
+    contract.errors = contract.errors ?? [];
+    contract.dependencies = contract.dependencies ?? [];
+    contract.calls = contract.calls ?? [];
+    contract.uiAccess = contract.uiAccess ?? [];
+    contract.backendAccess = contract.backendAccess ?? [];
+    contract.notes = contract.notes ?? [];
   }
 
   return contract;

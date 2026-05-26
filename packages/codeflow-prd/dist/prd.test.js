@@ -25,4 +25,13 @@ describe("parsePrd", () => {
         expect(result.nodes).toHaveLength(0);
         expect(result.warnings[0]).toContain("Skipped ambiguous PRD item");
     });
+    it("handles API paths with function signatures containing commas", () => {
+        const result = parsePrd(`
+# API
+- POST /api/users/create(name: string, email: string)
+`);
+        const apiNode = result.nodes.find((node) => node.kind === "api");
+        expect(apiNode?.name).toBe("POST /api/users/create");
+    });
 });
+//# sourceMappingURL=prd.test.js.map

@@ -84,10 +84,10 @@ export const mergeMethodSpecs = (...collections: MethodSpec[][]): MethodSpec[] =
     map.set(key, {
       ...existing,
       summary: existing.summary || method.summary,
-      inputs: mergeFields(existing.inputs, method.inputs),
-      outputs: mergeFields(existing.outputs, method.outputs),
-      sideEffects: mergeStringLists(existing.sideEffects, method.sideEffects),
-      calls: mergeDesignCalls(existing.calls, method.calls)
+      inputs: mergeFields(existing.inputs ?? [], method.inputs ?? []),
+      outputs: mergeFields(existing.outputs ?? [], method.outputs ?? []),
+      sideEffects: mergeStringLists(existing.sideEffects ?? [], method.sideEffects ?? []),
+      calls: mergeDesignCalls(existing.calls ?? [], method.calls ?? [])
     });
   }
 
@@ -96,18 +96,18 @@ export const mergeMethodSpecs = (...collections: MethodSpec[][]): MethodSpec[] =
 
 export const mergeContracts = (...contracts: CodeContract[]): CodeContract => ({
   summary: contracts.map((item) => item.summary).find(Boolean) ?? "",
-  responsibilities: mergeStringLists(...contracts.map((item) => item.responsibilities)),
-  inputs: mergeFields(...contracts.map((item) => item.inputs)),
-  outputs: mergeFields(...contracts.map((item) => item.outputs)),
-  attributes: mergeFields(...contracts.map((item) => item.attributes)),
-  methods: mergeMethodSpecs(...contracts.map((item) => item.methods)),
-  sideEffects: mergeStringLists(...contracts.map((item) => item.sideEffects)),
-  errors: mergeStringLists(...contracts.map((item) => item.errors)),
-  dependencies: mergeStringLists(...contracts.map((item) => item.dependencies)),
-  calls: mergeDesignCalls(...contracts.map((item) => item.calls)),
-  uiAccess: mergeStringLists(...contracts.map((item) => item.uiAccess)),
-  backendAccess: mergeStringLists(...contracts.map((item) => item.backendAccess)),
-  notes: mergeStringLists(...contracts.map((item) => item.notes))
+  responsibilities: mergeStringLists(...contracts.map((item) => item.responsibilities ?? [])),
+  inputs: mergeFields(...contracts.map((item) => item.inputs ?? [])),
+  outputs: mergeFields(...contracts.map((item) => item.outputs ?? [])),
+  attributes: mergeFields(...contracts.map((item) => item.attributes ?? [])),
+  methods: mergeMethodSpecs(...contracts.map((item) => item.methods ?? [])),
+  sideEffects: mergeStringLists(...contracts.map((item) => item.sideEffects ?? [])),
+  errors: mergeStringLists(...contracts.map((item) => item.errors ?? [])),
+  dependencies: mergeStringLists(...contracts.map((item) => item.dependencies ?? [])),
+  calls: mergeDesignCalls(...contracts.map((item) => item.calls ?? [])),
+  uiAccess: mergeStringLists(...contracts.map((item) => item.uiAccess ?? [])),
+  backendAccess: mergeStringLists(...contracts.map((item) => item.backendAccess ?? [])),
+  notes: mergeStringLists(...contracts.map((item) => item.notes ?? []))
 });
 
 export const createNode = (

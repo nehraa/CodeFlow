@@ -22,22 +22,40 @@ export const saveBranch = async (branch: GraphBranch): Promise<GraphBranch> => {
 
   // Normalize common caller mistakes: branchName → name, projectId → projectName
   // Ensure createdAt and graph are always present (required by graphBranchSchema)
+  // Also fix null vs undefined for parentBranchId and ensure node arrays are defined
+  const normalizedGraph = (branch as any).graph ?? {
+    projectName: branch.projectName ?? (branch as any).projectId ?? branch.id,
+    mode: "essential" as const,
+    phase: "spec" as const,
+    generatedAt: (branch as any).createdAt ?? new Date().toISOString(),
+    nodes: [],
+    edges: [],
+    workflows: [],
+    warnings: []
+  };
+
+  // Ensure all nodes have generatedRefs and traceRefs as arrays (not undefined)
+  if (normalizedGraph.nodes) {
+    for (const node of normalizedGraph.nodes) {
+      if (!node.generatedRefs) node.generatedRefs = [];
+      if (!node.traceRefs) node.traceRefs = [];
+      // Also ensure sourceRefs is an array
+      if (!node.sourceRefs) node.sourceRefs = [];
+    }
+  }
+
   const normalized: GraphBranch = {
     ...branch,
     createdAt: (branch as any).createdAt ?? new Date().toISOString(),
-    graph: (branch as any).graph ?? {
-      projectName: branch.projectName ?? (branch as any).projectId ?? branch.id,
-      mode: "essential" as const,
-      phase: "spec" as const,
-      generatedAt: (branch as any).createdAt ?? new Date().toISOString(),
-      nodes: [],
-      edges: [],
-      workflows: [],
-      warnings: []
-    },
+    graph: normalizedGraph,
     name: branch.name ?? (branch as any).branchName,
     projectName: branch.projectName ?? (branch as any).projectId
   };
+
+  // Fix parentBranchId: null -> undefined (schema expects string | undefined)
+  if (normalized.parentBranchId === null) {
+    delete normalized.parentBranchId;
+  }
 
   // Validate required fields with clear error messages
   if (!normalized.id || typeof normalized.id !== "string" || normalized.id.trim().length === 0) {

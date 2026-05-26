@@ -3,7 +3,8 @@ import path from "node:path";
 import type {
   BlueprintGraph,
   BlueprintNode,
-  BuildBlueprintRequest
+  BuildBlueprintRequest,
+  CodeContract
 } from "../schema/index.js";
 import { emptyContract } from "../schema/index.js";
 import { parsePrd } from "../internal/prd.js";
@@ -25,16 +26,20 @@ const mergeNodes = (nodes: BlueprintNode[]): BlueprintNode[] => {
       continue;
     }
 
+    const mergedContract = mergeContracts(
+      (existing.contract ?? emptyContract()) as CodeContract,
+      (node.contract ?? emptyContract()) as CodeContract
+    );
     map.set(dedupeKey, {
       ...existing,
       summary: existing.summary || node.summary,
       path: existing.path ?? node.path,
       signature: existing.signature ?? node.signature,
       ownerId: existing.ownerId ?? node.ownerId,
-      contract: mergeContracts(existing.contract, node.contract),
-      sourceRefs: mergeSourceRefs(existing.sourceRefs, node.sourceRefs),
-      generatedRefs: [...new Set([...existing.generatedRefs, ...node.generatedRefs])],
-      traceRefs: [...new Set([...existing.traceRefs, ...node.traceRefs])]
+      contract: mergedContract,
+      sourceRefs: mergeSourceRefs(existing.sourceRefs ?? [], node.sourceRefs ?? []),
+      generatedRefs: [...new Set([...(existing.generatedRefs ?? []), ...(node.generatedRefs ?? [])])],
+      traceRefs: [...new Set([...(existing.traceRefs ?? []), ...(node.traceRefs ?? [])])]
     });
   }
 
@@ -101,7 +106,7 @@ export const buildBlueprintGraph = async (
     combined.nodes.map((node) =>
       createNode({
         ...node,
-        contract: mergeContracts(emptyContract(), node.contract)
+        contract: mergeContracts(emptyContract(), (node.contract ?? emptyContract()) as CodeContract)
       })
     )
   );

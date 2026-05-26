@@ -4,6 +4,7 @@ export interface SpawnResult {
     success: boolean;
     output: string;
     error?: string;
+    duration?: number;
 }
 export declare class AgentSpawner {
     private config;
@@ -17,7 +18,7 @@ export declare class AgentSpawner {
         userPrompt: string;
         model?: 'sonnet' | 'opus' | 'haiku';
     }): Promise<SpawnResult>;
-    executeWithQueue(tasks: AgentTask[], executeFn: (task: AgentTask) => Promise<string>): Promise<Map<string, AgentResult>>;
+    executeWithQueue(tasks: AgentTask[], executeFn: (task: AgentTask) => Promise<SpawnResult>): Promise<Map<string, AgentResult>>;
     private executeTask;
 }
 //# sourceMappingURL=agent-spawner.d.ts.map

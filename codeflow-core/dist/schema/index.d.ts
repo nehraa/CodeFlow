@@ -143,12 +143,12 @@ export declare const codeContractSchema: z.ZodObject<{
         type: z.ZodString;
         description: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>>;
-    attributes: z.ZodArray<z.ZodObject<{
+    attributes: z.ZodDefault<z.ZodArray<z.ZodObject<{
         name: z.ZodString;
         type: z.ZodString;
         description: z.ZodOptional<z.ZodString>;
-    }, z.core.$strip>>;
-    methods: z.ZodArray<z.ZodObject<{
+    }, z.core.$strip>>>;
+    methods: z.ZodDefault<z.ZodArray<z.ZodObject<{
         name: z.ZodString;
         signature: z.ZodOptional<z.ZodString>;
         summary: z.ZodString;
@@ -177,11 +177,11 @@ export declare const codeContractSchema: z.ZodObject<{
             }>>;
             description: z.ZodOptional<z.ZodString>;
         }, z.core.$strip>>;
-    }, z.core.$strip>>;
-    sideEffects: z.ZodArray<z.ZodString>;
-    errors: z.ZodArray<z.ZodString>;
-    dependencies: z.ZodArray<z.ZodString>;
-    calls: z.ZodArray<z.ZodObject<{
+    }, z.core.$strip>>>;
+    sideEffects: z.ZodDefault<z.ZodArray<z.ZodString>>;
+    errors: z.ZodDefault<z.ZodArray<z.ZodString>>;
+    dependencies: z.ZodDefault<z.ZodArray<z.ZodString>>;
+    calls: z.ZodDefault<z.ZodArray<z.ZodObject<{
         target: z.ZodString;
         kind: z.ZodOptional<z.ZodEnum<{
             imports: "imports";
@@ -194,12 +194,12 @@ export declare const codeContractSchema: z.ZodObject<{
             "writes-state": "writes-state";
         }>>;
         description: z.ZodOptional<z.ZodString>;
-    }, z.core.$strip>>;
-    uiAccess: z.ZodArray<z.ZodString>;
-    backendAccess: z.ZodArray<z.ZodString>;
-    notes: z.ZodArray<z.ZodString>;
+    }, z.core.$strip>>>;
+    uiAccess: z.ZodDefault<z.ZodArray<z.ZodString>>;
+    backendAccess: z.ZodDefault<z.ZodArray<z.ZodString>>;
+    notes: z.ZodDefault<z.ZodArray<z.ZodString>>;
 }, z.core.$strip>;
-export type CodeContract = z.infer<typeof codeContractSchema>;
+export type CodeContract = z.output<typeof codeContractSchema>;
 export declare const sourceRefSchema: z.ZodObject<{
     kind: z.ZodEnum<{
         prd: "prd";
@@ -290,12 +290,12 @@ export declare const blueprintNodeSchema: z.ZodObject<{
             type: z.ZodString;
             description: z.ZodOptional<z.ZodString>;
         }, z.core.$strip>>;
-        attributes: z.ZodArray<z.ZodObject<{
+        attributes: z.ZodDefault<z.ZodArray<z.ZodObject<{
             name: z.ZodString;
             type: z.ZodString;
             description: z.ZodOptional<z.ZodString>;
-        }, z.core.$strip>>;
-        methods: z.ZodArray<z.ZodObject<{
+        }, z.core.$strip>>>;
+        methods: z.ZodDefault<z.ZodArray<z.ZodObject<{
             name: z.ZodString;
             signature: z.ZodOptional<z.ZodString>;
             summary: z.ZodString;
@@ -324,11 +324,11 @@ export declare const blueprintNodeSchema: z.ZodObject<{
                 }>>;
                 description: z.ZodOptional<z.ZodString>;
             }, z.core.$strip>>;
-        }, z.core.$strip>>;
-        sideEffects: z.ZodArray<z.ZodString>;
-        errors: z.ZodArray<z.ZodString>;
-        dependencies: z.ZodArray<z.ZodString>;
-        calls: z.ZodArray<z.ZodObject<{
+        }, z.core.$strip>>>;
+        sideEffects: z.ZodDefault<z.ZodArray<z.ZodString>>;
+        errors: z.ZodDefault<z.ZodArray<z.ZodString>>;
+        dependencies: z.ZodDefault<z.ZodArray<z.ZodString>>;
+        calls: z.ZodDefault<z.ZodArray<z.ZodObject<{
             target: z.ZodString;
             kind: z.ZodOptional<z.ZodEnum<{
                 imports: "imports";
@@ -341,12 +341,12 @@ export declare const blueprintNodeSchema: z.ZodObject<{
                 "writes-state": "writes-state";
             }>>;
             description: z.ZodOptional<z.ZodString>;
-        }, z.core.$strip>>;
-        uiAccess: z.ZodArray<z.ZodString>;
-        backendAccess: z.ZodArray<z.ZodString>;
-        notes: z.ZodArray<z.ZodString>;
+        }, z.core.$strip>>>;
+        uiAccess: z.ZodDefault<z.ZodArray<z.ZodString>>;
+        backendAccess: z.ZodDefault<z.ZodArray<z.ZodString>>;
+        notes: z.ZodDefault<z.ZodArray<z.ZodString>>;
     }, z.core.$strip>;
-    sourceRefs: z.ZodArray<z.ZodObject<{
+    sourceRefs: z.ZodDefault<z.ZodArray<z.ZodObject<{
         kind: z.ZodEnum<{
             prd: "prd";
             repo: "repo";
@@ -357,9 +357,9 @@ export declare const blueprintNodeSchema: z.ZodObject<{
         symbol: z.ZodOptional<z.ZodString>;
         section: z.ZodOptional<z.ZodString>;
         detail: z.ZodOptional<z.ZodString>;
-    }, z.core.$strip>>;
-    generatedRefs: z.ZodArray<z.ZodString>;
-    traceRefs: z.ZodArray<z.ZodString>;
+    }, z.core.$strip>>>;
+    generatedRefs: z.ZodDefault<z.ZodArray<z.ZodString>>;
+    traceRefs: z.ZodDefault<z.ZodArray<z.ZodString>>;
     traceState: z.ZodOptional<z.ZodObject<{
         status: z.ZodEnum<{
             error: "error";
@@ -461,12 +461,12 @@ export declare const blueprintGraphSchema: z.ZodObject<{
                 type: z.ZodString;
                 description: z.ZodOptional<z.ZodString>;
             }, z.core.$strip>>;
-            attributes: z.ZodArray<z.ZodObject<{
+            attributes: z.ZodDefault<z.ZodArray<z.ZodObject<{
                 name: z.ZodString;
                 type: z.ZodString;
                 description: z.ZodOptional<z.ZodString>;
-            }, z.core.$strip>>;
-            methods: z.ZodArray<z.ZodObject<{
+            }, z.core.$strip>>>;
+            methods: z.ZodDefault<z.ZodArray<z.ZodObject<{
                 name: z.ZodString;
                 signature: z.ZodOptional<z.ZodString>;
                 summary: z.ZodString;
@@ -495,11 +495,11 @@ export declare const blueprintGraphSchema: z.ZodObject<{
                     }>>;
                     description: z.ZodOptional<z.ZodString>;
                 }, z.core.$strip>>;
-            }, z.core.$strip>>;
-            sideEffects: z.ZodArray<z.ZodString>;
-            errors: z.ZodArray<z.ZodString>;
-            dependencies: z.ZodArray<z.ZodString>;
-            calls: z.ZodArray<z.ZodObject<{
+            }, z.core.$strip>>>;
+            sideEffects: z.ZodDefault<z.ZodArray<z.ZodString>>;
+            errors: z.ZodDefault<z.ZodArray<z.ZodString>>;
+            dependencies: z.ZodDefault<z.ZodArray<z.ZodString>>;
+            calls: z.ZodDefault<z.ZodArray<z.ZodObject<{
                 target: z.ZodString;
                 kind: z.ZodOptional<z.ZodEnum<{
                     imports: "imports";
@@ -512,12 +512,12 @@ export declare const blueprintGraphSchema: z.ZodObject<{
                     "writes-state": "writes-state";
                 }>>;
                 description: z.ZodOptional<z.ZodString>;
-            }, z.core.$strip>>;
-            uiAccess: z.ZodArray<z.ZodString>;
-            backendAccess: z.ZodArray<z.ZodString>;
-            notes: z.ZodArray<z.ZodString>;
+            }, z.core.$strip>>>;
+            uiAccess: z.ZodDefault<z.ZodArray<z.ZodString>>;
+            backendAccess: z.ZodDefault<z.ZodArray<z.ZodString>>;
+            notes: z.ZodDefault<z.ZodArray<z.ZodString>>;
         }, z.core.$strip>;
-        sourceRefs: z.ZodArray<z.ZodObject<{
+        sourceRefs: z.ZodDefault<z.ZodArray<z.ZodObject<{
             kind: z.ZodEnum<{
                 prd: "prd";
                 repo: "repo";
@@ -528,9 +528,9 @@ export declare const blueprintGraphSchema: z.ZodObject<{
             symbol: z.ZodOptional<z.ZodString>;
             section: z.ZodOptional<z.ZodString>;
             detail: z.ZodOptional<z.ZodString>;
-        }, z.core.$strip>>;
-        generatedRefs: z.ZodArray<z.ZodString>;
-        traceRefs: z.ZodArray<z.ZodString>;
+        }, z.core.$strip>>>;
+        generatedRefs: z.ZodDefault<z.ZodArray<z.ZodString>>;
+        traceRefs: z.ZodDefault<z.ZodArray<z.ZodString>>;
         traceState: z.ZodOptional<z.ZodObject<{
             status: z.ZodEnum<{
                 error: "error";
@@ -1145,12 +1145,12 @@ export declare const persistedSessionSchema: z.ZodObject<{
                     type: z.ZodString;
                     description: z.ZodOptional<z.ZodString>;
                 }, z.core.$strip>>;
-                attributes: z.ZodArray<z.ZodObject<{
+                attributes: z.ZodDefault<z.ZodArray<z.ZodObject<{
                     name: z.ZodString;
                     type: z.ZodString;
                     description: z.ZodOptional<z.ZodString>;
-                }, z.core.$strip>>;
-                methods: z.ZodArray<z.ZodObject<{
+                }, z.core.$strip>>>;
+                methods: z.ZodDefault<z.ZodArray<z.ZodObject<{
                     name: z.ZodString;
                     signature: z.ZodOptional<z.ZodString>;
                     summary: z.ZodString;
@@ -1179,11 +1179,11 @@ export declare const persistedSessionSchema: z.ZodObject<{
                         }>>;
                         description: z.ZodOptional<z.ZodString>;
                     }, z.core.$strip>>;
-                }, z.core.$strip>>;
-                sideEffects: z.ZodArray<z.ZodString>;
-                errors: z.ZodArray<z.ZodString>;
-                dependencies: z.ZodArray<z.ZodString>;
-                calls: z.ZodArray<z.ZodObject<{
+                }, z.core.$strip>>>;
+                sideEffects: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                errors: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                dependencies: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                calls: z.ZodDefault<z.ZodArray<z.ZodObject<{
                     target: z.ZodString;
                     kind: z.ZodOptional<z.ZodEnum<{
                         imports: "imports";
@@ -1196,12 +1196,12 @@ export declare const persistedSessionSchema: z.ZodObject<{
                         "writes-state": "writes-state";
                     }>>;
                     description: z.ZodOptional<z.ZodString>;
-                }, z.core.$strip>>;
-                uiAccess: z.ZodArray<z.ZodString>;
-                backendAccess: z.ZodArray<z.ZodString>;
-                notes: z.ZodArray<z.ZodString>;
+                }, z.core.$strip>>>;
+                uiAccess: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                backendAccess: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                notes: z.ZodDefault<z.ZodArray<z.ZodString>>;
             }, z.core.$strip>;
-            sourceRefs: z.ZodArray<z.ZodObject<{
+            sourceRefs: z.ZodDefault<z.ZodArray<z.ZodObject<{
                 kind: z.ZodEnum<{
                     prd: "prd";
                     repo: "repo";
@@ -1212,9 +1212,9 @@ export declare const persistedSessionSchema: z.ZodObject<{
                 symbol: z.ZodOptional<z.ZodString>;
                 section: z.ZodOptional<z.ZodString>;
                 detail: z.ZodOptional<z.ZodString>;
-            }, z.core.$strip>>;
-            generatedRefs: z.ZodArray<z.ZodString>;
-            traceRefs: z.ZodArray<z.ZodString>;
+            }, z.core.$strip>>>;
+            generatedRefs: z.ZodDefault<z.ZodArray<z.ZodString>>;
+            traceRefs: z.ZodDefault<z.ZodArray<z.ZodString>>;
             traceState: z.ZodOptional<z.ZodObject<{
                 status: z.ZodEnum<{
                     error: "error";
@@ -1793,12 +1793,12 @@ export declare const observabilitySnapshotSchema: z.ZodObject<{
                     type: z.ZodString;
                     description: z.ZodOptional<z.ZodString>;
                 }, z.core.$strip>>;
-                attributes: z.ZodArray<z.ZodObject<{
+                attributes: z.ZodDefault<z.ZodArray<z.ZodObject<{
                     name: z.ZodString;
                     type: z.ZodString;
                     description: z.ZodOptional<z.ZodString>;
-                }, z.core.$strip>>;
-                methods: z.ZodArray<z.ZodObject<{
+                }, z.core.$strip>>>;
+                methods: z.ZodDefault<z.ZodArray<z.ZodObject<{
                     name: z.ZodString;
                     signature: z.ZodOptional<z.ZodString>;
                     summary: z.ZodString;
@@ -1827,11 +1827,11 @@ export declare const observabilitySnapshotSchema: z.ZodObject<{
                         }>>;
                         description: z.ZodOptional<z.ZodString>;
                     }, z.core.$strip>>;
-                }, z.core.$strip>>;
-                sideEffects: z.ZodArray<z.ZodString>;
-                errors: z.ZodArray<z.ZodString>;
-                dependencies: z.ZodArray<z.ZodString>;
-                calls: z.ZodArray<z.ZodObject<{
+                }, z.core.$strip>>>;
+                sideEffects: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                errors: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                dependencies: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                calls: z.ZodDefault<z.ZodArray<z.ZodObject<{
                     target: z.ZodString;
                     kind: z.ZodOptional<z.ZodEnum<{
                         imports: "imports";
@@ -1844,12 +1844,12 @@ export declare const observabilitySnapshotSchema: z.ZodObject<{
                         "writes-state": "writes-state";
                     }>>;
                     description: z.ZodOptional<z.ZodString>;
-                }, z.core.$strip>>;
-                uiAccess: z.ZodArray<z.ZodString>;
-                backendAccess: z.ZodArray<z.ZodString>;
-                notes: z.ZodArray<z.ZodString>;
+                }, z.core.$strip>>>;
+                uiAccess: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                backendAccess: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                notes: z.ZodDefault<z.ZodArray<z.ZodString>>;
             }, z.core.$strip>;
-            sourceRefs: z.ZodArray<z.ZodObject<{
+            sourceRefs: z.ZodDefault<z.ZodArray<z.ZodObject<{
                 kind: z.ZodEnum<{
                     prd: "prd";
                     repo: "repo";
@@ -1860,9 +1860,9 @@ export declare const observabilitySnapshotSchema: z.ZodObject<{
                 symbol: z.ZodOptional<z.ZodString>;
                 section: z.ZodOptional<z.ZodString>;
                 detail: z.ZodOptional<z.ZodString>;
-            }, z.core.$strip>>;
-            generatedRefs: z.ZodArray<z.ZodString>;
-            traceRefs: z.ZodArray<z.ZodString>;
+            }, z.core.$strip>>>;
+            generatedRefs: z.ZodDefault<z.ZodArray<z.ZodString>>;
+            traceRefs: z.ZodDefault<z.ZodArray<z.ZodString>>;
             traceState: z.ZodOptional<z.ZodObject<{
                 status: z.ZodEnum<{
                     error: "error";
@@ -2006,12 +2006,12 @@ export declare const conflictCheckRequestSchema: z.ZodObject<{
                     type: z.ZodString;
                     description: z.ZodOptional<z.ZodString>;
                 }, z.core.$strip>>;
-                attributes: z.ZodArray<z.ZodObject<{
+                attributes: z.ZodDefault<z.ZodArray<z.ZodObject<{
                     name: z.ZodString;
                     type: z.ZodString;
                     description: z.ZodOptional<z.ZodString>;
-                }, z.core.$strip>>;
-                methods: z.ZodArray<z.ZodObject<{
+                }, z.core.$strip>>>;
+                methods: z.ZodDefault<z.ZodArray<z.ZodObject<{
                     name: z.ZodString;
                     signature: z.ZodOptional<z.ZodString>;
                     summary: z.ZodString;
@@ -2040,11 +2040,11 @@ export declare const conflictCheckRequestSchema: z.ZodObject<{
                         }>>;
                         description: z.ZodOptional<z.ZodString>;
                     }, z.core.$strip>>;
-                }, z.core.$strip>>;
-                sideEffects: z.ZodArray<z.ZodString>;
-                errors: z.ZodArray<z.ZodString>;
-                dependencies: z.ZodArray<z.ZodString>;
-                calls: z.ZodArray<z.ZodObject<{
+                }, z.core.$strip>>>;
+                sideEffects: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                errors: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                dependencies: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                calls: z.ZodDefault<z.ZodArray<z.ZodObject<{
                     target: z.ZodString;
                     kind: z.ZodOptional<z.ZodEnum<{
                         imports: "imports";
@@ -2057,12 +2057,12 @@ export declare const conflictCheckRequestSchema: z.ZodObject<{
                         "writes-state": "writes-state";
                     }>>;
                     description: z.ZodOptional<z.ZodString>;
-                }, z.core.$strip>>;
-                uiAccess: z.ZodArray<z.ZodString>;
-                backendAccess: z.ZodArray<z.ZodString>;
-                notes: z.ZodArray<z.ZodString>;
+                }, z.core.$strip>>>;
+                uiAccess: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                backendAccess: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                notes: z.ZodDefault<z.ZodArray<z.ZodString>>;
             }, z.core.$strip>;
-            sourceRefs: z.ZodArray<z.ZodObject<{
+            sourceRefs: z.ZodDefault<z.ZodArray<z.ZodObject<{
                 kind: z.ZodEnum<{
                     prd: "prd";
                     repo: "repo";
@@ -2073,9 +2073,9 @@ export declare const conflictCheckRequestSchema: z.ZodObject<{
                 symbol: z.ZodOptional<z.ZodString>;
                 section: z.ZodOptional<z.ZodString>;
                 detail: z.ZodOptional<z.ZodString>;
-            }, z.core.$strip>>;
-            generatedRefs: z.ZodArray<z.ZodString>;
-            traceRefs: z.ZodArray<z.ZodString>;
+            }, z.core.$strip>>>;
+            generatedRefs: z.ZodDefault<z.ZodArray<z.ZodString>>;
+            traceRefs: z.ZodDefault<z.ZodArray<z.ZodString>>;
             traceState: z.ZodOptional<z.ZodObject<{
                 status: z.ZodEnum<{
                     error: "error";
@@ -2189,12 +2189,12 @@ export declare const exportBlueprintRequestSchema: z.ZodObject<{
                     type: z.ZodString;
                     description: z.ZodOptional<z.ZodString>;
                 }, z.core.$strip>>;
-                attributes: z.ZodArray<z.ZodObject<{
+                attributes: z.ZodDefault<z.ZodArray<z.ZodObject<{
                     name: z.ZodString;
                     type: z.ZodString;
                     description: z.ZodOptional<z.ZodString>;
-                }, z.core.$strip>>;
-                methods: z.ZodArray<z.ZodObject<{
+                }, z.core.$strip>>>;
+                methods: z.ZodDefault<z.ZodArray<z.ZodObject<{
                     name: z.ZodString;
                     signature: z.ZodOptional<z.ZodString>;
                     summary: z.ZodString;
@@ -2223,11 +2223,11 @@ export declare const exportBlueprintRequestSchema: z.ZodObject<{
                         }>>;
                         description: z.ZodOptional<z.ZodString>;
                     }, z.core.$strip>>;
-                }, z.core.$strip>>;
-                sideEffects: z.ZodArray<z.ZodString>;
-                errors: z.ZodArray<z.ZodString>;
-                dependencies: z.ZodArray<z.ZodString>;
-                calls: z.ZodArray<z.ZodObject<{
+                }, z.core.$strip>>>;
+                sideEffects: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                errors: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                dependencies: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                calls: z.ZodDefault<z.ZodArray<z.ZodObject<{
                     target: z.ZodString;
                     kind: z.ZodOptional<z.ZodEnum<{
                         imports: "imports";
@@ -2240,12 +2240,12 @@ export declare const exportBlueprintRequestSchema: z.ZodObject<{
                         "writes-state": "writes-state";
                     }>>;
                     description: z.ZodOptional<z.ZodString>;
-                }, z.core.$strip>>;
-                uiAccess: z.ZodArray<z.ZodString>;
-                backendAccess: z.ZodArray<z.ZodString>;
-                notes: z.ZodArray<z.ZodString>;
+                }, z.core.$strip>>>;
+                uiAccess: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                backendAccess: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                notes: z.ZodDefault<z.ZodArray<z.ZodString>>;
             }, z.core.$strip>;
-            sourceRefs: z.ZodArray<z.ZodObject<{
+            sourceRefs: z.ZodDefault<z.ZodArray<z.ZodObject<{
                 kind: z.ZodEnum<{
                     prd: "prd";
                     repo: "repo";
@@ -2256,9 +2256,9 @@ export declare const exportBlueprintRequestSchema: z.ZodObject<{
                 symbol: z.ZodOptional<z.ZodString>;
                 section: z.ZodOptional<z.ZodString>;
                 detail: z.ZodOptional<z.ZodString>;
-            }, z.core.$strip>>;
-            generatedRefs: z.ZodArray<z.ZodString>;
-            traceRefs: z.ZodArray<z.ZodString>;
+            }, z.core.$strip>>>;
+            generatedRefs: z.ZodDefault<z.ZodArray<z.ZodString>>;
+            traceRefs: z.ZodDefault<z.ZodArray<z.ZodString>>;
             traceState: z.ZodOptional<z.ZodObject<{
                 status: z.ZodEnum<{
                     error: "error";
@@ -2368,12 +2368,12 @@ export declare const runtimeExecutionRequestSchema: z.ZodObject<{
                     type: z.ZodString;
                     description: z.ZodOptional<z.ZodString>;
                 }, z.core.$strip>>;
-                attributes: z.ZodArray<z.ZodObject<{
+                attributes: z.ZodDefault<z.ZodArray<z.ZodObject<{
                     name: z.ZodString;
                     type: z.ZodString;
                     description: z.ZodOptional<z.ZodString>;
-                }, z.core.$strip>>;
-                methods: z.ZodArray<z.ZodObject<{
+                }, z.core.$strip>>>;
+                methods: z.ZodDefault<z.ZodArray<z.ZodObject<{
                     name: z.ZodString;
                     signature: z.ZodOptional<z.ZodString>;
                     summary: z.ZodString;
@@ -2402,11 +2402,11 @@ export declare const runtimeExecutionRequestSchema: z.ZodObject<{
                         }>>;
                         description: z.ZodOptional<z.ZodString>;
                     }, z.core.$strip>>;
-                }, z.core.$strip>>;
-                sideEffects: z.ZodArray<z.ZodString>;
-                errors: z.ZodArray<z.ZodString>;
-                dependencies: z.ZodArray<z.ZodString>;
-                calls: z.ZodArray<z.ZodObject<{
+                }, z.core.$strip>>>;
+                sideEffects: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                errors: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                dependencies: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                calls: z.ZodDefault<z.ZodArray<z.ZodObject<{
                     target: z.ZodString;
                     kind: z.ZodOptional<z.ZodEnum<{
                         imports: "imports";
@@ -2419,12 +2419,12 @@ export declare const runtimeExecutionRequestSchema: z.ZodObject<{
                         "writes-state": "writes-state";
                     }>>;
                     description: z.ZodOptional<z.ZodString>;
-                }, z.core.$strip>>;
-                uiAccess: z.ZodArray<z.ZodString>;
-                backendAccess: z.ZodArray<z.ZodString>;
-                notes: z.ZodArray<z.ZodString>;
+                }, z.core.$strip>>>;
+                uiAccess: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                backendAccess: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                notes: z.ZodDefault<z.ZodArray<z.ZodString>>;
             }, z.core.$strip>;
-            sourceRefs: z.ZodArray<z.ZodObject<{
+            sourceRefs: z.ZodDefault<z.ZodArray<z.ZodObject<{
                 kind: z.ZodEnum<{
                     prd: "prd";
                     repo: "repo";
@@ -2435,9 +2435,9 @@ export declare const runtimeExecutionRequestSchema: z.ZodObject<{
                 symbol: z.ZodOptional<z.ZodString>;
                 section: z.ZodOptional<z.ZodString>;
                 detail: z.ZodOptional<z.ZodString>;
-            }, z.core.$strip>>;
-            generatedRefs: z.ZodArray<z.ZodString>;
-            traceRefs: z.ZodArray<z.ZodString>;
+            }, z.core.$strip>>>;
+            generatedRefs: z.ZodDefault<z.ZodArray<z.ZodString>>;
+            traceRefs: z.ZodDefault<z.ZodArray<z.ZodString>>;
             traceState: z.ZodOptional<z.ZodObject<{
                 status: z.ZodEnum<{
                     error: "error";
@@ -2662,12 +2662,12 @@ export declare const runtimeTestRequestSchema: z.ZodObject<{
                     type: z.ZodString;
                     description: z.ZodOptional<z.ZodString>;
                 }, z.core.$strip>>;
-                attributes: z.ZodArray<z.ZodObject<{
+                attributes: z.ZodDefault<z.ZodArray<z.ZodObject<{
                     name: z.ZodString;
                     type: z.ZodString;
                     description: z.ZodOptional<z.ZodString>;
-                }, z.core.$strip>>;
-                methods: z.ZodArray<z.ZodObject<{
+                }, z.core.$strip>>>;
+                methods: z.ZodDefault<z.ZodArray<z.ZodObject<{
                     name: z.ZodString;
                     signature: z.ZodOptional<z.ZodString>;
                     summary: z.ZodString;
@@ -2696,11 +2696,11 @@ export declare const runtimeTestRequestSchema: z.ZodObject<{
                         }>>;
                         description: z.ZodOptional<z.ZodString>;
                     }, z.core.$strip>>;
-                }, z.core.$strip>>;
-                sideEffects: z.ZodArray<z.ZodString>;
-                errors: z.ZodArray<z.ZodString>;
-                dependencies: z.ZodArray<z.ZodString>;
-                calls: z.ZodArray<z.ZodObject<{
+                }, z.core.$strip>>>;
+                sideEffects: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                errors: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                dependencies: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                calls: z.ZodDefault<z.ZodArray<z.ZodObject<{
                     target: z.ZodString;
                     kind: z.ZodOptional<z.ZodEnum<{
                         imports: "imports";
@@ -2713,12 +2713,12 @@ export declare const runtimeTestRequestSchema: z.ZodObject<{
                         "writes-state": "writes-state";
                     }>>;
                     description: z.ZodOptional<z.ZodString>;
-                }, z.core.$strip>>;
-                uiAccess: z.ZodArray<z.ZodString>;
-                backendAccess: z.ZodArray<z.ZodString>;
-                notes: z.ZodArray<z.ZodString>;
+                }, z.core.$strip>>>;
+                uiAccess: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                backendAccess: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                notes: z.ZodDefault<z.ZodArray<z.ZodString>>;
             }, z.core.$strip>;
-            sourceRefs: z.ZodArray<z.ZodObject<{
+            sourceRefs: z.ZodDefault<z.ZodArray<z.ZodObject<{
                 kind: z.ZodEnum<{
                     prd: "prd";
                     repo: "repo";
@@ -2729,9 +2729,9 @@ export declare const runtimeTestRequestSchema: z.ZodObject<{
                 symbol: z.ZodOptional<z.ZodString>;
                 section: z.ZodOptional<z.ZodString>;
                 detail: z.ZodOptional<z.ZodString>;
-            }, z.core.$strip>>;
-            generatedRefs: z.ZodArray<z.ZodString>;
-            traceRefs: z.ZodArray<z.ZodString>;
+            }, z.core.$strip>>>;
+            generatedRefs: z.ZodDefault<z.ZodArray<z.ZodString>>;
+            traceRefs: z.ZodDefault<z.ZodArray<z.ZodString>>;
             traceState: z.ZodOptional<z.ZodObject<{
                 status: z.ZodEnum<{
                     error: "error";
@@ -3041,12 +3041,12 @@ export declare const graphBranchSchema: z.ZodObject<{
                     type: z.ZodString;
                     description: z.ZodOptional<z.ZodString>;
                 }, z.core.$strip>>;
-                attributes: z.ZodArray<z.ZodObject<{
+                attributes: z.ZodDefault<z.ZodArray<z.ZodObject<{
                     name: z.ZodString;
                     type: z.ZodString;
                     description: z.ZodOptional<z.ZodString>;
-                }, z.core.$strip>>;
-                methods: z.ZodArray<z.ZodObject<{
+                }, z.core.$strip>>>;
+                methods: z.ZodDefault<z.ZodArray<z.ZodObject<{
                     name: z.ZodString;
                     signature: z.ZodOptional<z.ZodString>;
                     summary: z.ZodString;
@@ -3075,11 +3075,11 @@ export declare const graphBranchSchema: z.ZodObject<{
                         }>>;
                         description: z.ZodOptional<z.ZodString>;
                     }, z.core.$strip>>;
-                }, z.core.$strip>>;
-                sideEffects: z.ZodArray<z.ZodString>;
-                errors: z.ZodArray<z.ZodString>;
-                dependencies: z.ZodArray<z.ZodString>;
-                calls: z.ZodArray<z.ZodObject<{
+                }, z.core.$strip>>>;
+                sideEffects: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                errors: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                dependencies: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                calls: z.ZodDefault<z.ZodArray<z.ZodObject<{
                     target: z.ZodString;
                     kind: z.ZodOptional<z.ZodEnum<{
                         imports: "imports";
@@ -3092,12 +3092,12 @@ export declare const graphBranchSchema: z.ZodObject<{
                         "writes-state": "writes-state";
                     }>>;
                     description: z.ZodOptional<z.ZodString>;
-                }, z.core.$strip>>;
-                uiAccess: z.ZodArray<z.ZodString>;
-                backendAccess: z.ZodArray<z.ZodString>;
-                notes: z.ZodArray<z.ZodString>;
+                }, z.core.$strip>>>;
+                uiAccess: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                backendAccess: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                notes: z.ZodDefault<z.ZodArray<z.ZodString>>;
             }, z.core.$strip>;
-            sourceRefs: z.ZodArray<z.ZodObject<{
+            sourceRefs: z.ZodDefault<z.ZodArray<z.ZodObject<{
                 kind: z.ZodEnum<{
                     prd: "prd";
                     repo: "repo";
@@ -3108,9 +3108,9 @@ export declare const graphBranchSchema: z.ZodObject<{
                 symbol: z.ZodOptional<z.ZodString>;
                 section: z.ZodOptional<z.ZodString>;
                 detail: z.ZodOptional<z.ZodString>;
-            }, z.core.$strip>>;
-            generatedRefs: z.ZodArray<z.ZodString>;
-            traceRefs: z.ZodArray<z.ZodString>;
+            }, z.core.$strip>>>;
+            generatedRefs: z.ZodDefault<z.ZodArray<z.ZodString>>;
+            traceRefs: z.ZodDefault<z.ZodArray<z.ZodString>>;
             traceState: z.ZodOptional<z.ZodObject<{
                 status: z.ZodEnum<{
                     error: "error";
@@ -3222,12 +3222,12 @@ export declare const nodeDiffSchema: z.ZodObject<{
                 type: z.ZodString;
                 description: z.ZodOptional<z.ZodString>;
             }, z.core.$strip>>;
-            attributes: z.ZodArray<z.ZodObject<{
+            attributes: z.ZodDefault<z.ZodArray<z.ZodObject<{
                 name: z.ZodString;
                 type: z.ZodString;
                 description: z.ZodOptional<z.ZodString>;
-            }, z.core.$strip>>;
-            methods: z.ZodArray<z.ZodObject<{
+            }, z.core.$strip>>>;
+            methods: z.ZodDefault<z.ZodArray<z.ZodObject<{
                 name: z.ZodString;
                 signature: z.ZodOptional<z.ZodString>;
                 summary: z.ZodString;
@@ -3256,11 +3256,11 @@ export declare const nodeDiffSchema: z.ZodObject<{
                     }>>;
                     description: z.ZodOptional<z.ZodString>;
                 }, z.core.$strip>>;
-            }, z.core.$strip>>;
-            sideEffects: z.ZodArray<z.ZodString>;
-            errors: z.ZodArray<z.ZodString>;
-            dependencies: z.ZodArray<z.ZodString>;
-            calls: z.ZodArray<z.ZodObject<{
+            }, z.core.$strip>>>;
+            sideEffects: z.ZodDefault<z.ZodArray<z.ZodString>>;
+            errors: z.ZodDefault<z.ZodArray<z.ZodString>>;
+            dependencies: z.ZodDefault<z.ZodArray<z.ZodString>>;
+            calls: z.ZodDefault<z.ZodArray<z.ZodObject<{
                 target: z.ZodString;
                 kind: z.ZodOptional<z.ZodEnum<{
                     imports: "imports";
@@ -3273,12 +3273,12 @@ export declare const nodeDiffSchema: z.ZodObject<{
                     "writes-state": "writes-state";
                 }>>;
                 description: z.ZodOptional<z.ZodString>;
-            }, z.core.$strip>>;
-            uiAccess: z.ZodArray<z.ZodString>;
-            backendAccess: z.ZodArray<z.ZodString>;
-            notes: z.ZodArray<z.ZodString>;
+            }, z.core.$strip>>>;
+            uiAccess: z.ZodDefault<z.ZodArray<z.ZodString>>;
+            backendAccess: z.ZodDefault<z.ZodArray<z.ZodString>>;
+            notes: z.ZodDefault<z.ZodArray<z.ZodString>>;
         }, z.core.$strip>;
-        sourceRefs: z.ZodArray<z.ZodObject<{
+        sourceRefs: z.ZodDefault<z.ZodArray<z.ZodObject<{
             kind: z.ZodEnum<{
                 prd: "prd";
                 repo: "repo";
@@ -3289,9 +3289,9 @@ export declare const nodeDiffSchema: z.ZodObject<{
             symbol: z.ZodOptional<z.ZodString>;
             section: z.ZodOptional<z.ZodString>;
             detail: z.ZodOptional<z.ZodString>;
-        }, z.core.$strip>>;
-        generatedRefs: z.ZodArray<z.ZodString>;
-        traceRefs: z.ZodArray<z.ZodString>;
+        }, z.core.$strip>>>;
+        generatedRefs: z.ZodDefault<z.ZodArray<z.ZodString>>;
+        traceRefs: z.ZodDefault<z.ZodArray<z.ZodString>>;
         traceState: z.ZodOptional<z.ZodObject<{
             status: z.ZodEnum<{
                 error: "error";
@@ -3356,12 +3356,12 @@ export declare const nodeDiffSchema: z.ZodObject<{
                 type: z.ZodString;
                 description: z.ZodOptional<z.ZodString>;
             }, z.core.$strip>>;
-            attributes: z.ZodArray<z.ZodObject<{
+            attributes: z.ZodDefault<z.ZodArray<z.ZodObject<{
                 name: z.ZodString;
                 type: z.ZodString;
                 description: z.ZodOptional<z.ZodString>;
-            }, z.core.$strip>>;
-            methods: z.ZodArray<z.ZodObject<{
+            }, z.core.$strip>>>;
+            methods: z.ZodDefault<z.ZodArray<z.ZodObject<{
                 name: z.ZodString;
                 signature: z.ZodOptional<z.ZodString>;
                 summary: z.ZodString;
@@ -3390,11 +3390,11 @@ export declare const nodeDiffSchema: z.ZodObject<{
                     }>>;
                     description: z.ZodOptional<z.ZodString>;
                 }, z.core.$strip>>;
-            }, z.core.$strip>>;
-            sideEffects: z.ZodArray<z.ZodString>;
-            errors: z.ZodArray<z.ZodString>;
-            dependencies: z.ZodArray<z.ZodString>;
-            calls: z.ZodArray<z.ZodObject<{
+            }, z.core.$strip>>>;
+            sideEffects: z.ZodDefault<z.ZodArray<z.ZodString>>;
+            errors: z.ZodDefault<z.ZodArray<z.ZodString>>;
+            dependencies: z.ZodDefault<z.ZodArray<z.ZodString>>;
+            calls: z.ZodDefault<z.ZodArray<z.ZodObject<{
                 target: z.ZodString;
                 kind: z.ZodOptional<z.ZodEnum<{
                     imports: "imports";
@@ -3407,12 +3407,12 @@ export declare const nodeDiffSchema: z.ZodObject<{
                     "writes-state": "writes-state";
                 }>>;
                 description: z.ZodOptional<z.ZodString>;
-            }, z.core.$strip>>;
-            uiAccess: z.ZodArray<z.ZodString>;
-            backendAccess: z.ZodArray<z.ZodString>;
-            notes: z.ZodArray<z.ZodString>;
+            }, z.core.$strip>>>;
+            uiAccess: z.ZodDefault<z.ZodArray<z.ZodString>>;
+            backendAccess: z.ZodDefault<z.ZodArray<z.ZodString>>;
+            notes: z.ZodDefault<z.ZodArray<z.ZodString>>;
         }, z.core.$strip>;
-        sourceRefs: z.ZodArray<z.ZodObject<{
+        sourceRefs: z.ZodDefault<z.ZodArray<z.ZodObject<{
             kind: z.ZodEnum<{
                 prd: "prd";
                 repo: "repo";
@@ -3423,9 +3423,9 @@ export declare const nodeDiffSchema: z.ZodObject<{
             symbol: z.ZodOptional<z.ZodString>;
             section: z.ZodOptional<z.ZodString>;
             detail: z.ZodOptional<z.ZodString>;
-        }, z.core.$strip>>;
-        generatedRefs: z.ZodArray<z.ZodString>;
-        traceRefs: z.ZodArray<z.ZodString>;
+        }, z.core.$strip>>>;
+        generatedRefs: z.ZodDefault<z.ZodArray<z.ZodString>>;
+        traceRefs: z.ZodDefault<z.ZodArray<z.ZodString>>;
         traceState: z.ZodOptional<z.ZodObject<{
             status: z.ZodEnum<{
                 error: "error";
@@ -3531,12 +3531,12 @@ export declare const branchDiffSchema: z.ZodObject<{
                     type: z.ZodString;
                     description: z.ZodOptional<z.ZodString>;
                 }, z.core.$strip>>;
-                attributes: z.ZodArray<z.ZodObject<{
+                attributes: z.ZodDefault<z.ZodArray<z.ZodObject<{
                     name: z.ZodString;
                     type: z.ZodString;
                     description: z.ZodOptional<z.ZodString>;
-                }, z.core.$strip>>;
-                methods: z.ZodArray<z.ZodObject<{
+                }, z.core.$strip>>>;
+                methods: z.ZodDefault<z.ZodArray<z.ZodObject<{
                     name: z.ZodString;
                     signature: z.ZodOptional<z.ZodString>;
                     summary: z.ZodString;
@@ -3565,11 +3565,11 @@ export declare const branchDiffSchema: z.ZodObject<{
                         }>>;
                         description: z.ZodOptional<z.ZodString>;
                     }, z.core.$strip>>;
-                }, z.core.$strip>>;
-                sideEffects: z.ZodArray<z.ZodString>;
-                errors: z.ZodArray<z.ZodString>;
-                dependencies: z.ZodArray<z.ZodString>;
-                calls: z.ZodArray<z.ZodObject<{
+                }, z.core.$strip>>>;
+                sideEffects: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                errors: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                dependencies: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                calls: z.ZodDefault<z.ZodArray<z.ZodObject<{
                     target: z.ZodString;
                     kind: z.ZodOptional<z.ZodEnum<{
                         imports: "imports";
@@ -3582,12 +3582,12 @@ export declare const branchDiffSchema: z.ZodObject<{
                         "writes-state": "writes-state";
                     }>>;
                     description: z.ZodOptional<z.ZodString>;
-                }, z.core.$strip>>;
-                uiAccess: z.ZodArray<z.ZodString>;
-                backendAccess: z.ZodArray<z.ZodString>;
-                notes: z.ZodArray<z.ZodString>;
+                }, z.core.$strip>>>;
+                uiAccess: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                backendAccess: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                notes: z.ZodDefault<z.ZodArray<z.ZodString>>;
             }, z.core.$strip>;
-            sourceRefs: z.ZodArray<z.ZodObject<{
+            sourceRefs: z.ZodDefault<z.ZodArray<z.ZodObject<{
                 kind: z.ZodEnum<{
                     prd: "prd";
                     repo: "repo";
@@ -3598,9 +3598,9 @@ export declare const branchDiffSchema: z.ZodObject<{
                 symbol: z.ZodOptional<z.ZodString>;
                 section: z.ZodOptional<z.ZodString>;
                 detail: z.ZodOptional<z.ZodString>;
-            }, z.core.$strip>>;
-            generatedRefs: z.ZodArray<z.ZodString>;
-            traceRefs: z.ZodArray<z.ZodString>;
+            }, z.core.$strip>>>;
+            generatedRefs: z.ZodDefault<z.ZodArray<z.ZodString>>;
+            traceRefs: z.ZodDefault<z.ZodArray<z.ZodString>>;
             traceState: z.ZodOptional<z.ZodObject<{
                 status: z.ZodEnum<{
                     error: "error";
@@ -3665,12 +3665,12 @@ export declare const branchDiffSchema: z.ZodObject<{
                     type: z.ZodString;
                     description: z.ZodOptional<z.ZodString>;
                 }, z.core.$strip>>;
-                attributes: z.ZodArray<z.ZodObject<{
+                attributes: z.ZodDefault<z.ZodArray<z.ZodObject<{
                     name: z.ZodString;
                     type: z.ZodString;
                     description: z.ZodOptional<z.ZodString>;
-                }, z.core.$strip>>;
-                methods: z.ZodArray<z.ZodObject<{
+                }, z.core.$strip>>>;
+                methods: z.ZodDefault<z.ZodArray<z.ZodObject<{
                     name: z.ZodString;
                     signature: z.ZodOptional<z.ZodString>;
                     summary: z.ZodString;
@@ -3699,11 +3699,11 @@ export declare const branchDiffSchema: z.ZodObject<{
                         }>>;
                         description: z.ZodOptional<z.ZodString>;
                     }, z.core.$strip>>;
-                }, z.core.$strip>>;
-                sideEffects: z.ZodArray<z.ZodString>;
-                errors: z.ZodArray<z.ZodString>;
-                dependencies: z.ZodArray<z.ZodString>;
-                calls: z.ZodArray<z.ZodObject<{
+                }, z.core.$strip>>>;
+                sideEffects: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                errors: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                dependencies: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                calls: z.ZodDefault<z.ZodArray<z.ZodObject<{
                     target: z.ZodString;
                     kind: z.ZodOptional<z.ZodEnum<{
                         imports: "imports";
@@ -3716,12 +3716,12 @@ export declare const branchDiffSchema: z.ZodObject<{
                         "writes-state": "writes-state";
                     }>>;
                     description: z.ZodOptional<z.ZodString>;
-                }, z.core.$strip>>;
-                uiAccess: z.ZodArray<z.ZodString>;
-                backendAccess: z.ZodArray<z.ZodString>;
-                notes: z.ZodArray<z.ZodString>;
+                }, z.core.$strip>>>;
+                uiAccess: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                backendAccess: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                notes: z.ZodDefault<z.ZodArray<z.ZodString>>;
             }, z.core.$strip>;
-            sourceRefs: z.ZodArray<z.ZodObject<{
+            sourceRefs: z.ZodDefault<z.ZodArray<z.ZodObject<{
                 kind: z.ZodEnum<{
                     prd: "prd";
                     repo: "repo";
@@ -3732,9 +3732,9 @@ export declare const branchDiffSchema: z.ZodObject<{
                 symbol: z.ZodOptional<z.ZodString>;
                 section: z.ZodOptional<z.ZodString>;
                 detail: z.ZodOptional<z.ZodString>;
-            }, z.core.$strip>>;
-            generatedRefs: z.ZodArray<z.ZodString>;
-            traceRefs: z.ZodArray<z.ZodString>;
+            }, z.core.$strip>>>;
+            generatedRefs: z.ZodDefault<z.ZodArray<z.ZodString>>;
+            traceRefs: z.ZodDefault<z.ZodArray<z.ZodString>>;
             traceState: z.ZodOptional<z.ZodObject<{
                 status: z.ZodEnum<{
                     error: "error";
@@ -4004,12 +4004,12 @@ export declare const architectureVariantSchema: z.ZodObject<{
                     type: z.ZodString;
                     description: z.ZodOptional<z.ZodString>;
                 }, z.core.$strip>>;
-                attributes: z.ZodArray<z.ZodObject<{
+                attributes: z.ZodDefault<z.ZodArray<z.ZodObject<{
                     name: z.ZodString;
                     type: z.ZodString;
                     description: z.ZodOptional<z.ZodString>;
-                }, z.core.$strip>>;
-                methods: z.ZodArray<z.ZodObject<{
+                }, z.core.$strip>>>;
+                methods: z.ZodDefault<z.ZodArray<z.ZodObject<{
                     name: z.ZodString;
                     signature: z.ZodOptional<z.ZodString>;
                     summary: z.ZodString;
@@ -4038,11 +4038,11 @@ export declare const architectureVariantSchema: z.ZodObject<{
                         }>>;
                         description: z.ZodOptional<z.ZodString>;
                     }, z.core.$strip>>;
-                }, z.core.$strip>>;
-                sideEffects: z.ZodArray<z.ZodString>;
-                errors: z.ZodArray<z.ZodString>;
-                dependencies: z.ZodArray<z.ZodString>;
-                calls: z.ZodArray<z.ZodObject<{
+                }, z.core.$strip>>>;
+                sideEffects: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                errors: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                dependencies: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                calls: z.ZodDefault<z.ZodArray<z.ZodObject<{
                     target: z.ZodString;
                     kind: z.ZodOptional<z.ZodEnum<{
                         imports: "imports";
@@ -4055,12 +4055,12 @@ export declare const architectureVariantSchema: z.ZodObject<{
                         "writes-state": "writes-state";
                     }>>;
                     description: z.ZodOptional<z.ZodString>;
-                }, z.core.$strip>>;
-                uiAccess: z.ZodArray<z.ZodString>;
-                backendAccess: z.ZodArray<z.ZodString>;
-                notes: z.ZodArray<z.ZodString>;
+                }, z.core.$strip>>>;
+                uiAccess: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                backendAccess: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                notes: z.ZodDefault<z.ZodArray<z.ZodString>>;
             }, z.core.$strip>;
-            sourceRefs: z.ZodArray<z.ZodObject<{
+            sourceRefs: z.ZodDefault<z.ZodArray<z.ZodObject<{
                 kind: z.ZodEnum<{
                     prd: "prd";
                     repo: "repo";
@@ -4071,9 +4071,9 @@ export declare const architectureVariantSchema: z.ZodObject<{
                 symbol: z.ZodOptional<z.ZodString>;
                 section: z.ZodOptional<z.ZodString>;
                 detail: z.ZodOptional<z.ZodString>;
-            }, z.core.$strip>>;
-            generatedRefs: z.ZodArray<z.ZodString>;
-            traceRefs: z.ZodArray<z.ZodString>;
+            }, z.core.$strip>>>;
+            generatedRefs: z.ZodDefault<z.ZodArray<z.ZodString>>;
+            traceRefs: z.ZodDefault<z.ZodArray<z.ZodString>>;
             traceState: z.ZodOptional<z.ZodObject<{
                 status: z.ZodEnum<{
                     error: "error";
@@ -4223,12 +4223,12 @@ export declare const tournamentResultSchema: z.ZodObject<{
                         type: z.ZodString;
                         description: z.ZodOptional<z.ZodString>;
                     }, z.core.$strip>>;
-                    attributes: z.ZodArray<z.ZodObject<{
+                    attributes: z.ZodDefault<z.ZodArray<z.ZodObject<{
                         name: z.ZodString;
                         type: z.ZodString;
                         description: z.ZodOptional<z.ZodString>;
-                    }, z.core.$strip>>;
-                    methods: z.ZodArray<z.ZodObject<{
+                    }, z.core.$strip>>>;
+                    methods: z.ZodDefault<z.ZodArray<z.ZodObject<{
                         name: z.ZodString;
                         signature: z.ZodOptional<z.ZodString>;
                         summary: z.ZodString;
@@ -4257,11 +4257,11 @@ export declare const tournamentResultSchema: z.ZodObject<{
                             }>>;
                             description: z.ZodOptional<z.ZodString>;
                         }, z.core.$strip>>;
-                    }, z.core.$strip>>;
-                    sideEffects: z.ZodArray<z.ZodString>;
-                    errors: z.ZodArray<z.ZodString>;
-                    dependencies: z.ZodArray<z.ZodString>;
-                    calls: z.ZodArray<z.ZodObject<{
+                    }, z.core.$strip>>>;
+                    sideEffects: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                    errors: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                    dependencies: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                    calls: z.ZodDefault<z.ZodArray<z.ZodObject<{
                         target: z.ZodString;
                         kind: z.ZodOptional<z.ZodEnum<{
                             imports: "imports";
@@ -4274,12 +4274,12 @@ export declare const tournamentResultSchema: z.ZodObject<{
                             "writes-state": "writes-state";
                         }>>;
                         description: z.ZodOptional<z.ZodString>;
-                    }, z.core.$strip>>;
-                    uiAccess: z.ZodArray<z.ZodString>;
-                    backendAccess: z.ZodArray<z.ZodString>;
-                    notes: z.ZodArray<z.ZodString>;
+                    }, z.core.$strip>>>;
+                    uiAccess: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                    backendAccess: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                    notes: z.ZodDefault<z.ZodArray<z.ZodString>>;
                 }, z.core.$strip>;
-                sourceRefs: z.ZodArray<z.ZodObject<{
+                sourceRefs: z.ZodDefault<z.ZodArray<z.ZodObject<{
                     kind: z.ZodEnum<{
                         prd: "prd";
                         repo: "repo";
@@ -4290,9 +4290,9 @@ export declare const tournamentResultSchema: z.ZodObject<{
                     symbol: z.ZodOptional<z.ZodString>;
                     section: z.ZodOptional<z.ZodString>;
                     detail: z.ZodOptional<z.ZodString>;
-                }, z.core.$strip>>;
-                generatedRefs: z.ZodArray<z.ZodString>;
-                traceRefs: z.ZodArray<z.ZodString>;
+                }, z.core.$strip>>>;
+                generatedRefs: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                traceRefs: z.ZodDefault<z.ZodArray<z.ZodString>>;
                 traceState: z.ZodOptional<z.ZodObject<{
                     status: z.ZodEnum<{
                         error: "error";
@@ -4420,12 +4420,12 @@ export declare const evolveArchitectureRequestSchema: z.ZodObject<{
                     type: z.ZodString;
                     description: z.ZodOptional<z.ZodString>;
                 }, z.core.$strip>>;
-                attributes: z.ZodArray<z.ZodObject<{
+                attributes: z.ZodDefault<z.ZodArray<z.ZodObject<{
                     name: z.ZodString;
                     type: z.ZodString;
                     description: z.ZodOptional<z.ZodString>;
-                }, z.core.$strip>>;
-                methods: z.ZodArray<z.ZodObject<{
+                }, z.core.$strip>>>;
+                methods: z.ZodDefault<z.ZodArray<z.ZodObject<{
                     name: z.ZodString;
                     signature: z.ZodOptional<z.ZodString>;
                     summary: z.ZodString;
@@ -4454,11 +4454,11 @@ export declare const evolveArchitectureRequestSchema: z.ZodObject<{
                         }>>;
                         description: z.ZodOptional<z.ZodString>;
                     }, z.core.$strip>>;
-                }, z.core.$strip>>;
-                sideEffects: z.ZodArray<z.ZodString>;
-                errors: z.ZodArray<z.ZodString>;
-                dependencies: z.ZodArray<z.ZodString>;
-                calls: z.ZodArray<z.ZodObject<{
+                }, z.core.$strip>>>;
+                sideEffects: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                errors: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                dependencies: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                calls: z.ZodDefault<z.ZodArray<z.ZodObject<{
                     target: z.ZodString;
                     kind: z.ZodOptional<z.ZodEnum<{
                         imports: "imports";
@@ -4471,12 +4471,12 @@ export declare const evolveArchitectureRequestSchema: z.ZodObject<{
                         "writes-state": "writes-state";
                     }>>;
                     description: z.ZodOptional<z.ZodString>;
-                }, z.core.$strip>>;
-                uiAccess: z.ZodArray<z.ZodString>;
-                backendAccess: z.ZodArray<z.ZodString>;
-                notes: z.ZodArray<z.ZodString>;
+                }, z.core.$strip>>>;
+                uiAccess: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                backendAccess: z.ZodDefault<z.ZodArray<z.ZodString>>;
+                notes: z.ZodDefault<z.ZodArray<z.ZodString>>;
             }, z.core.$strip>;
-            sourceRefs: z.ZodArray<z.ZodObject<{
+            sourceRefs: z.ZodDefault<z.ZodArray<z.ZodObject<{
                 kind: z.ZodEnum<{
                     prd: "prd";
                     repo: "repo";
@@ -4487,9 +4487,9 @@ export declare const evolveArchitectureRequestSchema: z.ZodObject<{
                 symbol: z.ZodOptional<z.ZodString>;
                 section: z.ZodOptional<z.ZodString>;
                 detail: z.ZodOptional<z.ZodString>;
-            }, z.core.$strip>>;
-            generatedRefs: z.ZodArray<z.ZodString>;
-            traceRefs: z.ZodArray<z.ZodString>;
+            }, z.core.$strip>>>;
+            generatedRefs: z.ZodDefault<z.ZodArray<z.ZodString>>;
+            traceRefs: z.ZodDefault<z.ZodArray<z.ZodString>>;
             traceState: z.ZodOptional<z.ZodObject<{
                 status: z.ZodEnum<{
                     error: "error";

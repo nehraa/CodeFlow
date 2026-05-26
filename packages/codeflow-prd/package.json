@@ -1,6 +1,6 @@
 {
   "name": "@abhinav2203/codeflow-prd",
-  "version": "0.1.1",
+  "version": "0.1.3",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -14,8 +14,8 @@
     "build": "tsc --outDir dist --declaration --declarationMap --noEmit false"
   },
   "dependencies": {
-    "@abhinav2203/codeflow-core": "workspace:*",
-    "@abhinav2203/codeflow-store": "workspace:*",
+    "@abhinav2203/codeflow-core": "^1.1.5",
+    "@abhinav2203/codeflow-store": "^1.0.14",
     "zod": "^3.0.0"
   },
   "devDependencies": {

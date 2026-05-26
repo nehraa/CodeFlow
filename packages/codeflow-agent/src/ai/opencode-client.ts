@@ -2,13 +2,23 @@
  * OpenCode HTTP client for code generation.
  *
  * Uses the OpenCode HTTP API (not CLI) to generate code from prompts.
+ *
+ * Supported providers (for OpenCode configuration):
+ * - anthropic, openai, google, azure, bedrock, cohere, groq, mistral,
+ * - perplexity, openrouter, minimax, local
  */
 
 const OPENCODE_DEFAULT_URL = 'http://127.0.0.1:8080';
 
+export type OpenCodeProvider =
+  | 'anthropic' | 'openai' | 'google' | 'azure' | 'bedrock'
+  | 'cohere' | 'groq' | 'mistral' | 'perplexity' | 'openrouter'
+  | 'minimax' | 'local';
+
 export interface OpencodeClientOptions {
   url?: string;
   timeout?: number;
+  provider?: OpenCodeProvider;
 }
 
 export interface SendToOpencodeResult {
@@ -61,6 +71,11 @@ async function getOrCreateSession(url: string): Promise<string> {
   }
 }
 
+// Provider to base URL mapping
+const PROVIDER_BASE_URLS: Partial<Record<OpenCodeProvider, string>> = {
+  minimax: 'https://api.minimax.io',
+};
+
 /**
  * Send a message to the OpenCode server and get the response.
  */
@@ -68,7 +83,14 @@ export async function sendToOpencodeServer(
   prompt: string,
   options: OpencodeClientOptions = {}
 ): Promise<SendToOpencodeResult> {
-  const url = options.url || process.env.OPENCODE_URL || OPENCODE_DEFAULT_URL;
+  let url = options.url || process.env.OPENCODE_URL || OPENCODE_DEFAULT_URL;
+  const provider = options.provider;
+
+  // If MINIMAX provider is set and no custom URL, use MiniMax directly
+  if (provider === 'minimax' && !options.url && !process.env.OPENCODE_URL) {
+    url = PROVIDER_BASE_URLS.minimax!;
+  }
+
   const timeout = options.timeout ?? 120000;
 
   try {

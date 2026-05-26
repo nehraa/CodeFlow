@@ -45,8 +45,8 @@ describe("analyzeRepo", () => {
         expect(node.summary).toBeDefined();
         expect(node.path).toBeDefined();
         expect(node.sourceRefs).toBeDefined();
-        expect(node.sourceRefs.length).toBeGreaterThan(0);
-        expect(node.sourceRefs[0].kind).toBe("repo");
+        expect((node.sourceRefs ?? []).length).toBeGreaterThan(0);
+        expect((node.sourceRefs ?? [])[0].kind).toBe("repo");
       }
 
       // Calls edges

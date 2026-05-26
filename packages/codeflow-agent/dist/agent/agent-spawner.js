@@ -68,9 +68,14 @@ export class AgentSpawner {
             }
             // Check if opencode command was not found
             if (execaError.code === 'ENOENT') {
-                throw new Error('opencode CLI not found. Please install opencode and ensure it is in your PATH.\n' +
-                    'Installation: https://github.com/opencode-ai/opencode\n' +
-                    'Or via: npm install -g opencode');
+                return {
+                    taskId: task.id,
+                    success: false,
+                    output: '',
+                    error: 'opencode CLI not found. Please install opencode and ensure it is in your PATH.\n' +
+                        'Installation: https://github.com/opencode-ai/opencode\n' +
+                        'Or via: npm install -g opencode',
+                };
             }
             throw err;
         }
@@ -104,12 +109,13 @@ export class AgentSpawner {
         for (let attempt = 0; attempt <= maxRetries; attempt++) {
             const startTime = Date.now();
             try {
-                const output = await executeFn(task);
+                const spawnResult = await executeFn(task);
                 const result = {
-                    taskId: task.id,
-                    success: true,
-                    output,
-                    duration: Date.now() - startTime,
+                    taskId: spawnResult.taskId,
+                    success: spawnResult.success,
+                    output: spawnResult.output,
+                    error: spawnResult.error,
+                    duration: spawnResult.duration ?? Date.now() - startTime,
                 };
                 results.set(task.id, result);
                 queue.markCompleted(task.id, result.success, result);

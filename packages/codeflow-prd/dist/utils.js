@@ -107,3 +107,4 @@ export const withSpecDrafts = (graph) => ({
         ? { ...node, status: node.status ?? "spec_only", specDraft: node.specDraft ?? generateNodeCode(node, graph) ?? undefined }
         : { ...node, status: node.status ?? "spec_only" })
 });
+//# sourceMappingURL=utils.js.map

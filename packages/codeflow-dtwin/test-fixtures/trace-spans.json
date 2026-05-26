@@ -1,0 +1,52 @@
+{
+  "spans": [
+    {
+      "spanId": "span-1",
+      "traceId": "trace-001",
+      "name": "User API",
+      "blueprintNodeId": "node1",
+      "path": "/api/users",
+      "status": "success",
+      "durationMs": 45,
+      "runtime": "node",
+      "provenance": "observed",
+      "timestamp": "2026-05-16T10:00:00.000Z"
+    },
+    {
+      "spanId": "span-2",
+      "traceId": "trace-001",
+      "name": "Auth Service",
+      "blueprintNodeId": "node3",
+      "path": "/services/auth",
+      "status": "success",
+      "durationMs": 30,
+      "runtime": "node",
+      "provenance": "observed",
+      "timestamp": "2026-05-16T10:00:01.000Z"
+    },
+    {
+      "spanId": "span-3",
+      "traceId": "trace-001",
+      "name": "Database",
+      "blueprintNodeId": "node2",
+      "path": "/lib/db",
+      "status": "success",
+      "durationMs": 15,
+      "runtime": "node",
+      "provenance": "observed",
+      "timestamp": "2026-05-16T10:00:02.000Z"
+    },
+    {
+      "spanId": "span-4",
+      "traceId": "trace-002",
+      "name": "User API",
+      "blueprintNodeId": "node1",
+      "path": "/api/users",
+      "status": "warning",
+      "durationMs": 120,
+      "runtime": "node",
+      "provenance": "observed",
+      "timestamp": "2026-05-16T10:05:00.000Z"
+    }
+  ]
+}

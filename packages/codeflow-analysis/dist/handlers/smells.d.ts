@@ -13,9 +13,9 @@ export declare function POST(request: Request): Promise<NextResponse<{
         analyzedAt: string;
         totalSmells: number;
         smells: {
+            message: string;
             code: string;
             severity: "warning" | "info" | "critical";
-            message: string;
             suggestion: string;
             nodeId?: string | undefined;
         }[];

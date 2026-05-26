@@ -1,0 +1,1 @@
+{"version":3,"file":"file-tree.d.ts","sourceRoot":"","sources":["../../src/components/file-tree.tsx"],"names":[],"mappings":"AAqBA,KAAK,aAAa,GAAG;IACnB,YAAY,EAAE,CAAC,IAAI,EAAE,MAAM,KAAK,IAAI,CAAC;IACrC,YAAY,CAAC,EAAE,MAAM,CAAC;CACvB,CAAC;AA+IF,wBAAgB,QAAQ,CAAC,EAAE,YAAY,EAAE,YAAY,EAAE,EAAE,aAAa,2CAqIrE"}

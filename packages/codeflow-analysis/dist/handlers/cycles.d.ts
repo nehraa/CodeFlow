@@ -15,12 +15,12 @@ export declare function POST(request: Request): Promise<NextResponse<{
         totalCycles: number;
         maxCycleLength: number;
         cycles: {
-            nodeIds: string[];
             edges: {
+                kind: string;
                 from: string;
                 to: string;
-                kind: string;
             }[];
+            nodeIds: string[];
         }[];
         affectedNodeIds: string[];
     };

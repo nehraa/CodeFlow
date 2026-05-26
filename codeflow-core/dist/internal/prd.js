@@ -161,8 +161,8 @@ export const parsePrd = (prdText) => {
             nodesById.set(id, {
                 ...existing,
                 summary: existing.summary || summary,
-                contract: mergeContracts(existing.contract, node.contract),
-                sourceRefs: mergeSourceRefs(existing.sourceRefs, node.sourceRefs)
+                contract: mergeContracts((existing.contract ?? emptyContract()), (node.contract ?? emptyContract())),
+                sourceRefs: mergeSourceRefs(existing.sourceRefs ?? [], node.sourceRefs ?? [])
             });
             return id;
         }

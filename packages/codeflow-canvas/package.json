@@ -1,0 +1,52 @@
+{
+  "name": "@abhinav2203/codeflow-canvas",
+  "version": "0.1.0",
+  "private": false,
+  "description": "React Flow graph canvas with Monaco code editors and IDE layout components",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./flow-view": { "types": "./dist/flow-view/index.d.ts", "default": "./dist/flow-view/index.js" },
+    "./edit": { "types": "./dist/edit/index.d.ts", "default": "./dist/edit/index.js" },
+    "./traces": { "types": "./dist/traces/index.d.ts", "default": "./dist/traces/index.js" },
+    "./heatmap": { "types": "./dist/heatmap/index.d.ts", "default": "./dist/heatmap/index.js" },
+    "./store": { "types": "./dist/store/index.d.ts", "default": "./dist/store/index.js" }
+  },
+  "bin": {
+    "codeflow-canvas": "./dist/bin/cli.js"
+  },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "vitest run",
+    "build": "tsc --build && node scripts/wrap-cli.mjs",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@abhinav2203/codeflow-core": "^1.1.6",
+    "@xyflow/react": "^12.0.0",
+    "@monaco-editor/react": "^4.0.0",
+    "monaco-editor": "^0.52.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "react-rnd": "^10.5.3",
+    "zustand": "^5.0.0",
+    "dotenv": "^16.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.0.0",
+    "next": "^16.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  },
+  "peerDependencies": {
+    "next": "^16.0.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  }
+}

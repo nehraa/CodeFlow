@@ -67,7 +67,11 @@ const extractName = (item, fallbackKind) => {
     }
     const apiMatch = item.match(API_PATTERN);
     if (apiMatch) {
-        return `${apiMatch[1].toUpperCase()} ${apiMatch[2]}`;
+        const path = apiMatch[2];
+        // Handle API paths with function signatures like "POST /api/users/create(name: string, email: string)"
+        // Truncate at first '(' if present (function signature in the path)
+        const cleanPath = path.includes("(") ? path.split("(")[0] : path;
+        return `${apiMatch[1].toUpperCase()} ${cleanPath}`;
     }
     if (fallbackKind === "ui-screen" && !/screen$/i.test(item)) {
         return item.endsWith("Screen") ? item : `${item} Screen`;
@@ -127,6 +131,15 @@ const parseContractFromItem = (item) => {
             contract.summary = `Handle ${apiMatch[1].toUpperCase()} ${apiMatch[2]}`;
             contract.responsibilities = [contract.summary];
         }
+        // Ensure other array fields are explicitly set even when no signature/API match
+        contract.attributes = contract.attributes ?? [];
+        contract.sideEffects = contract.sideEffects ?? [];
+        contract.errors = contract.errors ?? [];
+        contract.dependencies = contract.dependencies ?? [];
+        contract.calls = contract.calls ?? [];
+        contract.uiAccess = contract.uiAccess ?? [];
+        contract.backendAccess = contract.backendAccess ?? [];
+        contract.notes = contract.notes ?? [];
     }
     return contract;
 };
@@ -218,3 +231,4 @@ export const parsePrd = (prdText) => {
         warnings
     };
 };
+//# sourceMappingURL=prd.js.map

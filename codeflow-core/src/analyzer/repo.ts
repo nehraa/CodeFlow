@@ -7,7 +7,8 @@ import type {
   BlueprintEdge,
   BlueprintGraph,
   BlueprintNode,
-  BlueprintNodeKind
+  BlueprintNodeKind,
+  CodeContract
 } from "../schema/index.js";
 import { emptyContract } from "../schema/index.js";
 import { createNode, createNodeId, dedupeEdges, mergeContracts, mergeDesignCalls, toPosixPath } from "../internal/utils.js";
@@ -537,7 +538,7 @@ export const analyzeTypeScriptRepo = async (repoPath: string): Promise<RepoGraph
       if (caller && targetNode) {
         nodes.set(entry.nodeId, {
           ...caller,
-          contract: mergeContracts(caller.contract, {
+          contract: mergeContracts((caller.contract ?? emptyContract()) as CodeContract, {
             ...emptyContract(),
             calls: [
               {
@@ -559,11 +560,11 @@ export const analyzeTypeScriptRepo = async (repoPath: string): Promise<RepoGraph
     }
 
     const ownedMethodIds = callableNodeIdsByClassId.get(node.id) ?? [];
-    if (!ownedMethodIds.length || !node.contract.methods.length) {
+    if (!ownedMethodIds.length || !(node.contract.methods?.length ?? 0)) {
       continue;
     }
 
-    const methods = node.contract.methods.map((methodSpec) => {
+    const methods = (node.contract.methods ?? []).map((methodSpec) => {
       const ownedMethodNode = ownedMethodIds
         .map((methodId) => nodes.get(methodId))
         .find((methodNode) => methodNode?.name.split(".").pop() === methodSpec.name);
@@ -574,8 +575,8 @@ export const analyzeTypeScriptRepo = async (repoPath: string): Promise<RepoGraph
 
       return {
         ...methodSpec,
-        sideEffects: [...new Set([...methodSpec.sideEffects, ...ownedMethodNode.contract.sideEffects])],
-        calls: mergeDesignCalls(methodSpec.calls, ownedMethodNode.contract.calls)
+        sideEffects: [...new Set([...(methodSpec.sideEffects ?? []), ...(ownedMethodNode.contract.sideEffects ?? [])])],
+        calls: mergeDesignCalls(methodSpec.calls ?? [], ownedMethodNode.contract.calls ?? [])
       };
     });
 
@@ -584,7 +585,7 @@ export const analyzeTypeScriptRepo = async (repoPath: string): Promise<RepoGraph
       contract: {
         ...node.contract,
         methods,
-        dependencies: [...new Set([...node.contract.dependencies, ...methods.flatMap((method) => method.calls.map((call) => call.target))])]
+        dependencies: [...new Set([...(node.contract.dependencies ?? []), ...methods.flatMap((method) => (method.calls ?? []).map((call) => call.target))])]
       }
     });
   }

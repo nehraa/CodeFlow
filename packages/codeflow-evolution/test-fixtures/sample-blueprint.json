@@ -1,0 +1,86 @@
+{
+  "projectName": "sample-project",
+  "phase": "spec",
+  "nodes": [
+    {
+      "id": "auth-api",
+      "name": "Auth API",
+      "kind": "api",
+      "summary": "Handles authentication and authorization",
+      "contract": {
+        "summary": "Authentication service",
+        "responsibilities": ["login", "logout", "token-validation"],
+        "inputs": [],
+        "outputs": []
+      },
+      "sourceRefs": [],
+      "status": "spec_only"
+    },
+    {
+      "id": "user-module",
+      "name": "User Module",
+      "kind": "module",
+      "summary": "User management business logic",
+      "contract": {
+        "summary": "User management",
+        "responsibilities": ["create-user", "update-user", "delete-user"],
+        "inputs": [],
+        "outputs": []
+      },
+      "sourceRefs": [],
+      "status": "spec_only"
+    },
+    {
+      "id": "db-class",
+      "name": "Database",
+      "kind": "class",
+      "summary": "PostgreSQL database interface",
+      "contract": {
+        "summary": "Database interface",
+        "responsibilities": ["query", "transaction"],
+        "inputs": [],
+        "outputs": []
+      },
+      "sourceRefs": [],
+      "status": "spec_only"
+    },
+    {
+      "id": "ui-screen-main",
+      "name": "Main UI",
+      "kind": "ui-screen",
+      "summary": "Main dashboard screen",
+      "contract": {
+        "summary": "Main dashboard",
+        "responsibilities": ["display-data", "accept-input"],
+        "inputs": [],
+        "outputs": []
+      },
+      "sourceRefs": [],
+      "status": "spec_only"
+    }
+  ],
+  "edges": [
+    {
+      "from": "auth-api",
+      "to": "user-module",
+      "kind": "calls",
+      "required": true,
+      "confidence": 0.95
+    },
+    {
+      "from": "user-module",
+      "to": "db-class",
+      "kind": "imports",
+      "required": true,
+      "confidence": 0.9
+    },
+    {
+      "from": "ui-screen-main",
+      "to": "auth-api",
+      "kind": "calls",
+      "required": true,
+      "confidence": 0.85
+    }
+  ],
+  "workflows": []
+}

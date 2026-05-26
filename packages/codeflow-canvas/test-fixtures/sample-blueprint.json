@@ -1,0 +1,184 @@
+import type { BlueprintGraph, BlueprintNode, BlueprintEdge } from "@abhinav2203/codeflow-core/schema";
+
+export interface MinimalGraph {
+  nodes: BlueprintNode[];
+  edges: BlueprintEdge[];
+}
+
+export const minimalBlueprint: MinimalGraph = {
+  nodes: [
+    {
+      id: "node-1",
+      kind: "function",
+      name: "getUser",
+      summary: "Retrieve a user by ID",
+      contract: {
+        inputs: [],
+        outputs: [],
+        responsibilities: [],
+        dependencies: [],
+        methods: [],
+        attributes: [],
+        calls: [],
+        sideEffects: [],
+        errors: [],
+        notes: [],
+        summary: ""
+      },
+      sourceRefs: [],
+      generatedRefs: [],
+      traceRefs: []
+    }
+  ],
+  edges: []
+};
+
+export const sampleBlueprint: BlueprintGraph = {
+  projectName: "Test Project",
+  phase: "spec",
+  nodes: [
+    {
+      id: "node-api-1",
+      kind: "api",
+      name: "UserAPI",
+      summary: "REST API for user operations",
+      path: "/api/users",
+      contract: {
+        inputs: [],
+        outputs: [],
+        responsibilities: ["Handle HTTP requests", "Return JSON responses"],
+        dependencies: [],
+        methods: [],
+        attributes: [],
+        calls: [],
+        sideEffects: [],
+        errors: [],
+        notes: [],
+        summary: "REST API for user operations"
+      },
+      sourceRefs: [{ kind: "file", path: "src/api/users.ts", section: "UserAPI" }],
+      generatedRefs: [],
+      traceRefs: [],
+      status: "spec_only"
+    },
+    {
+      id: "node-class-1",
+      kind: "class",
+      name: "UserService",
+      summary: "Business logic for user management",
+      path: "src/services/UserService.ts",
+      contract: {
+        inputs: [],
+        outputs: [],
+        responsibilities: ["Manage user data", "Validate input"],
+        dependencies: ["node-api-1"],
+        methods: [
+          {
+            name: "createUser",
+            signature: "createUser(name: string, email: string): User",
+            inputs: [
+              { name: "name", type: "string", description: "User's full name" },
+              { name: "email", type: "string", description: "User's email address" }
+            ],
+            outputs: [{ name: "user", type: "User", description: "Created user object" }],
+            sideEffects: [],
+            calls: [],
+            errors: ["ValidationError", "DatabaseError"]
+          }
+        ],
+        attributes: [],
+        calls: [],
+        sideEffects: [],
+        errors: [],
+        notes: [],
+        summary: "Business logic for user management"
+      },
+      sourceRefs: [{ kind: "file", path: "src/services/UserService.ts" }],
+      generatedRefs: [],
+      traceRefs: [],
+      status: "spec_only"
+    },
+    {
+      id: "node-function-1",
+      kind: "function",
+      name: "validateEmail",
+      summary: "Validate email format",
+      path: "src/utils/validation.ts",
+      signature: "validateEmail(email: string): boolean",
+      contract: {
+        inputs: [{ name: "email", type: "string", description: "Email to validate" }],
+        outputs: [{ name: "isValid", type: "boolean", description: "Whether email is valid" }],
+        responsibilities: ["Validate email format"],
+        dependencies: [],
+        methods: [],
+        attributes: [],
+        calls: [],
+        sideEffects: [],
+        errors: [],
+        notes: [],
+        summary: "Validate email format"
+      },
+      sourceRefs: [{ kind: "file", path: "src/utils/validation.ts", section: "validateEmail" }],
+      generatedRefs: [],
+      traceRefs: []
+    },
+    {
+      id: "node-module-1",
+      kind: "module",
+      name: "UserModule",
+      summary: "User domain module",
+      path: "src/modules/user/index.ts",
+      contract: {
+        inputs: [],
+        outputs: [],
+        responsibilities: ["Orchestrate user-related operations"],
+        dependencies: ["node-class-1", "node-function-1"],
+        methods: [],
+        attributes: [],
+        calls: [],
+        sideEffects: [],
+        errors: [],
+        notes: [],
+        summary: "User domain module"
+      },
+      sourceRefs: [],
+      generatedRefs: [],
+      traceRefs: []
+    }
+  ],
+  edges: [
+    {
+      from: "node-api-1",
+      to: "node-class-1",
+      kind: "imports",
+      label: "imports",
+      required: true,
+      confidence: 1
+    },
+    {
+      from: "node-class-1",
+      to: "node-function-1",
+      kind: "calls",
+      label: "calls",
+      required: true,
+      confidence: 1
+    },
+    {
+      from: "node-module-1",
+      to: "node-class-1",
+      kind: "imports",
+      label: "imports",
+      required: true,
+      confidence: 1
+    }
+  ],
+  workflows: [
+    {
+      id: "workflow-1",
+      name: "Create User Flow",
+      description: "Flow for creating a new user",
+      entryNodeId: "node-api-1",
+      tasks: []
+    }
+  ]
+};

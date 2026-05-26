@@ -1,6 +1,6 @@
 {
   "name": "@abhinav2203/codeflow-mcp",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "MCP server configuration and tool registry for CodeFlow blueprint operations.",
   "type": "module",
   "main": "./dist/index.js",
@@ -29,7 +29,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@abhinav2203/codeflow-core": "workspace:*",
+    "@abhinav2203/codeflow-core": "^1.1.5",
     "zod": "^3.0.0"
   },
   "devDependencies": {

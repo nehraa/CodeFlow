@@ -1,6 +1,6 @@
 {
   "name": "@abhinav2203/codeflow-execution",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": false,
   "description": "Runtime execution engine for CodeFlow blueprint graphs — execute, test, and validate generated code in isolated TypeScript workspaces",
   "type": "module",
@@ -58,6 +58,30 @@
     "./utils": {
       "types": "./dist/utils.d.ts",
       "default": "./dist/utils.js"
+    },
+    "./heatmap": {
+      "types": "./dist/heatmap.d.ts",
+      "default": "./dist/heatmap.js"
+    },
+    "./ghostnodes": {
+      "types": "./dist/ghostnodes.d.ts",
+      "default": "./dist/ghostnodes.js"
+    },
+    "./execution-span": {
+      "types": "./dist/execution-span.d.ts",
+      "default": "./dist/execution-span.js"
+    },
+    "./node-state-timeline": {
+      "types": "./dist/node-state-timeline.d.ts",
+      "default": "./dist/node-state-timeline.js"
+    },
+    "./sandbox-diff": {
+      "types": "./dist/sandbox-diff.d.ts",
+      "default": "./dist/sandbox-diff.js"
+    },
+    "./error-localization": {
+      "types": "./dist/error-localization.d.ts",
+      "default": "./dist/error-localization.js"
     }
   },
   "bin": {
@@ -66,7 +90,7 @@
   "scripts": {
     "check": "tsc --noEmit",
     "test": "vitest run",
-    "build": "node node_modules/typescript/lib/tsc.js src/bin/cli.ts src/index.ts src/plan.ts src/phases.ts src/execute.ts src/vcr.ts src/mermaid.ts src/sandbox.ts src/runner.ts src/utils.ts src/runtime-contracts.ts src/runtime-tests.ts src/runtime-workspace.ts src/runtime-workspace-local.ts --outDir dist --module NodeNext --moduleResolution NodeNext --target ES2022 --skipLibCheck --declaration --declarationMap && node scripts/wrap-cli.mjs",
+    "build": "node node_modules/typescript/lib/tsc.js src/bin/cli.ts src/index.ts src/plan.ts src/phases.ts src/execute.ts src/vcr.ts src/mermaid.ts src/sandbox.ts src/runner.ts src/utils.ts src/runtime-contracts.ts src/runtime-tests.ts src/runtime-workspace.ts src/runtime-workspace-local.ts src/heatmap.ts src/ghostnodes.ts src/execution-span.ts src/node-state-timeline.ts src/sandbox-diff.ts src/error-localization.ts --outDir dist --module NodeNext --moduleResolution NodeNext --target ES2022 --skipLibCheck --declaration --declarationMap && node scripts/wrap-cli.mjs",
     "clean": "rm -rf dist"
   },
   "dependencies": {

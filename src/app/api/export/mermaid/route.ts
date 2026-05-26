@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { toMermaid, toMermaidClassDiagram } from "@/lib/blueprint/mermaid";
-import { blueprintGraphSchema } from "@/lib/blueprint/schema";
+import { toMermaid, toMermaidClassDiagram } from "@abhinav2203/codeflow-execution/mermaid";
+import { blueprintGraphSchema } from "@abhinav2203/codeflow-core/schema";
 
 const mermaidExportRequestSchema = z.object({
   graph: blueprintGraphSchema,
