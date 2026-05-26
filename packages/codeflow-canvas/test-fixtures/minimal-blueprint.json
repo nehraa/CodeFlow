@@ -1,0 +1,34 @@
+import type { BlueprintGraph } from "@abhinav2203/codeflow-core/schema";
+
+export const minimalBlueprint: BlueprintGraph = {
+  projectName: "Minimal Blueprint",
+  phase: "spec",
+  nodes: [
+    {
+      id: "node-function-1",
+      kind: "function",
+      name: "hello",
+      summary: "Say hello",
+      path: "src/hello.ts",
+      signature: "hello(name: string): string",
+      contract: {
+        inputs: [{ name: "name", type: "string", description: "Name to greet" }],
+        outputs: [{ name: "greeting", type: "string", description: "Greeting message" }],
+        responsibilities: ["Return a greeting"],
+        dependencies: [],
+        methods: [],
+        attributes: [],
+        calls: [],
+        sideEffects: [],
+        errors: [],
+        notes: [],
+        summary: "Say hello"
+      },
+      sourceRefs: [{ kind: "file", path: "src/hello.ts", section: "hello" }],
+      generatedRefs: [],
+      traceRefs: []
+    }
+  ],
+  edges: [],
+  workflows: []
+};

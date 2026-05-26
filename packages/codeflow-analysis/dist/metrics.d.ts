@@ -20,7 +20,47 @@ export declare const graphMetricsSchema: z.ZodObject<{
     connectedComponents: z.ZodNumber;
     isolatedNodes: z.ZodNumber;
     leafNodes: z.ZodNumber;
-}, z.core.$strip>;
+}, "strip", z.ZodTypeAny, {
+    analyzedAt: string;
+    nodeCount: number;
+    edgeCount: number;
+    nodesByKind: Record<string, number>;
+    edgesByKind: Record<string, number>;
+    nodesByStatus: Record<string, number>;
+    density: number;
+    avgDegree: number;
+    maxInDegree: number;
+    maxOutDegree: number;
+    avgMethodsPerNode: number;
+    avgResponsibilitiesPerNode: number;
+    totalMethods: number;
+    totalResponsibilities: number;
+    connectedComponents: number;
+    isolatedNodes: number;
+    leafNodes: number;
+    maxInDegreeNodeId?: string | undefined;
+    maxOutDegreeNodeId?: string | undefined;
+}, {
+    analyzedAt: string;
+    nodeCount: number;
+    edgeCount: number;
+    nodesByKind: Record<string, number>;
+    edgesByKind: Record<string, number>;
+    nodesByStatus: Record<string, number>;
+    density: number;
+    avgDegree: number;
+    maxInDegree: number;
+    maxOutDegree: number;
+    avgMethodsPerNode: number;
+    avgResponsibilitiesPerNode: number;
+    totalMethods: number;
+    totalResponsibilities: number;
+    connectedComponents: number;
+    isolatedNodes: number;
+    leafNodes: number;
+    maxInDegreeNodeId?: string | undefined;
+    maxOutDegreeNodeId?: string | undefined;
+}>;
 export type GraphMetrics = z.infer<typeof graphMetricsSchema>;
 /**
  * Compute structural metrics for a blueprint graph.

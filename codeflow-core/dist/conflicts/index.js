@@ -5,7 +5,7 @@ export const detectGraphConflicts = async (graph, repoPath) => {
     const repoGraph = await analyzeTypeScriptRepo(path.resolve(repoPath));
     const conflicts = [];
     const repoNodes = repoGraph.nodes.filter((node) => node.kind !== "module");
-    const blueprintRepoNodes = graph.nodes.filter((node) => node.sourceRefs.some((ref) => ref.kind === "repo"));
+    const blueprintRepoNodes = graph.nodes.filter((node) => (node.sourceRefs ?? []).some((ref) => ref.kind === "repo"));
     const repoMap = new Map(repoNodes.map((node) => [repoKeyForNode(node), node]));
     const blueprintMap = new Map(blueprintRepoNodes.map((node) => [repoKeyForNode(node), node]));
     for (const blueprintNode of blueprintRepoNodes) {

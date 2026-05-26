@@ -2,7 +2,7 @@
  * OpenCode integration types
  */
 
-export type OpencodeProvider = 
+export type OpencodeProvider =
   | "anthropic"
   | "openai"
   | "google"
@@ -13,6 +13,7 @@ export type OpencodeProvider =
   | "mistral"
   | "perplexity"
   | "openrouter"
+  | "minimax"
   | "local";
 
 export type OpencodeConfig = {
@@ -143,6 +144,13 @@ export const PROVIDER_CONFIGS: Record<OpencodeProvider, ProviderModelConfig> = {
     apiKeyEnvVar: "OPENROUTER_API_KEY",
     // OpenRouter keys start with "sk-or-"
     apiKeyFormat: /^sk-or-[\w-]+$/,
+  },
+  minimax: {
+    provider: "minimax",
+    defaultModel: "MiniMax-M2.7",
+    apiKeyEnvVar: "MINIMAX_API_KEY",
+    // MiniMax API keys start with "sk-cp-"
+    apiKeyFormat: /^sk-cp-[\w-]+$/,
   },
   local: {
     provider: "local",

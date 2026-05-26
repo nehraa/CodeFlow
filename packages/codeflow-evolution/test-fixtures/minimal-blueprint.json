@@ -1,0 +1,22 @@
+{
+  "projectName": "test-project",
+  "phase": "spec",
+  "nodes": [
+    {
+      "id": "node1",
+      "name": "User API",
+      "kind": "api",
+      "summary": "Handles user requests",
+      "contract": {
+        "summary": "User API contract",
+        "responsibilities": ["authenticate", "authorize"],
+        "inputs": [],
+        "outputs": []
+      },
+      "sourceRefs": [],
+      "status": "spec_only"
+    }
+  ],
+  "edges": [],
+  "workflows": []
+}

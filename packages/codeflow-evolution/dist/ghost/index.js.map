@@ -1,0 +1,1 @@
+{"version":3,"file":"index.js","sourceRoot":"","sources":["../../src/ghost/index.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,gBAAgB,EAAE,MAAM,uBAAuB,CAAC;AAGzD,OAAO,EAAE,gBAAgB,EAAE,CAAC;AAG5B;;;GAGG;AACH,MAAM,CAAC,KAAK,UAAU,iBAAiB,CACrC,KAAqB;IAErB,MAAM,QAAQ,GAAG,gBAAgB,EAAE,CAAC;IACpC,OAAO,QAAQ,CAAC,iBAAiB,CAAC,KAAK,CAAC,CAAC;AAC3C,CAAC"}

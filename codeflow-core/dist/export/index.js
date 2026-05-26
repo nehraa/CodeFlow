@@ -34,20 +34,20 @@ const buildNodeDoc = (node) => {
     const inputs = formatFields(node.contract.inputs);
     const outputs = formatFields(node.contract.outputs);
     const responsibilities = formatList(node.contract.responsibilities);
-    const attributes = formatFields(node.contract.attributes);
-    const dependencies = formatList(node.contract.dependencies);
-    const sideEffects = formatList(node.contract.sideEffects);
-    const errors = formatList(node.contract.errors);
-    const calls = node.contract.calls.length
-        ? node.contract.calls
+    const attributes = formatFields(node.contract.attributes ?? []);
+    const dependencies = formatList(node.contract.dependencies ?? []);
+    const sideEffects = formatList(node.contract.sideEffects ?? []);
+    const errors = formatList(node.contract.errors ?? []);
+    const calls = ((node.contract.calls ?? [])).length
+        ? (node.contract.calls ?? [])
             .map((call) => `- ${call.target}${call.kind ? ` [${call.kind}]` : ""}${call.description ? ` - ${call.description}` : ""}`)
             .join("\n")
         : "- None";
-    const methods = node.contract.methods.length
-        ? node.contract.methods
+    const methods = (node.contract.methods ?? []).length
+        ? (node.contract.methods ?? [])
             .map((method) => {
-            const methodCalls = method.calls.length
-                ? method.calls
+            const methodCalls = (method.calls ?? []).length
+                ? (method.calls ?? [])
                     .map((call) => `${call.target}${call.kind ? ` [${call.kind}]` : ""}${call.description ? ` - ${call.description}` : ""}`)
                     .join("; ")
                 : "None";
@@ -55,15 +55,15 @@ const buildNodeDoc = (node) => {
                 `- ${method.name}`,
                 `  Signature: ${method.signature ?? "N/A"}`,
                 `  Summary: ${method.summary}`,
-                `  Inputs: ${method.inputs.length ? method.inputs.map(formatField).join("; ") : "None"}`,
-                `  Outputs: ${method.outputs.length ? method.outputs.map(formatField).join("; ") : "None"}`,
-                `  Side effects: ${method.sideEffects.length ? method.sideEffects.join("; ") : "None"}`,
+                `  Inputs: ${(method.inputs ?? []).length ? method.inputs.map(formatField).join("; ") : "None"}`,
+                `  Outputs: ${(method.outputs ?? []).length ? method.outputs.map(formatField).join("; ") : "None"}`,
+                `  Side effects: ${(method.sideEffects ?? []).length ? method.sideEffects.join("; ") : "None"}`,
                 `  Calls: ${methodCalls}`
             ].join("\n");
         })
             .join("\n")
         : "- None";
-    const notes = formatList(node.contract.notes);
+    const notes = formatList(node.contract.notes ?? []);
     const stubLink = node.kind === "module" ? "N/A" : `stubs/${slugify(node.kind)}-${slugify(node.name)}.${node.kind === "ui-screen" ? "tsx" : "ts"}`;
     return `# ${node.name}
 

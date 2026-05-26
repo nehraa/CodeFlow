@@ -204,7 +204,7 @@ export const analyzeRepo = async (repoPath, options) => {
             if (caller && target) {
                 nodeMap.set(call.fromId, {
                     ...caller,
-                    contract: mergeContracts(caller.contract, {
+                    contract: mergeContracts((caller.contract ?? emptyContract()), {
                         ...emptyContract(),
                         calls: [{ target: target.name, kind: "calls", description: call.callText }],
                         dependencies: [target.name]
@@ -234,16 +234,16 @@ export const analyzeRepo = async (repoPath, options) => {
             name: node.name.split(".").pop() || node.name,
             signature: node.signature || undefined,
             summary: node.summary,
-            inputs: node.contract.inputs,
-            outputs: node.contract.outputs,
-            sideEffects: node.contract.sideEffects,
-            calls: node.contract.calls
+            inputs: node.contract.inputs ?? [],
+            outputs: node.contract.outputs ?? [],
+            sideEffects: node.contract.sideEffects ?? [],
+            calls: node.contract.calls ?? []
         };
         nodeMap.set(ownerNode.id, {
             ...ownerNode,
             contract: {
                 ...ownerNode.contract,
-                methods: [...ownerNode.contract.methods, methodSpec]
+                methods: [...(ownerNode.contract.methods ?? []), methodSpec]
             }
         });
     }

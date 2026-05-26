@@ -7,6 +7,7 @@ export interface SpawnResult {
   success: boolean;
   output: string;
   error?: string;
+  duration?: number;
 }
 
 export class AgentSpawner {
@@ -87,11 +88,14 @@ export class AgentSpawner {
       }
       // Check if opencode command was not found
       if (execaError.code === 'ENOENT') {
-        throw new Error(
-          'opencode CLI not found. Please install opencode and ensure it is in your PATH.\n' +
-          'Installation: https://github.com/opencode-ai/opencode\n' +
-          'Or via: npm install -g opencode'
-        );
+        return {
+          taskId: task.id,
+          success: false,
+          output: '',
+          error: 'opencode CLI not found. Please install opencode and ensure it is in your PATH.\n' +
+            'Installation: https://github.com/opencode-ai/opencode\n' +
+            'Or via: npm install -g opencode',
+        };
       }
       throw err;
     }
@@ -99,7 +103,7 @@ export class AgentSpawner {
 
   async executeWithQueue(
     tasks: AgentTask[],
-    executeFn: (task: AgentTask) => Promise<string>
+    executeFn: (task: AgentTask) => Promise<SpawnResult>
   ): Promise<Map<string, AgentResult>> {
     const queue = new TaskQueue(tasks);
     const results = new Map<string, AgentResult>();
@@ -132,7 +136,7 @@ export class AgentSpawner {
 
   private async executeTask(
     task: AgentTask,
-    executeFn: (task: AgentTask) => Promise<string>,
+    executeFn: (task: AgentTask) => Promise<SpawnResult>,
     results: Map<string, AgentResult>,
     queue: TaskQueue
   ): Promise<void> {
@@ -142,12 +146,13 @@ export class AgentSpawner {
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       const startTime = Date.now();
       try {
-        const output = await executeFn(task);
+        const spawnResult = await executeFn(task);
         const result: AgentResult = {
-          taskId: task.id,
-          success: true,
-          output,
-          duration: Date.now() - startTime,
+          taskId: spawnResult.taskId,
+          success: spawnResult.success,
+          output: spawnResult.output,
+          error: spawnResult.error,
+          duration: spawnResult.duration ?? Date.now() - startTime,
         };
         results.set(task.id, result);
         queue.markCompleted(task.id, result.success, result);

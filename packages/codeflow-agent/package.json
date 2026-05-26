@@ -1,6 +1,6 @@
 {
   "name": "@abhinav2203/codeflow-agent",
-  "version": "0.1.3",
+  "version": "1.0.0",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -10,7 +10,11 @@
     "./skills": { "types": "./dist/skills/index.d.ts", "default": "./dist/skills/index.js" },
     "./mcp": { "types": "./dist/mcp/index.d.ts", "default": "./dist/mcp/index.js" },
     "./ai/scaffold-utils": { "types": "./dist/ai/scaffold-utils.d.ts", "default": "./dist/ai/scaffold-utils.js" },
-    "./ai/scaffold-generator": { "types": "./dist/ai/scaffold-generator.d.ts", "default": "./dist/ai/scaffold-generator.js" }
+    "./ai/scaffold-generator": { "types": "./dist/ai/scaffold-generator.d.ts", "default": "./dist/ai/scaffold-generator.js" },
+    "./ai/multi-language-codegen": { "types": "./dist/ai/multi-language-codegen.d.ts", "default": "./dist/ai/multi-language-codegen.js" },
+    "./ai/test-generator": { "types": "./dist/ai/test-generator.d.ts", "default": "./dist/ai/test-generator.js" },
+    "./ai/doc-generator": { "types": "./dist/ai/doc-generator.d.ts", "default": "./dist/ai/doc-generator.js" },
+    "./ai/refactor-suggester": { "types": "./dist/ai/refactor-suggester.d.ts", "default": "./dist/ai/refactor-suggester.js" }
   },
   "scripts": {
     "check": "tsc --noEmit",

@@ -3,7 +3,8 @@ import path from "node:path";
 
 import type {
   BlueprintEdge,
-  BlueprintNode
+  BlueprintNode,
+  CodeContract
 } from "../schema/index.js";
 import { emptyContract } from "../schema/index.js";
 import { createNode, createNodeId, dedupeEdges, mergeContracts, toPosixPath } from "../internal/utils.js";
@@ -284,7 +285,7 @@ export const analyzeRepo = async (
       if (caller && target) {
         nodeMap.set(call.fromId, {
           ...caller,
-          contract: mergeContracts(caller.contract, {
+          contract: mergeContracts((caller.contract ?? emptyContract()) as CodeContract, {
             ...emptyContract(),
             calls: [{ target: target.name, kind: "calls" as const, description: call.callText }],
             dependencies: [target.name]
@@ -318,17 +319,17 @@ export const analyzeRepo = async (
       name: node.name.split(".").pop() || node.name,
       signature: node.signature || undefined,
       summary: node.summary,
-      inputs: node.contract.inputs,
-      outputs: node.contract.outputs,
-      sideEffects: node.contract.sideEffects,
-      calls: node.contract.calls
+      inputs: node.contract.inputs ?? [],
+      outputs: node.contract.outputs ?? [],
+      sideEffects: node.contract.sideEffects ?? [],
+      calls: node.contract.calls ?? []
     };
 
     nodeMap.set(ownerNode.id, {
       ...ownerNode,
       contract: {
         ...ownerNode.contract,
-        methods: [...ownerNode.contract.methods, methodSpec]
+        methods: [...(ownerNode.contract.methods ?? []), methodSpec]
       }
     });
   }

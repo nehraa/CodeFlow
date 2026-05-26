@@ -1,0 +1,39 @@
+{
+  "name": "@abhinav2203/codeflow-dtwin",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Digital twin simulation engine with active nodes and snapshot tooling",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./simulate": {
+      "types": "./dist/simulate/index.d.ts",
+      "default": "./dist/simulate/index.js"
+    }
+  },
+  "bin": {
+    "codeflow-dtwin": "./dist/bin/cli.js"
+  },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "vitest run",
+    "build": "tsc --build && node scripts/wrap-cli.mjs",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@abhinav2203/codeflow-core": "^1.1.6",
+    "@abhinav2203/codeflow-execution": "^0.1.0",
+    "@abhinav2203/codeflow-store": "^1.0.14",
+    "dotenv": "^16.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}

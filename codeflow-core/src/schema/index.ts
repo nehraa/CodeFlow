@@ -101,17 +101,17 @@ export const codeContractSchema = z.object({
   responsibilities: z.array(z.string()),
   inputs: z.array(contractFieldSchema),
   outputs: z.array(contractFieldSchema),
-  attributes: z.array(contractFieldSchema),
-  methods: z.array(methodSpecSchema),
-  sideEffects: z.array(z.string()),
-  errors: z.array(z.string()),
-  dependencies: z.array(z.string()),
-  calls: z.array(designCallSchema),
-  uiAccess: z.array(z.string()),
-  backendAccess: z.array(z.string()),
-  notes: z.array(z.string())
+  attributes: z.array(contractFieldSchema).default([]),
+  methods: z.array(methodSpecSchema).default([]),
+  sideEffects: z.array(z.string()).default([]),
+  errors: z.array(z.string()).default([]),
+  dependencies: z.array(z.string()).default([]),
+  calls: z.array(designCallSchema).default([]),
+  uiAccess: z.array(z.string()).default([]),
+  backendAccess: z.array(z.string()).default([]),
+  notes: z.array(z.string()).default([])
 });
-export type CodeContract = z.infer<typeof codeContractSchema>;
+export type CodeContract = z.output<typeof codeContractSchema>;
 
 export const sourceRefSchema = z.object({
   kind: z.enum(["prd", "repo", "generated", "trace"]),
@@ -178,9 +178,9 @@ export const blueprintNodeSchema = z.object({
   ownerId: z.string().optional(),
   signature: z.string().optional(),
   contract: codeContractSchema,
-  sourceRefs: z.array(sourceRefSchema),
-  generatedRefs: z.array(z.string()),
-  traceRefs: z.array(z.string()),
+  sourceRefs: z.array(sourceRefSchema).default([]),
+  generatedRefs: z.array(z.string()).default([]),
+  traceRefs: z.array(z.string()).default([]),
   traceState: traceStateSchema.optional(),
   status: nodeStatusSchema.default("spec_only"),
   specDraft: z.string().optional(),

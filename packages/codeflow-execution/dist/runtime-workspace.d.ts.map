@@ -1,0 +1,1 @@
+{"version":3,"file":"runtime-workspace.d.ts","sourceRoot":"","sources":["../src/runtime-workspace.ts"],"names":[],"mappings":"AAqBA,OAAO,KAAK,EAQV,uBAAuB,EACvB,sBAAsB,EAGvB,MAAM,4BAA4B,CAAC;AA2jBpC,eAAO,MAAM,YAAY,GACvB,SAAS,uBAAuB,KAC/B,OAAO,CAAC,sBAAsB,GAAG;IAAE,cAAc,EAAE,MAAM,CAAA;CAAE,CAma7D,CAAC"}

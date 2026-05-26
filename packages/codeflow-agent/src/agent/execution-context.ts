@@ -70,7 +70,7 @@ export async function executeWithContext(
       model: task.model
     });
 
-    return result.output || '';
+    return result;
   });
 
   const orchestrationResult = resultAggregator.aggregate(results);
@@ -165,7 +165,7 @@ export async function executeBlueprint(
       error: result.error,
     });
 
-    return result.output || '';
+    return result;
   });
 
   const orchestrationResult = resultAggregator.aggregate(results);
