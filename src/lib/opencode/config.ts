@@ -2,6 +2,9 @@
  * OpenCode configuration helpers
  */
 
+import { writeFileSync, mkdtempSync, chmodSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import type { OpencodeConfig, OpencodeProvider } from "./types";
 import { PROVIDER_CONFIGS } from "./types";
 
@@ -49,14 +52,31 @@ export function buildOpencodeConfig(
 }
 
 /**
- * Convert OpencodeConfig to environment variables for OpenCode CLI
+ * Convert OpencodeConfig to environment variables for OpenCode CLI.
+ *
+ * SECURITY: The API key is NEVER placed directly in the environment.
+ * Environment variables are readable via `/proc/<pid>/environ` on Linux
+ * by any local user, which would expose the key to local privilege
+ * escalation. Instead, the key is written to a temp file with mode
+ * 0600 (readable/writable only by the owner) and the file path is
+ * passed as the env var value. The child process is expected to read
+ * the key from the file.
  */
 export function configToEnv(config: OpencodeConfig): Record<string, string> {
   const env: Record<string, string> = {};
   const providerConfig = PROVIDER_CONFIGS[config.provider];
 
   if (config.apiKey && providerConfig.apiKeyEnvVar) {
-    env[providerConfig.apiKeyEnvVar] = config.apiKey;
+    // Write the API key to a unique temp file with restrictive permissions.
+    // Using mkdtempSync guarantees an unguessable, exclusive directory name,
+    // avoiding symlink attacks in the shared /tmp directory.
+    const dir = mkdtempSync(join(tmpdir(), "codeflow-opencode-"));
+    const keyFile = join(dir, "api_key");
+    writeFileSync(keyFile, config.apiKey, { mode: 0o600 });
+    // Belt-and-suspenders: explicitly chmod in case the umask interfered
+    // with the mode option (writeFileSync's mode is masked by process.umask).
+    chmodSync(keyFile, 0o600);
+    env[providerConfig.apiKeyEnvVar] = keyFile;
   }
 
   if (config.baseUrl) {
