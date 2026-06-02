@@ -21,7 +21,9 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log("[CodeRag] Query:", query);
+    if (process.env.NODE_ENV !== "production" || process.env.CODERAG_DEBUG === "1") {
+      console.log("[CodeRag] Query:", query);
+    }
     const results = await codeRag.query(query, { depth });
     return NextResponse.json({ results });
   } catch (error) {
