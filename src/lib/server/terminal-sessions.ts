@@ -31,8 +31,39 @@ const DEFAULT_WORKSPACE_ROOT = process.env.CODEFLOW_REPO_ROOT ?? /* turbopackIgn
 const OUTPUT_CAP_BYTES = 128 * 1024;
 const OUTPUT_TRUNCATION_NOTICE = "[CodeFlow] Older terminal output truncated.\n";
 
+const IDLE_TIMEOUT_MS = 10 * 60 * 1000;
+const EXPIRED_OUTPUT_GRACE_MS = 60 * 1000;
+const MAX_SESSIONS = 50;
+
 const sessions = new Map<string, InternalTerminalSession>();
 let sessionCounter = 0;
+
+const isIdleExpired = (session: InternalTerminalSession, now: number): boolean => {
+  const lastActivity = Date.parse(session.lastActivityAt);
+  if (Number.isNaN(lastActivity)) {
+    return true;
+  }
+
+  if (session.status === "running") {
+    return now - lastActivity > IDLE_TIMEOUT_MS;
+  }
+
+  return now - lastActivity > EXPIRED_OUTPUT_GRACE_MS;
+};
+
+const purgeIdleSessions = (now: number = Date.now()): void => {
+  for (const [id, session] of sessions) {
+    if (!isIdleExpired(session, now)) {
+      continue;
+    }
+
+    if (session.status === "running") {
+      session.child.kill("SIGTERM");
+    }
+
+    sessions.delete(id);
+  }
+};
 
 const stripTruncationNotice = (value: string): string =>
   value.startsWith(OUTPUT_TRUNCATION_NOTICE) ? value.slice(OUTPUT_TRUNCATION_NOTICE.length) : value;
@@ -122,12 +153,15 @@ const recordInput = (session: InternalTerminalSession, input: string) => {
   );
 };
 
-export const listTerminalSessions = (): TerminalSessionSummary[] =>
-  [...sessions.values()]
+export const listTerminalSessions = (): TerminalSessionSummary[] => {
+  purgeIdleSessions();
+  return [...sessions.values()]
     .map(toSummary)
     .sort((left, right) => right.startedAt.localeCompare(left.startedAt));
+};
 
 export const getTerminalSession = (id: string): TerminalSessionSnapshot | null => {
+  purgeIdleSessions();
   const session = sessions.get(id);
   return session ? toSnapshot(session) : null;
 };
@@ -136,6 +170,13 @@ export const createTerminalSession = async (options?: {
   cwd?: string;
   title?: string;
 }): Promise<TerminalSessionSnapshot> => {
+  purgeIdleSessions();
+  if (sessions.size >= MAX_SESSIONS) {
+    throw new Error(
+      `Terminal session limit reached (${MAX_SESSIONS}). Close an existing session before opening a new one.`
+    );
+  }
+
   const cwd = await resolveInitialCwd(options?.cwd);
   const shell = getShellPath();
   const child = spawn(shell, [], {
