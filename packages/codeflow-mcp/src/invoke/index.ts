@@ -187,8 +187,15 @@ export async function startStdioServer(): Promise<void> {
 // ─── HTTP transport ────────────────────────────────────────────────────────────
 
 function buildCorsHeaders(): Record<string, string> {
+  // Restrict to a configured allow-list of origins (no wildcard). Override via
+  // the MCP_ALLOWED_ORIGIN env var (comma-separated). Defaults to same-host.
+  const allowedOrigin =
+    (process.env["MCP_ALLOWED_ORIGIN"] ?? "http://localhost:3100")
+      .split(",")
+      .map((o) => o.trim())
+      .filter(Boolean)[0] ?? "http://localhost:3100";
   return {
-    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Origin": allowedOrigin,
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, authorization, x-api-key, x-request-id",
   };
