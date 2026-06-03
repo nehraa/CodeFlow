@@ -14,9 +14,11 @@ artifacts
 *.log
 *.tsbuildinfo
 .env
+.env.*
 .env.local
 .env.*.local
 .env*.local
+!.env.example
 # CodeRag index files
 .coderag-*
 .coderag/
