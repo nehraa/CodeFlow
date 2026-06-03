@@ -187,10 +187,17 @@ export async function startStdioServer(): Promise<void> {
 // ─── HTTP transport ────────────────────────────────────────────────────────────
 
 function buildCorsHeaders(): Record<string, string> {
+  // CORS is configured with a wildcard origin, which means browsers will
+  // reject any cross-origin request that carries credentials or sensitive
+  // headers (Authorization, X-API-Key, Cookie, etc.). We therefore omit
+  // `authorization` and `x-api-key` from Allow-Headers to prevent the server
+  // from advertising that it will accept these headers cross-origin.
+  // If specific origins need credentialed access in the future, switch
+  // Allow-Origin to an explicit allowlist and re-enable the headers there.
   return {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, authorization, x-api-key, x-request-id",
+    "Access-Control-Allow-Headers": "Content-Type, x-request-id",
   };
 }
 
