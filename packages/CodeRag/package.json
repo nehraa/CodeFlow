@@ -1,0 +1,79 @@
+{
+  "name": "@abhinav2203/coderag",
+  "version": "1.0.3",
+  "description": "Standalone code retrieval and MCP server for multi-language repositories built on @abhinav2203/codeflow-core.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "coderag": "dist/bin/coderag.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./cli": {
+      "types": "./dist/cli.d.ts",
+      "default": "./dist/cli.js"
+    },
+    "./mcp": {
+      "types": "./dist/mcp/server.d.ts",
+      "default": "./dist/mcp/server.js"
+    }
+  },
+  "scripts": {
+    "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.json",
+    "check": "tsc --noEmit -p tsconfig.json",
+    "lint": "tsc --noEmit -p tsconfig.json",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run test && npm run build",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage"
+  },
+  "keywords": [
+    "coderag",
+    "rag",
+    "mcp",
+    "typescript",
+    "javascript",
+    "go",
+    "python",
+    "rust",
+    "c",
+    "cpp",
+    "code-search",
+    "repo-analysis"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nehraa/CodeRag.git"
+  },
+  "homepage": "https://github.com/nehraa/CodeRag#readme",
+  "bugs": {
+    "url": "https://github.com/nehraa/CodeRag/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@abhinav2203/codeflow-core": "^1.1.2",
+    "@lancedb/lancedb": "^0.22.0",
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "@xenova/transformers": "^2.17.2",
+    "zod": "4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "25.5.0",
+    "@vitest/coverage-v8": "4.1.0",
+    "typescript": "5.9.3",
+    "vitest": "4.1.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
