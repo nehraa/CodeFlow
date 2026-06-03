@@ -1,202 +1,210 @@
 # CodeFlow
 
-CodeFlow is a blueprint-first coding workbench. It ingests a PRD and/or a local JavaScript or TypeScript repo, builds an architecture graph, lets you inspect and edit node contracts in a visual map, applies runtime trace overlays, and exports markdown docs plus generated code stubs and a JSON Canvas file that can be opened in Obsidian-compatible tools.
+Code-as-graph platform for AI-driven software development. You write a product requirements document in markdown. The parser lifts it into a typed `BlueprintGraph` of functions, classes, APIs, and UI screens. The other packages reason over that graph: analyze it for smells, execute it in a sandbox, snapshot it as a versioned branch, simulate user flows through it, evolve it with a genetic algorithm, render it on a React Flow canvas. CodeRag indexes the underlying source repository so the platform can answer questions about the actual code.
 
-## What is implemented
+Fourteen packages, one Next.js IDE, one MCP server, one CLI.
 
-- **AI blueprint generation** - Generate architecture blueprints from natural language prompts using NVIDIA API (Llama 3.1 405B)
-- PRD ingestion with deterministic extraction of screens, APIs, classes, functions, modules, and workflows
-- JavaScript/TypeScript repo analysis with `ts-morph` for modules, imports, classes, methods, functions, API routes, page screens, inheritance, and discovered call edges
-- React Flow workbench for graph visualization and node inspection/editing
-- Workbench graph editing for adding/removing nodes and edges without rebuilding from the PRD
-- Execution planning with dependency batches and per-node task ownership paths
-- Local persistence under `~/.codeflow-store/` by default for sessions, runs, approvals, and checkpoints
-- Risk-aware export flow with approval gating in `essential` mode and checkpoint creation before overwriting exports
-- Local sandboxed `yolo` export runs with diff manifests before syncing to the target directory
-- Conflict/drift analysis against a live TypeScript repo snapshot
-- Observability ingestion and retrieval APIs for spans/logs with graph overlay
-- Trace overlay support from pasted JSON spans
-- Disk export for:
-  - `blueprint.json`
-  - markdown docs per node
-  - `system.canvas`
-  - generated TypeScript and TSX stubs
-  - `ownership.json`
-  - `obsidian-index.md`
+## Why It Exists
 
-## Run it
+Software work happens in two layers: the requirements ("the user can reset their password") and the code (`POST /auth/reset`). Most tooling forces you to maintain both as separate artifacts that drift apart. CodeFlow collapses the gap. The PRD is the source of truth. The graph is a derived, typed representation you can analyze, version, simulate, and execute. The code you write for each node is an implementation detail, not the primary artifact.
+
+This changes what tools you can build. Once the structure is a graph you can run cycle detection, find god nodes, simulate traffic, evolve architectures, diff branches by their structural fingerprint rather than line-by-line, and answer "where is auth handled?" with retrieval over a semantic index.
+
+## The Packages
+
+Every package lives in `packages/` and publishes to npm under the `@abhinav2203` scope. The `codeflow-master` package is the Next.js IDE that ties them together. Per-package deep dives live in [`docs/`](./docs).
+
+| Package | What It Does |
+|---|---|
+| [`codeflow-core`](./docs/codeflow-core.md) | Zod schemas, multi-language tree-sitter analyzer, conflict detection, artifact export. The graph data model. |
+| [`codeflow-prd`](./docs/codeflow-prd.md) | Markdown PRD parser. Infers nodes and edges from headings, inline tags, HTTP patterns, and workflow lines. |
+| [`codeflow-analysis`](./docs/codeflow-analysis.md) | Cycle detection (Tarjan SCC), smell detection (god nodes, hubs, tight coupling), structural metrics, drift healing, repo conflicts. |
+| [`codeflow-execution`](./docs/codeflow-execution.md) | Run plans via topological batching, isolated TS workspaces, VCR recordings of trace spans, Mermaid export, sandbox diffs. |
+| [`codeflow-versioning`](./docs/codeflow-versioning.md) | Branch creation, structural diff, reasoning snapshots, CodeRag-backed search and explain. |
+| [`codeflow-store`](./docs/codeflow-store.md) | Local session storage, project-scoped state, checkpoints, approvals, observability, risk reports. |
+| [`codeflow-mcp`](./docs/codeflow-mcp.md) | JSON-RPC MCP server and client for blueprint operations. Stdio and HTTP transports. |
+| [`codeflow-canvas`](./docs/codeflow-canvas.md) | React Flow graph canvas, Monaco code editors, IDE layout components, blueprint store hook. |
+| [`codeflow-dtwin`](./docs/codeflow-dtwin.md) | Digital twin simulation. Groups spans into user flows, computes active nodes, synthesizes simulated spans. |
+| [`codeflow-evolution`](./docs/codeflow-evolution.md) | Genetic algorithm for architecture evolution. Monolith and microservices variants, tournament selection, four-dimension fitness. |
+| [`codeflow-agent`](./docs/codeflow-agent.md) | Orchestrates subagent-driven development. Spawns Claude Code agents per task with skill, MCP, and plugin registries. |
+| [`codeflow-master`](./docs/codeflow-master.md) | The unified Next.js IDE. Integrates the 12 packages above into a single canvas-centric environment. |
+| [`CodeRag`](./docs/coderag.md) | Standalone repo RAG engine. Tree-sitter indexing, LanceDB storage, MCP tools for query, lookup, explain, impact. |
+| `codeflow-prd-test-npm` | Placeholder package, no runtime code. Reserved for downstream test consumers. |
+
+## Architecture
+
+```
+PRDs in markdown
+    |
+    v
+[codeflow-prd]  parsePrd()  ──>  BlueprintGraph (spec)
+    |                                  |
+    |                                  v
+    |                         [codeflow-core]  analyzer, schema, conflicts
+    |                                  |
+    |                                  v
+    |                         [codeflow-execution]  runBlueprint() in sandbox
+    |                                  |
+    |                                  v
+    |                         [codeflow-store]  checkpoints, runs, approvals
+    |                                  |
+    +───── [codeflow-analysis]  ◄──────┘  detect cycles, smells, metrics
+    |
+    +───── [codeflow-versioning]  ──>  branches, structural diff, CodeRag search
+    |
+    +───── [codeflow-dtwin]  ──>  simulate user flows, active nodes
+    |
+    +───── [codeflow-evolution]  ──>  genetic variants, fitness benchmark
+    |
+    v
+[codeflow-canvas]  React Flow + Monaco  ──>  [codeflow-master] Next.js IDE
+    |
+    v
+[codeflow-mcp]  JSON-RPC server  ◄───  [codeflow-agent]  subagent dispatch
+    |
+    v
+[CodeRag]  LanceDB index of the actual source repo
+```
+
+The data flow is acyclic. The graph is the spine. Every other package either reads the graph, writes to it, or produces artifacts derived from it.
+
+## The BlueprintGraph
+
+The central type. A `BlueprintGraph` has:
+
+- `nodes`: `BlueprintNode[]` where each node carries a `kind` (`function | module | api | class | ui-screen`), a `status` (`spec_only | implemented | verified | connected`), a `contract` with methods, fields, and I/O, and a `specDraft` placeholder for code generation.
+- `edges`: `BlueprintEdge[]` with eight kinds including `calls`, `reads-state`, `writes-state`, `depends-on`, `renders`.
+- `workflows`: named sequences of node references, the user-visible flows.
+- `sourceRefs`: provenance pointing back to the PRD section, repo file span, or branch that produced each node.
+
+Every package operates on this shape. Analysis diffs two graphs. Versioning hashes nodes and edges into stable `nodeKey`/`edgeKey` fingerprints. Evolution mutates the graph with crossover and mutation operators. Execution walks it in topological batches.
+
+## Quick Start
+
+Install the IDE:
 
 ```bash
+git clone https://github.com/nehraa/CodeFlow.git
+cd CodeFlow
 npm install
+cd packages/Codeflow_master
 npm run dev
 ```
 
-## CodeRag Integration
+The IDE opens at `http://localhost:3000` with the canvas, file tree, and Monaco editor in a single workbench.
 
-CodeFlow now includes CodeRag for intelligent code retrieval:
-
-```bash
-npm install @abhinav2203/coderag@^0.2.1
-```
-
-- CodeRag indexes the codebase on blueprint builds and exports
-- Query the codebase via `POST /api/coderag` with `{ "query": "your question", "depth": 2 }`
-- Requires `GEMINI_API_KEY` in `.env` for Gemini embeddings (falls back to local-hash if not set)
-
-Then open `http://localhost:3000`.
-
-## Test and verify
+Install CodeRag into a target repo:
 
 ```bash
-npm run lint
-npm test
-npm run check
-npm run build
+cd your-project
+npm install @abhinav2203/coderag
+npx coderag init
+npx coderag query "where is auth handled?"
+npx coderag serve-mcp
 ```
 
-Run `npm run check` separately from `npm run build`; they both touch Next type generation and should not be launched in parallel.
+CodeRag installs a `post-commit` hook that reindexes after each commit. It supports TypeScript, JavaScript, Go, Python, C, C++, and Rust. Embeddings run locally with ONNX (`Xenova/gte-small`, 384-dim) or remotely with Gemini.
 
-## Engineering docs
-
-- `AGENTS.md` is the default repo contract for human and AI changes.
-- `docs/execution-validation-contract.md` defines the required target behavior for node execution, graph pass/fail truthfulness, and drill-down failure visibility.
-- `docs/ai-coding-risk-playbook.md` defines the failure modes of AI-assisted coding and the required countermeasures for this repo.
-
-## How to use
-
-### AI Blueprint Generation (Recommended)
-
-1. Enter a project name.
-2. Select **AI Prompt (NVIDIA)** mode.
-3. Enter your NVIDIA API key for the current browser session or set `NVIDIA_API_KEY` in the environment.
-4. Describe your project in natural language (e.g., "A task management app with React frontend and Node.js backend..." or "A Rails monolith with Sidekiq jobs and a React admin panel...").
-5. Choose `essential` or `yolo` mode.
-6. Click `Build blueprint`.
-
-AI prompt mode is stack-agnostic. Today the legacy repo analyzer reads JavaScript/TypeScript repos, and exported starter stubs are still generated as TS/TSX files.
-
-### Legacy PRD/Repo Mode
-
-1. Enter a project name.
-2. Select **PRD / Repo (legacy)** mode.
-3. Optionally enter an absolute path to a local JavaScript or TypeScript repo.
-4. Paste PRD markdown.
-5. Choose `essential` or `yolo` mode.
-6. Click `Build blueprint`.
-
-### After Building
-
-7. Click nodes in the graph to inspect and edit their summary and notes.
-8. Paste trace spans JSON if you want to overlay runtime status.
-9. Click `Run plan` to execute the current task plan and persist execution ownership metadata.
-10. Click `Load observability` to reload stored spans/logs for the project and overlay them on the graph.
-11. Click `Analyze drift` to compare the current blueprint to the repo snapshot.
-12. Click `Export artifacts` to write docs, canvas, ownership metadata, and code stubs to disk.
-13. If `essential` mode flags the export as risky, approve the pending export and rerun it from the UI.
-
-## Trace JSON format
+Use the MCP server from Claude Code or Cursor by adding to your MCP config:
 
 ```json
-[
-  {
-    "spanId": "span-1",
-    "traceId": "trace-1",
-    "name": "TaskService.saveTask",
-    "status": "error",
-    "durationMs": 12,
-    "runtime": "node"
+{
+  "mcpServers": {
+    "codeflow": {
+      "command": "npx",
+      "args": ["-y", "@abhinav2203/codeflow-mcp"]
+    }
   }
-]
+}
 ```
 
-You can also set `blueprintNodeId` directly for exact matching.
+## Writing a PRD
 
-## Output layout
+PRDs are markdown. The parser recognizes:
 
-By default exports go to:
+- Headings become `module` nodes. Subheadings become `function`/`class`/`api`/`ui-screen` based on keywords.
+- Inline tags like `api: POST /users/:id` and `function validateEmail(email: string): boolean` become typed nodes with inferred contracts.
+- HTTP method patterns (`GET /path`, `POST /path`) become `api` nodes.
+- Signature lines (`name(params): returnType`) become method specs.
+- Workflow lines (`a -> b -> c`) become `calls` edges with `confidence: 0.7`.
 
-```text
-artifacts/<project-name>/
+A minimal PRD:
+
+```markdown
+# Auth Service
+
+## API
+api: POST /auth/login
+  body: { email: string, password: string }
+  returns: { token: string, user: User }
+
+## Function
+function validateEmail(email: string): boolean
+  returns: email matches RFC 5322
+
+## UI
+screen: LoginPage
+  form: [email, password]
+  submit: POST /auth/login
 ```
 
-With these files:
+The parser turns this into a graph with three nodes and one edge.
 
-```text
-blueprint.json
-docs/
-stubs/
-system.canvas
-ownership.json
-obsidian-index.md
+## Per-Package Documentation
+
+Every package has a deep dive in [`docs/`](./docs). Each one covers purpose, public API, internal architecture, key types, and extension points.
+
+- [docs/codeflow-core.md](./docs/codeflow-core.md)
+- [docs/codeflow-prd.md](./docs/codeflow-prd.md)
+- [docs/codeflow-analysis.md](./docs/codeflow-analysis.md)
+- [docs/codeflow-execution.md](./docs/codeflow-execution.md)
+- [docs/codeflow-versioning.md](./docs/codeflow-versioning.md)
+- [docs/codeflow-store.md](./docs/codeflow-store.md)
+- [docs/codeflow-mcp.md](./docs/codeflow-mcp.md)
+- [docs/codeflow-canvas.md](./docs/codeflow-canvas.md)
+- [docs/codeflow-dtwin.md](./docs/codeflow-dtwin.md)
+- [docs/codeflow-evolution.md](./docs/codeflow-evolution.md)
+- [docs/codeflow-agent.md](./docs/codeflow-agent.md)
+- [docs/codeflow-master.md](./docs/codeflow-master.md)
+- [docs/coderag.md](./docs/coderag.md)
+
+## Development
+
+Each package has the same script surface:
+
+```bash
+npm run check    # tsc --noEmit
+npm run test     # vitest run
+npm run build    # tsc emit + dist
 ```
 
-Local state is stored in:
+The monorepo uses local `node_modules` per package. To work on a single package:
 
-```text
-~/.codeflow-store/
+```bash
+cd packages/codeflow-prd
+npm install
+npm test
 ```
 
-This includes latest sessions, run records, approval records, and checkpoints for overwritten export directories.
-Set `CODEFLOW_STORE_ROOT` to override the default location.
+Build order matters because of inter-package dependencies. The graph:
 
-Browser-only preferences such as live completions, auto-implement, and theme stay in local storage. The raw NVIDIA API key is no longer persisted there; it is held in the current browser session only unless you provide it through `NVIDIA_API_KEY`.
+```
+codeflow-core
+    ├── codeflow-store
+    │       ├── codeflow-prd
+    │       ├── codeflow-analysis
+    │       ├── codeflow-versioning
+    │       └── codeflow-agent
+    ├── codeflow-mcp
+    ├── codeflow-execution
+    │       └── codeflow-dtwin
+    ├── codeflow-canvas
+    ├── codeflow-evolution
+    └── codeflow-master (consumes all of the above + CodeRag)
+```
 
-## OpenCode Integration
+Build `codeflow-core` first. Then everything that depends only on it. Then transitive dependents.
 
-CodeFlow supports OpenCode as an alternative AI backend for code generation and implementation:
+## License
 
-### Setup
-
-1. Install OpenCode globally (optional, for CLI usage):
-   ```bash
-   npm install -g opencode-ai
-   ```
-
-2. Configure OpenCode from the CodeFlow settings panel:
-   - Open Settings (gear icon or press `S`)
-   - Click "Configure OpenCode"
-   - Select your AI provider (Anthropic, OpenAI, Google, etc.)
-   - Enter your API key
-   - Click "Start Server"
-
-### Features
-
-- **Multiple AI Providers**: Support for Anthropic (Claude), OpenAI (GPT), Google (Gemini), Azure OpenAI, Groq, Mistral, Cohere, Perplexity, OpenRouter, AWS Bedrock, and local models
-- **MCP Servers**: Configure Model Context Protocol servers for enhanced agent capabilities
-- **Skills & Hooks**: Enable OpenCode skills and configure pre/post hooks for automated workflows
-- **Agent Types**: Choose between "build" (full file access) or "plan" (read-only analysis) agents
-
-### OpenCode API Routes
-
-- `GET /api/opencode/status` - Get server status
-- `POST /api/opencode/start` - Start the OpenCode server
-- `POST /api/opencode/stop` - Stop the OpenCode server
-- `POST /api/opencode/restart` - Restart the OpenCode server
-- `POST /api/opencode/agent` - Send a message to the agent
-- `GET /api/opencode/sessions` - List OpenCode sessions
-- `POST /api/opencode/sessions` - Create a new session
-- `GET /api/opencode/sessions/:id` - Get session details
-- `POST /api/opencode/sessions/:id` - Send message to session
-- `DELETE /api/opencode/sessions/:id` - Delete session
-- `GET /api/opencode/mcp` - List configured MCP servers
-- `POST /api/opencode/mcp` - Configure MCP server
-- `GET /api/opencode/permissions` - List pending permission requests
-- `POST /api/opencode/permissions` - Reply to permission request
-
-### Using OpenCode for Code Generation
-
-When OpenCode is running, you can use it for:
-- Node implementation (`POST /api/implement-node` with `useOpencode: true`)
-- Code suggestions (`POST /api/code-suggestions` with `useOpencode: true`)
-- Direct agent queries via the OpenCode panel in the workbench
-
-## API routes
-
-- `POST /api/blueprint`
-- `POST /api/generate-blueprint`
-- `POST /api/executions/run`
-- `POST /api/export`
-- `POST /api/approvals/approve`
-- `POST /api/observability/ingest`
-- `GET /api/observability/latest`
-- `POST /api/conflicts`
+Apache-2.0. See each package's `LICENSE` file.

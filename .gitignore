@@ -1,14 +1,21 @@
 node_modules
 .next
+out
+dist
+build
 coverage
 artifacts
+*.tgz
+.DS_Store
 .codeflow-store
 .codeflow-store-test
 .codeflow-sandboxes
 .test-store
 *.log
 *.tsbuildinfo
+.env
 .env.local
+.env.*.local
 .env*.local
 # CodeRag index files
 .coderag-*
