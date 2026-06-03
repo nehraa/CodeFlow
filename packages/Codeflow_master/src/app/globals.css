@@ -1,0 +1,169 @@
+@import 'tailwindcss';
+
+:root {
+  --cf-bg: #0a0a0f;
+  --cf-surface: #13131a;
+  --cf-surface-elevated: #1a1a24;
+  --cf-border: #2a2a3a;
+  --cf-primary: #6366f1;
+  --cf-primary-glow: #818cf8;
+  --cf-accent: #22d3ee;
+  --cf-success: #10b981;
+  --cf-warning: #f59e0b;
+  --cf-error: #ef4444;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--cf-bg);
+  color: #e2e8f0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* VCR Button Styles */
+.vcr-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid var(--cf-border);
+  background: var(--cf-surface);
+  color: #e2e8f0;
+  cursor: pointer;
+  transition: all 0.15s ease-out;
+  position: relative;
+  overflow: hidden;
+}
+
+.vcr-button:hover {
+  background: var(--cf-surface-elevated);
+  border-color: var(--cf-primary);
+}
+
+.vcr-button:active {
+  transform: scale(0.92);
+}
+
+.vcr-button.playing {
+  background: var(--cf-success);
+  border-color: var(--cf-success);
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.5);
+}
+
+.vcr-button.paused {
+  background: var(--cf-warning);
+  border-color: var(--cf-warning);
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.5);
+}
+
+.vcr-button.recording {
+  background: var(--cf-error);
+  border-color: var(--cf-error);
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
+  animation: recording-pulse 1s ease-in-out infinite;
+}
+
+@keyframes recording-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* Node Animation Classes */
+.node-glow {
+  transition: box-shadow 0.2s ease-out;
+}
+
+.node-glow:hover {
+  box-shadow: 0 0 15px rgba(99, 102, 241, 0.6), 0 0 30px rgba(99, 102, 241, 0.3);
+}
+
+.node-selected {
+  animation: node-select 0.3s ease-out forwards;
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.8), 0 0 40px rgba(99, 102, 241, 0.4);
+}
+
+/* Ghost Node */
+.ghost-node {
+  animation: ghost-pulse 3s ease-in-out infinite;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(34, 211, 238, 0.1));
+  border: 1px dashed var(--cf-primary);
+}
+
+/* Heatmap */
+.heatmap-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 0%, rgba(99, 102, 241, 0.1) 100%);
+  opacity: 0.5;
+  mix-blend-mode: screen;
+}
+
+/* Execution Flow Animation */
+.execution-edge {
+  background: linear-gradient(90deg, var(--cf-primary), var(--cf-accent), var(--cf-primary));
+  background-size: 200% 100%;
+  animation: flow-gradient 2s linear infinite;
+}
+
+@keyframes flow-gradient {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+/* Panel Styles */
+.panel {
+  background: var(--cf-surface);
+  border: 1px solid var(--cf-border);
+  border-radius: 8px;
+}
+
+.panel-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--cf-border);
+  font-weight: 600;
+  color: #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--cf-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--cf-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--cf-primary);
+}
+
+/* React Flow Overrides */
+.react-flow__node {
+  border-radius: 8px;
+}
+
+.react-flow__edge-path {
+  stroke-width: 2;
+}
+
+.react-flow__background {
+  background-color: var(--cf-bg);
+}
