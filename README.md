@@ -81,17 +81,25 @@ Every package operates on this shape. Analysis diffs two graphs. Versioning hash
 
 ## Quick Start
 
-Install the IDE:
+Run the IDE:
 
 ```bash
 git clone https://github.com/nehraa/CodeFlow.git
 cd CodeFlow
-npm install
+pnpm install
 cd packages/Codeflow_master
-npm run dev
+pnpm dev
 ```
 
 The IDE opens at `http://localhost:3000` with the canvas, file tree, and Monaco editor in a single workbench.
+
+If you only need a single package, install inside it:
+
+```bash
+cd packages/codeflow-prd
+npm install
+npm test
+```
 
 Install CodeRag into a target repo:
 
@@ -170,20 +178,20 @@ Every package has a deep dive in [`docs/`](./docs). Each one covers purpose, pub
 
 ## Development
 
-Each package has the same script surface:
+The repository is a pnpm workspace (`pnpm-workspace.yaml` at the root). All packages live under `packages/`. There is no root `package.json`; the root only holds the workspace manifest, this README, the documentation in `docs/`, and the `.gitignore`.
+
+To install everything at once:
+
+```bash
+pnpm install
+```
+
+To work on a single package, drop into it and use its scripts directly. Most packages expose:
 
 ```bash
 npm run check    # tsc --noEmit
 npm run test     # vitest run
 npm run build    # tsc emit + dist
-```
-
-The monorepo uses local `node_modules` per package. To work on a single package:
-
-```bash
-cd packages/codeflow-prd
-npm install
-npm test
 ```
 
 Build order matters because of inter-package dependencies. The graph:

@@ -1,3 +1,0 @@
-Attempt 148 - Starting verification
-Max retries configured: 3
-Max retries configured: 3
