@@ -35,12 +35,40 @@ const appendChunk = (
   return { next: truncated, capped: true };
 };
 
+// Reject anything that could be interpreted as a separate shell token or
+// path-traversal escape. Callers MUST pass a single, fully-qualified
+// executable name (e.g. `process.execPath` or an absolute path); the
+// `spawn` call below uses `shell: false` (the default), but defending at
+// the API boundary keeps callers from accidentally handing us a
+// caller-supplied string that contains whitespace, NULs, or other
+// metacharacters that could be abused downstream.
+const isValidCommand = (value: string): boolean => {
+  if (typeof value !== "string" || value.length === 0) {
+    return false;
+  }
+  if (value.includes("\0") || value.includes("\n") || value.includes("\r")) {
+    return false;
+  }
+  if (/\s/.test(value)) {
+    return false;
+  }
+  return true;
+};
+
 export const runCommand = (
   command: string,
   args: string[],
   options: RunCommandOptions
-): Promise<RunCommandResult> =>
-  new Promise((resolve, reject) => {
+): Promise<RunCommandResult> => {
+  if (!isValidCommand(command)) {
+    return Promise.reject(
+      new Error(
+        `runCommand: refusing to spawn invalid command (must be a non-empty string with no whitespace or NUL bytes): ${JSON.stringify(command)}`
+      )
+    );
+  }
+
+  return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd: options.cwd,
       env: options.env,
@@ -115,3 +143,4 @@ export const runCommand = (
       });
     });
   });
+};
