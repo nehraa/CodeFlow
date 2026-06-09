@@ -223,6 +223,7 @@ function sendJson(res: ServerResponse, data: JsonRpcResponse, cors = true) {
  * Endpoints:
  *   POST / — JSON-RPC (request/response, compatible with all HTTP MCP clients)
  *   GET  /sse — SSE stream for streaming responses (Claude Desktop, Cursor)
+ *   GET  /health, GET /healthz — liveness/readiness probes for production deploys
  */
 export function createHttpServer(port = 3100, host = "localhost"): Server {
   const server = createServer(async (req, res) => {
@@ -297,6 +298,13 @@ export function createHttpServer(port = 3100, host = "localhost"): Server {
       return;
     }
 
+    // ── Health probes (production deploys) ─────────────────────────────────
+    if (req.method === "GET" && (url.pathname === "/health" || url.pathname === "/healthz")) {
+      res.writeHead(200, { "Content-Type": "application/json", ...buildCorsHeaders() });
+      res.end(JSON.stringify({ status: "ok", service: "codeflow-mcp" }));
+      return;
+    }
+
     // 404
     res.writeHead(404);
     res.end();
@@ -306,6 +314,7 @@ export function createHttpServer(port = 3100, host = "localhost"): Server {
     console.log(`[codeflow-mcp] MCP server running`);
     console.log(`[codeflow-mcp]   HTTP:  http://${host}:${port}/`);
     console.log(`[codeflow-mcp]   SSE:   http://${host}:${port}/sse`);
+    console.log(`[codeflow-mcp]   Health: http://${host}:${port}/health`);
     console.log(`[codeflow-mcp]   Tools: ${TOOLS.map((t) => t.name).join(", ")}`);
   });
 
