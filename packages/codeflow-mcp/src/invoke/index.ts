@@ -201,12 +201,22 @@ function buildCorsHeaders(): Record<string, string> {
   };
 }
 
+// Cap incoming POST bodies to prevent a single large request from
+// exhausting memory. Matches the limit enforced by CodeRag's HTTP service.
+const MAX_REQUEST_BYTES = 1024 * 1024;
+
 async function parseBody(req: IncomingMessage): Promise<string> {
-  let body = "";
+  const chunks: Buffer[] = [];
+  let totalBytes = 0;
   for await (const chunk of req) {
-    body += chunk;
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    totalBytes += buffer.byteLength;
+    if (totalBytes > MAX_REQUEST_BYTES) {
+      throw new Error("Request body exceeded the maximum allowed size.");
+    }
+    chunks.push(buffer);
   }
-  return body;
+  return Buffer.concat(chunks).toString("utf8");
 }
 
 function sendJson(res: ServerResponse, data: JsonRpcResponse, cors = true) {
@@ -263,7 +273,17 @@ export function createHttpServer(port = 3100, host = "localhost"): Server {
 
     // ── JSON-RPC POST endpoint ───────────────────────────────────────────────
     if (req.method === "POST") {
-      const body = await parseBody(req);
+      let body: string;
+      try {
+        body = await parseBody(req);
+      } catch (err) {
+        sendJson(res, {
+          jsonrpc: "2.0",
+          id: null,
+          error: { code: -32000, message: (err as Error).message },
+        });
+        return;
+      }
 
       let request: JsonRpcRequest;
       try {
