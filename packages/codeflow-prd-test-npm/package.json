@@ -1,13 +1,21 @@
 {
   "name": "codeflow-prd-test-npm",
   "version": "1.0.0",
-  "description": "",
+  "description": "Placeholder package. Reserved for downstream test consumers; intentionally ships no runtime code.",
   "main": "index.js",
+  "files": [
+    "index.js",
+    "README.md"
+  ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node test.js"
   },
-  "keywords": [],
+  "keywords": [
+    "placeholder",
+    "test-fixture"
+  ],
   "author": "",
-  "license": "ISC",
+  "license": "Apache-2.0",
+  "private": true,
   "type": "commonjs"
 }
