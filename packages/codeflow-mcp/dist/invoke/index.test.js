@@ -1,5 +1,6 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { handleJsonRpc, jsonRpcError, jsonRpcResult, TOOLS } from "./index.js";
+import { request as httpRequest } from "node:http";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createHttpServer, handleJsonRpc, jsonRpcError, jsonRpcResult, TOOLS } from "./index.js";
 afterEach(() => vi.restoreAllMocks());
 describe("handleJsonRpc", () => {
     describe("tools/list", () => {
@@ -181,6 +182,133 @@ describe("TOOLS registry", () => {
             expect(typeof tool.description).toBe("string");
             expect(typeof tool.inputSchema).toBe("object");
         }
+    });
+});
+/**
+ * CORS tests — verify the server safely handles the `Origin` header to prevent
+ * the wildcard-with-credentials exposure that arises when
+ * `Access-Control-Allow-Origin: *` is combined with credential-bearing
+ * `Access-Control-Allow-Headers` (authorization, x-api-key).
+ *
+ * When the request includes a non-empty `Origin`, the server must echo it.
+ * When `Origin` is absent (non-browser clients, curl, server-to-server), the
+ * server falls back to `*` to preserve backward compatibility.
+ */
+describe("createHttpServer CORS handling", () => {
+    let server;
+    let baseUrl;
+    beforeEach(async () => {
+        server = createHttpServer(0, "127.0.0.1");
+        await new Promise((resolve) => {
+            server.once("listening", () => resolve());
+        });
+        const address = server.address();
+        if (address === null || typeof address === "string") {
+            throw new Error("Expected server to be listening on a TCP port");
+        }
+        baseUrl = `http://127.0.0.1:${address.port}`;
+    });
+    afterEach(async () => {
+        await new Promise((resolve) => server.close(() => resolve()));
+    });
+    function get(path, origin) {
+        return new Promise((resolve, reject) => {
+            const req = httpRequest(`${baseUrl}${path}`, {
+                method: "GET",
+                headers: origin === undefined ? {} : { Origin: origin },
+            }, (res) => {
+                res.resume();
+                res.on("end", () => {
+                    resolve({ allowOrigin: res.headers["access-control-allow-origin"], statusCode: res.statusCode ?? 0 });
+                });
+            });
+            req.on("error", reject);
+            req.end();
+        });
+    }
+    it("echoes the request Origin back in Access-Control-Allow-Origin on GET /", async () => {
+        const origin = "https://app.example.com";
+        const res = await get("/", origin);
+        expect(res.statusCode).toBe(200);
+        expect(res.allowOrigin).toBe(origin);
+    });
+    it("falls back to wildcard when no Origin header is sent (non-browser client)", async () => {
+        const res = await get("/", undefined);
+        expect(res.statusCode).toBe(200);
+        expect(res.allowOrigin).toBe("*");
+    });
+    it("echoes the request Origin on the OPTIONS preflight response", async () => {
+        const origin = "https://app.example.com";
+        const res = await new Promise((resolve, reject) => {
+            const req = httpRequest(`${baseUrl}/`, {
+                method: "OPTIONS",
+                headers: { Origin: origin, "Access-Control-Request-Method": "POST" },
+            }, (r) => {
+                r.resume();
+                r.on("end", () => resolve({ allowOrigin: r.headers["access-control-allow-origin"], statusCode: r.statusCode ?? 0 }));
+            });
+            req.on("error", reject);
+            req.end();
+        });
+        expect(res.statusCode).toBe(204);
+        expect(res.allowOrigin).toBe(origin);
+    });
+    it("echoes the request Origin on the GET /sse response", async () => {
+        const origin = "https://app.example.com";
+        const res = await new Promise((resolve, reject) => {
+            const req = httpRequest(`${baseUrl}/sse`, {
+                method: "GET",
+                headers: { Origin: origin },
+            }, (r) => {
+                // SSE keeps the connection open; we only need the response headers.
+                // Resolve as soon as headers arrive, then destroy the request to
+                // tear down the long-lived stream.
+                const result = { allowOrigin: r.headers["access-control-allow-origin"], statusCode: r.statusCode ?? 0 };
+                req.destroy();
+                resolve(result);
+            });
+            req.on("error", () => {
+                // Destroying the request intentionally triggers ECONNRESET on some
+                // platforms. Swallow it — the headers have already been captured.
+            });
+            req.end();
+        });
+        expect(res.statusCode).toBe(200);
+        expect(res.allowOrigin).toBe(origin);
+    });
+    it("echoes the request Origin on POST / JSON-RPC responses", async () => {
+        const origin = "https://app.example.com";
+        const body = JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} });
+        const res = await new Promise((resolve, reject) => {
+            const req = httpRequest(`${baseUrl}/`, {
+                method: "POST",
+                headers: { Origin: origin, "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) },
+            }, (r) => {
+                r.resume();
+                r.on("end", () => resolve({ allowOrigin: r.headers["access-control-allow-origin"], statusCode: r.statusCode ?? 0 }));
+            });
+            req.on("error", reject);
+            req.write(body);
+            req.end();
+        });
+        expect(res.statusCode).toBe(200);
+        expect(res.allowOrigin).toBe(origin);
+    });
+    it("still includes authorization in Access-Control-Allow-Headers (echoing Origin does not strip credentials headers)", async () => {
+        const res = await new Promise((resolve, reject) => {
+            const req = httpRequest(`${baseUrl}/`, {
+                method: "OPTIONS",
+                headers: { Origin: "https://app.example.com", "Access-Control-Request-Method": "POST" },
+            }, (r) => {
+                r.resume();
+                r.on("end", () => resolve({ allowHeaders: r.headers["access-control-allow-headers"] }));
+            });
+            req.on("error", reject);
+            req.end();
+        });
+        const allowHeaders = Array.isArray(res.allowHeaders) ? res.allowHeaders.join(",") : res.allowHeaders ?? "";
+        expect(allowHeaders).toContain("authorization");
+        expect(allowHeaders).toContain("x-api-key");
     });
 });
 //# sourceMappingURL=index.test.js.map

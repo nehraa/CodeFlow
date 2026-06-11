@@ -58,6 +58,7 @@ export declare function startStdioServer(): Promise<void>;
  * Endpoints:
  *   POST / — JSON-RPC (request/response, compatible with all HTTP MCP clients)
  *   GET  /sse — SSE stream for streaming responses (Claude Desktop, Cursor)
+ *   GET  /health, GET /healthz — liveness/readiness probes for production deploys
  */
 export declare function createHttpServer(port?: number, host?: string): Server;
 export { TOOLS, handleJsonRpc, jsonRpcError, jsonRpcResult };
