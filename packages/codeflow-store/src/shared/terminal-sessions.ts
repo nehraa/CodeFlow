@@ -32,8 +32,15 @@ const DEFAULT_WORKSPACE_ROOT =
 const OUTPUT_CAP_BYTES = 128 * 1024;
 const OUTPUT_TRUNCATION_NOTICE = "[CodeFlow] Older terminal output truncated.\n";
 
+// Idle/purge tunables. Picked as conservative defaults; see PR #30 review.
+const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 min — sessions idle this long are signalled to exit
+const EXPIRED_OUTPUT_GRACE_MS = 60 * 1000; // 60 s — after exit, retain snapshot for this long before deletion
+const PURGE_INTERVAL_MS = 30 * 1000; // 30 s — background sweep cadence
+const SIGKILL_TIMEOUT_MS = 5 * 1000; // 5 s — SIGKILL escalation if SIGTERM is ignored
+
 const sessions = new Map<string, InternalTerminalSession>();
 let sessionCounter = 0;
+let purgeTimer: NodeJS.Timeout | null = null;
 
 const stripTruncationNotice = (value: string): string =>
   value.startsWith(OUTPUT_TRUNCATION_NOTICE) ? value.slice(OUTPUT_TRUNCATION_NOTICE.length) : value;
@@ -123,6 +130,107 @@ const recordInput = (session: InternalTerminalSession, input: string) => {
   );
 };
 
+/**
+ * Send `signal` to the session's child, and schedule SIGKILL after
+ * `SIGKILL_TIMEOUT_MS` if the process has not closed by then.
+ *
+ * Returns the escalation timer so the caller can `clearTimeout` it if the
+ * `close` event fires first. The timer is `unref`'d so it never keeps the
+ * event loop alive on its own.
+ */
+const killWithEscalation = (
+  session: InternalTerminalSession,
+  signal: NodeJS.Signals
+): NodeJS.Timeout | null => {
+  // If the process is already dead, nothing to do.
+  if (session.status !== "running") {
+    return null;
+  }
+
+  try {
+    session.child.kill(signal);
+  } catch {
+    // Process may have exited between our status check and the kill call;
+    // the close handler will run on its own and clean up state.
+    return null;
+  }
+
+  const escalation = setTimeout(() => {
+    if (session.status === "running") {
+      try {
+        session.child.kill("SIGKILL");
+      } catch {
+        // Best-effort.
+      }
+    }
+  }, SIGKILL_TIMEOUT_MS);
+  escalation.unref();
+  return escalation;
+};
+
+/**
+ * Sweep the session map and reap sessions that have outlived their useful life.
+ *
+ * Two cases:
+ *  1. Sessions whose status is `"exited"` and whose `lastActivityAt` is more
+ *     than `EXPIRED_OUTPUT_GRACE_MS` ago: delete them from the map. This is
+ *     the "grace period" — callers that hold the snapshot can still see it
+ *     for 60 s after the process dies.
+ *  2. Sessions whose status is `"running"` but whose `lastActivityAt` is more
+ *     than `IDLE_TIMEOUT_MS` ago: signal them to exit (SIGTERM, with SIGKILL
+ *     escalation) and refresh `lastActivityAt` to "now". The session stays
+ *     in the map; when the `close` event fires it transitions to `"exited"`
+ *     and the next purge cycle handles deletion.
+ *
+ * Reaping happens in a single pass to avoid mutating the map while iterating.
+ */
+export const purgeIdleSessions = (now: number = Date.now()): void => {
+  const idleCutoff = now - IDLE_TIMEOUT_MS;
+  const expiredCutoff = now - EXPIRED_OUTPUT_GRACE_MS;
+
+  for (const [id, session] of sessions) {
+    if (session.status !== "running") {
+      // Exited or error sessions: only delete after the grace period has elapsed.
+      const lastActivity = Date.parse(session.lastActivityAt);
+      if (Number.isFinite(lastActivity) && lastActivity <= expiredCutoff) {
+        sessions.delete(id);
+      }
+      continue;
+    }
+
+    // Running session: refresh activity before deciding it's idle.
+    const lastActivity = Date.parse(session.lastActivityAt);
+    if (!Number.isFinite(lastActivity) || lastActivity > idleCutoff) {
+      continue;
+    }
+
+    // Idle long-running session: signal exit and refresh activity. The
+    // close handler will move status to "exited" and the next purge cycle
+    // will delete the entry after the grace period.
+    const escalation = killWithEscalation(session, "SIGTERM");
+    session.lastActivityAt = new Date().toISOString();
+
+    if (escalation !== null) {
+      // If the process dies before the escalation timer fires, clear it so
+      // we don't try to SIGKILL a process that's already gone.
+      session.child.once("close", () => {
+        clearTimeout(escalation);
+      });
+    }
+  }
+};
+
+const ensurePurgeScheduler = (): void => {
+  if (purgeTimer !== null) {
+    return;
+  }
+  purgeTimer = setInterval(() => {
+    purgeIdleSessions();
+  }, PURGE_INTERVAL_MS);
+  // Don't keep the event loop alive just for the purge sweep.
+  purgeTimer.unref();
+};
+
 export const listTerminalSessions = (): TerminalSessionSummary[] =>
   [...sessions.values()]
     .map(toSummary)
@@ -185,6 +293,11 @@ export const createTerminalSession = async (options?: {
   });
 
   sessions.set(session.id, session);
+
+  // First session creation kicks off the background purge sweep. Subsequent
+  // creations are no-ops; the scheduler stays alive for the process lifetime.
+  ensurePurgeScheduler();
+
   return toSnapshot(session);
 };
 
@@ -193,6 +306,10 @@ export const writeTerminalInput = async (
   input: string,
   options?: { echoInput?: boolean }
 ): Promise<TerminalSessionSnapshot> => {
+  // Defense-in-depth: a long-idle session must not be revived by a stray
+  // client write. Purge before lookup so the session is gone if it expired.
+  purgeIdleSessions();
+
   const session = sessions.get(id);
   if (!session) {
     throw new Error(`Terminal session ${id} was not found.`);
@@ -228,7 +345,19 @@ export const closeTerminalSession = (id: string): boolean => {
   }
 
   if (session.status === "running") {
-    session.child.kill("SIGTERM");
+    const escalation = killWithEscalation(session, "SIGTERM");
+    // Wait for the process to actually die before dropping the session from
+    // the map. If SIGKILL escalation fires first, the close handler will
+    // still run on the eventual exit; we just don't want to leak the map
+    // entry while the OS still holds the process.
+    if (escalation !== null) {
+      session.child.once("close", () => {
+        sessions.delete(id);
+      });
+    } else {
+      sessions.delete(id);
+    }
+    return true;
   }
 
   sessions.delete(id);
@@ -243,4 +372,19 @@ export const shutdownAllTerminalSessions = () => {
   }
 
   sessions.clear();
+};
+
+/**
+ * Test-only helpers. Not part of the public API.
+ */
+export const __testing = {
+  resetStateForTests: () => {
+    if (purgeTimer !== null) {
+      clearInterval(purgeTimer);
+      purgeTimer = null;
+    }
+    sessions.clear();
+  },
+  isSchedulerRunning: () => purgeTimer !== null,
+  sessionCount: () => sessions.size
 };
