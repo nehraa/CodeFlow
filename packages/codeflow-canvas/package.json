@@ -31,8 +31,6 @@
     "@xyflow/react": "^12.0.0",
     "@monaco-editor/react": "^4.0.0",
     "monaco-editor": "^0.52.0",
-    "react": "^18.0.0",
-    "react-dom": "^18.0.0",
     "react-rnd": "^10.5.3",
     "zustand": "^5.0.0",
     "dotenv": "^16.0.0"
@@ -41,12 +39,14 @@
     "@types/node": "^22.0.0",
     "@types/react": "^18.0.0",
     "next": "^16.0.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   },
   "peerDependencies": {
     "next": "^16.0.0",
-    "react": "^18.0.0",
-    "react-dom": "^18.0.0"
+    "react": "^18 || ^19",
+    "react-dom": "^18 || ^19"
   }
 }
