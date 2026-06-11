@@ -136,17 +136,39 @@ export async function startStdioServer() {
 /**
  * Build CORS response headers.
  *
- * When the request carries a non-empty `Origin` header, we echo it back in
- * `Access-Control-Allow-Origin`. This is required to safely retain the
- * `authorization` and `x-api-key` headers in `Access-Control-Allow-Headers`:
- * a wildcard `*` combined with credential-bearing headers is rejected by
- * browsers and is unsafe if any layer ever sets `Access-Control-Allow-Credentials`.
+ * When `MCP_ALLOWED_ORIGIN` is set (non-empty comma-separated list), the
+ * server runs in "strict mode": only origins in the list are echoed back;
+ * any other request — including a missing or untrusted `Origin` — falls back
+ * to the first entry in the allowlist (the operator-configured default). This
+ * denies-by-default and is the recommended posture for production deploys.
  *
- * When no `Origin` header is present (typical for non-browser HTTP clients,
- * curl, server-to-server calls, etc.) we fall back to `*` to preserve
- * backward compatibility with those callers.
+ * When `MCP_ALLOWED_ORIGIN` is not set, the server runs in "permissive
+ * default" mode: it echoes a non-empty `Origin` header back, or falls back
+ * to `*` if no `Origin` is present. Echoing `Origin` (rather than `*`) is
+ * required to safely retain the `authorization` and `x-api-key` headers in
+ * `Access-Control-Allow-Headers` — a wildcard `*` combined with
+ * credential-bearing headers is rejected by browsers and is unsafe if any
+ * layer ever sets `Access-Control-Allow-Credentials`.
+ *
+ * `process.env` is read at call time so tests can stub the variable.
  */
 function buildCorsHeaders(requestOrigin) {
+    const allowedEnv = (process.env["MCP_ALLOWED_ORIGIN"] ?? "").trim();
+    if (allowedEnv.length > 0) {
+        const allowed = new Set(allowedEnv
+            .split(",")
+            .map((o) => o.trim())
+            .filter((o) => o.length > 0));
+        const first = allowed.values().next().value ?? "*";
+        const allowOrigin = requestOrigin && requestOrigin.length > 0 && allowed.has(requestOrigin)
+            ? requestOrigin
+            : first;
+        return {
+            "Access-Control-Allow-Origin": allowOrigin,
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, authorization, x-api-key, x-request-id",
+        };
+    }
     const allowOrigin = requestOrigin && requestOrigin.length > 0 ? requestOrigin : "*";
     return {
         "Access-Control-Allow-Origin": allowOrigin,

@@ -220,15 +220,19 @@ describe("TOOLS registry", () => {
  * `Access-Control-Allow-Origin: *` is combined with credential-bearing
  * `Access-Control-Allow-Headers` (authorization, x-api-key).
  *
- * When the request includes a non-empty `Origin`, the server must echo it.
- * When `Origin` is absent (non-browser clients, curl, server-to-server), the
- * server falls back to `*` to preserve backward compatibility.
+ * When `MCP_ALLOWED_ORIGIN` is unset (permissive default), the server echoes
+ * a non-empty `Origin` header back, or falls back to `*` if no `Origin` is
+ * present. When `MCP_ALLOWED_ORIGIN` is set (strict mode), only allowlisted
+ * origins are echoed; untrusted or missing origins fall back to the first
+ * entry in the allowlist.
  */
 describe("createHttpServer CORS handling", () => {
   let server: Server;
   let baseUrl: string;
+  const originalEnv = process.env["MCP_ALLOWED_ORIGIN"];
 
   beforeEach(async () => {
+    delete process.env["MCP_ALLOWED_ORIGIN"];
     server = createHttpServer(0, "127.0.0.1");
     await new Promise<void>((resolve) => {
       server.once("listening", () => resolve());
@@ -242,6 +246,11 @@ describe("createHttpServer CORS handling", () => {
 
   afterEach(async () => {
     await new Promise<void>((resolve) => server.close(() => resolve()));
+    if (originalEnv === undefined) {
+      delete process.env["MCP_ALLOWED_ORIGIN"];
+    } else {
+      process.env["MCP_ALLOWED_ORIGIN"] = originalEnv;
+    }
   });
 
   function get(path: string, origin: string | undefined): Promise<{ allowOrigin: string | string[] | undefined; statusCode: number }> {
@@ -368,5 +377,98 @@ describe("createHttpServer CORS handling", () => {
     const allowHeaders = Array.isArray(res.allowHeaders) ? res.allowHeaders.join(",") : res.allowHeaders ?? "";
     expect(allowHeaders).toContain("authorization");
     expect(allowHeaders).toContain("x-api-key");
+  });
+});
+
+/**
+ * Strict-mode CORS tests — when `MCP_ALLOWED_ORIGIN` is set, the server must
+ * deny-by-default. Allowed origins are echoed; missing or untrusted origins
+ * fall back to the first allowlist entry (the operator-configured default)
+ * rather than echoing an untrusted `Origin` back to the response.
+ */
+describe("createHttpServer CORS strict mode (MCP_ALLOWED_ORIGIN set)", () => {
+  let server: Server;
+  let baseUrl: string;
+  const originalEnv = process.env["MCP_ALLOWED_ORIGIN"];
+
+  beforeEach(async () => {
+    server = createHttpServer(0, "127.0.0.1");
+    await new Promise<void>((resolve) => {
+      server.once("listening", () => resolve());
+    });
+    const address = server.address();
+    if (address === null || typeof address === "string") {
+      throw new Error("Expected server to be listening on a TCP port");
+    }
+    baseUrl = `http://127.0.0.1:${address.port}`;
+  });
+
+  afterEach(async () => {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    if (originalEnv === undefined) {
+      delete process.env["MCP_ALLOWED_ORIGIN"];
+    } else {
+      process.env["MCP_ALLOWED_ORIGIN"] = originalEnv;
+    }
+  });
+
+  function get(path: string, origin: string | undefined): Promise<{ allowOrigin: string | string[] | undefined; statusCode: number }> {
+    return new Promise((resolve, reject) => {
+      const req = httpRequest(
+        `${baseUrl}${path}`,
+        {
+          method: "GET",
+          headers: origin === undefined ? {} : { Origin: origin },
+        },
+        (res) => {
+          res.resume();
+          res.on("end", () => {
+            resolve({ allowOrigin: res.headers["access-control-allow-origin"], statusCode: res.statusCode ?? 0 });
+          });
+        }
+      );
+      req.on("error", reject);
+      req.end();
+    });
+  }
+
+  it("echoes the request Origin when it is in the allowlist", async () => {
+    process.env["MCP_ALLOWED_ORIGIN"] = "https://app.example.com,https://admin.example.com";
+    const res = await get("/", "https://admin.example.com");
+    expect(res.statusCode).toBe(200);
+    expect(res.allowOrigin).toBe("https://admin.example.com");
+  });
+
+  it("falls back to the first allowlist entry when Origin header is missing", async () => {
+    process.env["MCP_ALLOWED_ORIGIN"] = "https://app.example.com,https://admin.example.com";
+    const res = await get("/", undefined);
+    expect(res.statusCode).toBe(200);
+    expect(res.allowOrigin).toBe("https://app.example.com");
+  });
+
+  it("falls back to the first allowlist entry when Origin is NOT in the allowlist (does NOT echo the untrusted Origin)", async () => {
+    process.env["MCP_ALLOWED_ORIGIN"] = "https://app.example.com,https://admin.example.com";
+    const res = await get("/", "https://attacker.example.com");
+    expect(res.statusCode).toBe(200);
+    // Critical: the untrusted origin must NOT be echoed back.
+    expect(res.allowOrigin).toBe("https://app.example.com");
+    expect(res.allowOrigin).not.toBe("https://attacker.example.com");
+  });
+
+  it("treats a single-entry allowlist as a strict allow (no fallback to other origins)", async () => {
+    process.env["MCP_ALLOWED_ORIGIN"] = "https://only.example.com";
+    const res = await get("/", "https://attacker.example.com");
+    expect(res.statusCode).toBe(200);
+    expect(res.allowOrigin).toBe("https://only.example.com");
+  });
+
+  it("trims whitespace and ignores empty entries in the allowlist", async () => {
+    process.env["MCP_ALLOWED_ORIGIN"] = "  https://app.example.com , ,https://admin.example.com  ";
+    // Untrusted origin: should fall back to first allowlist entry.
+    const denied = await get("/", "https://attacker.example.com");
+    expect(denied.allowOrigin).toBe("https://app.example.com");
+    // Trimmed allowlist entry: should be echoed.
+    const allowed = await get("/", "https://admin.example.com");
+    expect(allowed.allowOrigin).toBe("https://admin.example.com");
   });
 });
