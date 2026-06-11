@@ -186,16 +186,48 @@ export async function startStdioServer(): Promise<void> {
 
 // ─── HTTP transport ────────────────────────────────────────────────────────────
 
-function buildCorsHeaders(): Record<string, string> {
-  // Restrict to a configured allow-list of origins (no wildcard). Override via
-  // the MCP_ALLOWED_ORIGIN env var (comma-separated). Defaults to same-host.
-  const allowedOrigin =
-    (process.env["MCP_ALLOWED_ORIGIN"] ?? "http://localhost:3100")
-      .split(",")
-      .map((o) => o.trim())
-      .filter(Boolean)[0] ?? "http://localhost:3100";
+/**
+ * Build CORS response headers.
+ *
+ * When `MCP_ALLOWED_ORIGIN` is set (non-empty comma-separated list), the
+ * server runs in "strict mode": only origins in the list are echoed back;
+ * any other request — including a missing or untrusted `Origin` — falls back
+ * to the first entry in the allowlist (the operator-configured default). This
+ * denies-by-default and is the recommended posture for production deploys.
+ *
+ * When `MCP_ALLOWED_ORIGIN` is not set, the server runs in "permissive
+ * default" mode: it echoes a non-empty `Origin` header back, or falls back
+ * to `*` if no `Origin` is present. Echoing `Origin` (rather than `*`) is
+ * required to safely retain the `authorization` and `x-api-key` headers in
+ * `Access-Control-Allow-Headers` — a wildcard `*` combined with
+ * credential-bearing headers is rejected by browsers and is unsafe if any
+ * layer ever sets `Access-Control-Allow-Credentials`.
+ *
+ * `process.env` is read at call time so tests can stub the variable.
+ */
+function buildCorsHeaders(requestOrigin?: string): Record<string, string> {
+  const allowedEnv = (process.env["MCP_ALLOWED_ORIGIN"] ?? "").trim();
+  if (allowedEnv.length > 0) {
+    const allowed = new Set(
+      allowedEnv
+        .split(",")
+        .map((o) => o.trim())
+        .filter((o) => o.length > 0)
+    );
+    const first = allowed.values().next().value ?? "*";
+    const allowOrigin =
+      requestOrigin && requestOrigin.length > 0 && allowed.has(requestOrigin)
+        ? requestOrigin
+        : first;
+    return {
+      "Access-Control-Allow-Origin": allowOrigin,
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, authorization, x-api-key, x-request-id",
+    };
+  }
+  const allowOrigin = requestOrigin && requestOrigin.length > 0 ? requestOrigin : "*";
   return {
-    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Origin": allowOrigin,
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, authorization, x-api-key, x-request-id",
   };
@@ -219,10 +251,15 @@ async function parseBody(req: IncomingMessage): Promise<string> {
   return Buffer.concat(chunks).toString("utf8");
 }
 
-function sendJson(res: ServerResponse, data: JsonRpcResponse, cors = true) {
+function sendJson(
+  res: ServerResponse,
+  data: JsonRpcResponse,
+  cors = true,
+  requestOrigin?: string
+) {
   res.writeHead(200, {
     "Content-Type": "application/json",
-    ...(cors ? buildCorsHeaders() : {}),
+    ...(cors ? buildCorsHeaders(requestOrigin) : {}),
   });
   res.end(JSON.stringify(data));
 }
@@ -238,10 +275,11 @@ function sendJson(res: ServerResponse, data: JsonRpcResponse, cors = true) {
 export function createHttpServer(port = 3100, host = "localhost"): Server {
   const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
+    const requestOrigin = req.headers.origin;
 
     // CORS preflight
     if (req.method === "OPTIONS") {
-      res.writeHead(204, buildCorsHeaders());
+      res.writeHead(204, buildCorsHeaders(requestOrigin));
       res.end();
       return;
     }
@@ -252,7 +290,7 @@ export function createHttpServer(port = 3100, host = "localhost"): Server {
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
         "Connection": "keep-alive",
-        ...buildCorsHeaders(),
+        ...buildCorsHeaders(requestOrigin),
       });
 
       // Send initial connection event
@@ -278,11 +316,16 @@ export function createHttpServer(port = 3100, host = "localhost"): Server {
       try {
         body = await parseBody(req);
       } catch (err) {
-        sendJson(res, {
-          jsonrpc: "2.0",
-          id: null,
-          error: { code: -32000, message: (err as Error).message },
-        });
+        sendJson(
+          res,
+          {
+            jsonrpc: "2.0",
+            id: null,
+            error: { code: -32000, message: (err as Error).message },
+          },
+          true,
+          requestOrigin
+        );
         return;
       }
 
@@ -290,22 +333,27 @@ export function createHttpServer(port = 3100, host = "localhost"): Server {
       try {
         request = JSON.parse(body);
       } catch {
-        sendJson(res, {
-          jsonrpc: "2.0",
-          id: null,
-          error: { code: -32700, message: "Parse error" },
-        });
+        sendJson(
+          res,
+          {
+            jsonrpc: "2.0",
+            id: null,
+            error: { code: -32700, message: "Parse error" },
+          },
+          true,
+          requestOrigin
+        );
         return;
       }
 
       const response = await handleJsonRpc(request);
-      sendJson(res, response);
+      sendJson(res, response, true, requestOrigin);
       return;
     }
 
     // ── GET / — MCP protocol handshake / tooling info ──────────────────────
     if (req.method === "GET" && url.pathname === "/") {
-      res.writeHead(200, { "Content-Type": "application/json", ...buildCorsHeaders() });
+      res.writeHead(200, { "Content-Type": "application/json", ...buildCorsHeaders(requestOrigin) });
       res.end(
         JSON.stringify({
           name: "codeflow-mcp",
@@ -320,7 +368,7 @@ export function createHttpServer(port = 3100, host = "localhost"): Server {
 
     // ── Health probes (production deploys) ─────────────────────────────────
     if (req.method === "GET" && (url.pathname === "/health" || url.pathname === "/healthz")) {
-      res.writeHead(200, { "Content-Type": "application/json", ...buildCorsHeaders() });
+      res.writeHead(200, { "Content-Type": "application/json", ...buildCorsHeaders(requestOrigin) });
       res.end(JSON.stringify({ status: "ok", service: "codeflow-mcp" }));
       return;
     }

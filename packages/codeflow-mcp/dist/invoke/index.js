@@ -133,24 +133,69 @@ export async function startStdioServer() {
     return new Promise(() => { });
 }
 // ─── HTTP transport ────────────────────────────────────────────────────────────
-function buildCorsHeaders() {
+/**
+ * Build CORS response headers.
+ *
+ * When `MCP_ALLOWED_ORIGIN` is set (non-empty comma-separated list), the
+ * server runs in "strict mode": only origins in the list are echoed back;
+ * any other request — including a missing or untrusted `Origin` — falls back
+ * to the first entry in the allowlist (the operator-configured default). This
+ * denies-by-default and is the recommended posture for production deploys.
+ *
+ * When `MCP_ALLOWED_ORIGIN` is not set, the server runs in "permissive
+ * default" mode: it echoes a non-empty `Origin` header back, or falls back
+ * to `*` if no `Origin` is present. Echoing `Origin` (rather than `*`) is
+ * required to safely retain the `authorization` and `x-api-key` headers in
+ * `Access-Control-Allow-Headers` — a wildcard `*` combined with
+ * credential-bearing headers is rejected by browsers and is unsafe if any
+ * layer ever sets `Access-Control-Allow-Credentials`.
+ *
+ * `process.env` is read at call time so tests can stub the variable.
+ */
+function buildCorsHeaders(requestOrigin) {
+    const allowedEnv = (process.env["MCP_ALLOWED_ORIGIN"] ?? "").trim();
+    if (allowedEnv.length > 0) {
+        const allowed = new Set(allowedEnv
+            .split(",")
+            .map((o) => o.trim())
+            .filter((o) => o.length > 0));
+        const first = allowed.values().next().value ?? "*";
+        const allowOrigin = requestOrigin && requestOrigin.length > 0 && allowed.has(requestOrigin)
+            ? requestOrigin
+            : first;
+        return {
+            "Access-Control-Allow-Origin": allowOrigin,
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, authorization, x-api-key, x-request-id",
+        };
+    }
+    const allowOrigin = requestOrigin && requestOrigin.length > 0 ? requestOrigin : "*";
     return {
-        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Origin": allowOrigin,
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, authorization, x-api-key, x-request-id",
     };
 }
+// Cap incoming POST bodies to prevent a single large request from
+// exhausting memory. Matches the limit enforced by CodeRag's HTTP service.
+const MAX_REQUEST_BYTES = 1024 * 1024;
 async function parseBody(req) {
-    let body = "";
+    const chunks = [];
+    let totalBytes = 0;
     for await (const chunk of req) {
-        body += chunk;
+        const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+        totalBytes += buffer.byteLength;
+        if (totalBytes > MAX_REQUEST_BYTES) {
+            throw new Error("Request body exceeded the maximum allowed size.");
+        }
+        chunks.push(buffer);
     }
-    return body;
+    return Buffer.concat(chunks).toString("utf8");
 }
-function sendJson(res, data, cors = true) {
+function sendJson(res, data, cors = true, requestOrigin) {
     res.writeHead(200, {
         "Content-Type": "application/json",
-        ...(cors ? buildCorsHeaders() : {}),
+        ...(cors ? buildCorsHeaders(requestOrigin) : {}),
     });
     res.end(JSON.stringify(data));
 }
@@ -160,13 +205,15 @@ function sendJson(res, data, cors = true) {
  * Endpoints:
  *   POST / — JSON-RPC (request/response, compatible with all HTTP MCP clients)
  *   GET  /sse — SSE stream for streaming responses (Claude Desktop, Cursor)
+ *   GET  /health, GET /healthz — liveness/readiness probes for production deploys
  */
 export function createHttpServer(port = 3100, host = "localhost") {
     const server = createServer(async (req, res) => {
         const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
+        const requestOrigin = req.headers.origin;
         // CORS preflight
         if (req.method === "OPTIONS") {
-            res.writeHead(204, buildCorsHeaders());
+            res.writeHead(204, buildCorsHeaders(requestOrigin));
             res.end();
             return;
         }
@@ -176,7 +223,7 @@ export function createHttpServer(port = 3100, host = "localhost") {
                 "Content-Type": "text/event-stream",
                 "Cache-Control": "no-cache",
                 "Connection": "keep-alive",
-                ...buildCorsHeaders(),
+                ...buildCorsHeaders(requestOrigin),
             });
             // Send initial connection event
             res.write("event: connected\ndata: {}\n\n");
@@ -193,7 +240,18 @@ export function createHttpServer(port = 3100, host = "localhost") {
         }
         // ── JSON-RPC POST endpoint ───────────────────────────────────────────────
         if (req.method === "POST") {
-            const body = await parseBody(req);
+            let body;
+            try {
+                body = await parseBody(req);
+            }
+            catch (err) {
+                sendJson(res, {
+                    jsonrpc: "2.0",
+                    id: null,
+                    error: { code: -32000, message: err.message },
+                }, true, requestOrigin);
+                return;
+            }
             let request;
             try {
                 request = JSON.parse(body);
@@ -203,16 +261,16 @@ export function createHttpServer(port = 3100, host = "localhost") {
                     jsonrpc: "2.0",
                     id: null,
                     error: { code: -32700, message: "Parse error" },
-                });
+                }, true, requestOrigin);
                 return;
             }
             const response = await handleJsonRpc(request);
-            sendJson(res, response);
+            sendJson(res, response, true, requestOrigin);
             return;
         }
         // ── GET / — MCP protocol handshake / tooling info ──────────────────────
         if (req.method === "GET" && url.pathname === "/") {
-            res.writeHead(200, { "Content-Type": "application/json", ...buildCorsHeaders() });
+            res.writeHead(200, { "Content-Type": "application/json", ...buildCorsHeaders(requestOrigin) });
             res.end(JSON.stringify({
                 name: "codeflow-mcp",
                 version: "0.1.0",
@@ -220,6 +278,12 @@ export function createHttpServer(port = 3100, host = "localhost") {
                 capabilities: { tools: {} },
                 transports: ["stdio", "http", "sse"],
             }));
+            return;
+        }
+        // ── Health probes (production deploys) ─────────────────────────────────
+        if (req.method === "GET" && (url.pathname === "/health" || url.pathname === "/healthz")) {
+            res.writeHead(200, { "Content-Type": "application/json", ...buildCorsHeaders(requestOrigin) });
+            res.end(JSON.stringify({ status: "ok", service: "codeflow-mcp" }));
             return;
         }
         // 404
@@ -230,6 +294,7 @@ export function createHttpServer(port = 3100, host = "localhost") {
         console.log(`[codeflow-mcp] MCP server running`);
         console.log(`[codeflow-mcp]   HTTP:  http://${host}:${port}/`);
         console.log(`[codeflow-mcp]   SSE:   http://${host}:${port}/sse`);
+        console.log(`[codeflow-mcp]   Health: http://${host}:${port}/health`);
         console.log(`[codeflow-mcp]   Tools: ${TOOLS.map((t) => t.name).join(", ")}`);
     });
     return server;
