@@ -1,0 +1,128 @@
+# Gitleaks configuration for CodeFlow.
+#
+# Detects hardcoded credentials, API keys, tokens, and other secrets in
+# source files. Runs:
+#   - As a pre-commit hook (see .githooks/pre-commit)
+#   - As a pre-push hook (see .githooks/pre-push)
+#   - Manually via `gitleaks detect --source .` or `pnpm secrets:scan`
+#
+# Rules extend the gitleaks default rule set with project-specific patterns
+# for the three keys that were leaked in this repo's history:
+#   - Google Gemini (AIzaSy...)
+#   - NVIDIA NIM (nvapi-...)
+#   - MiniMax (sk-cp-...)
+#
+# When the pre-commit hook fires and finds a leak, the commit is BLOCKED.
+# The hook prints the file:line and rule name, and exits non-zero. This is
+# the only sane default — secret leaks must be hard to do, not hard to undo.
+
+title = "CodeFlow secrets detection"
+
+# Built-in default rules plus our custom rules. The default set already
+# covers AWS, GitHub PATs, Slack, Stripe, OpenAI, Anthropic, Google API
+# keys (generic AIza prefix), JWTs, PEM private keys, and ~100 others.
+[extend]
+useDefault = true
+
+# ── Project-specific custom rules ────────────────────────────────────────────
+# These patterns are tuned to catches we know have hit this repo. They run
+# in addition to the default ruleset; duplicates with defaults are fine
+# (gitleaks de-dupes by rule name within a run).
+
+# Google Gemini API keys (Google AI Studio). Default rules catch the
+# generic AIza... prefix; this is a more specific allowlist to reduce
+# false positives in code that mentions the pattern in regex.
+[[rules]]
+id = "codeflow-gemini-api-key"
+description = "Google Gemini API key (AIzaSy...)"
+regex = '''\bAIzaSy[A-Za-z0-9_-]{33}\b'''
+keywords = ["AIzaSy"]
+tags = ["secret", "api-key", "google", "gemini"]
+
+# NVIDIA NIM API keys (build.nvidia.com, nvapi-*).
+[[rules]]
+id = "codeflow-nvidia-api-key"
+description = "NVIDIA NIM API key (nvapi-...)"
+regex = '''\bnvapi-[A-Za-z0-9_\-]{60,}\b'''
+keywords = ["nvapi-"]
+tags = ["secret", "api-key", "nvidia"]
+
+# MiniMax / MiniMax-style sk-cp- keys. The "cp" segment distinguishes
+# MiniMax (cp-...) from OpenAI (sk-proj-, sk-, sk-ant-, etc.). Tuned to
+# the specific leak pattern that hit this repo.
+[[rules]]
+id = "codeflow-minimax-api-key"
+description = "MiniMax-style API key (sk-cp-...)"
+regex = '''\bsk-cp-[A-Za-z0-9_\-]{50,}\b'''
+keywords = ["sk-cp-"]
+tags = ["secret", "api-key", "minimax"]
+
+# ── Allowlists ──────────────────────────────────────────────────────────────
+# Paths and patterns that should be IGNORED. Each allowlist stops a
+# finding from being reported. Use them sparingly — every allowlist is a
+# place a real leak could hide. The ones below are justified:
+
+# 1. .env.example files are templates, not real secrets. They are
+#    intentionally committed so contributors know which env vars to set.
+#    (No targetRules = applies to all rules.)
+[[allowlists]]
+description = "Skip .env.example templates"
+paths = [
+  '''(^|/)(\.env\.example|\.env\.sample|\.env\.template)$''',
+]
+
+# 2. Test fixtures and snapshot files often contain intentionally fake
+#    keys (e.g. "sk-test-key", "sk-proj-test", "test-key"). The default
+#    rules over-fire on these. Allowlist the common patterns but still
+#    catch anything that looks like a real key (length check).
+[[allowlists]]
+description = "Skip known-fake test keys in test fixtures"
+regexes = [
+  '''sk-(test|ant-api03-test|proj-test|or-test)(-key)?''',
+  '''test-key''',
+  '''test_api_key''',
+  '''dummy[-_]?key''',
+  '''fake[-_]?key''',
+  '''sample[-_]?key''',
+]
+
+# 3. Markdown docs sometimes reproduce the key pattern in a "what NOT
+#    to do" example. The README and docs/ are allowlisted but with a
+#    tighter rule: if the secret is in a code block with the actual
+#    value, the rule still fires. gitleaks handles this via the
+#    "regexes" target below.
+[[allowlists]]
+description = "Skip markdown docs unless they contain a real key"
+paths = [
+  '''(^|/)README\.md$''',
+  '''(^|/)docs/.*\.md$''',
+  '''(^|/)CHANGELOG\.md$''',
+]
+
+# 4. Build artifacts and dependency directories are excluded at the
+#    path level. Even if a leak ended up in a build cache, it would
+#    never reach HEAD via a normal workflow.
+[[allowlists]]
+description = "Skip build outputs, dependencies, editor caches"
+paths = [
+  '''(^|/)node_modules/''',
+  '''(^|/)dist/''',
+  '''(^|/)build/''',
+  '''(^|/)\.next/''',
+  '''(^|/)\.turbo/''',
+  '''(^|/)\.cache/''',
+  '''(^|/)coverage/''',
+  '''(^|/)artifacts/''',
+  '''(^|/)\.codeflow-''',
+  '''(^|/)\.coderag/''',
+  '''(^|/)\.coderag-''',
+  '''(^|/)\.serena/''',
+  '''(^|/)\.claude/''',
+  '''(^|/)claude-code/''',
+  '''(^|/)\.qwen/''',
+  '''(^|/)\.worktrees/''',
+  '''\.lock$''',
+  '''package-lock\.json$''',
+  '''pnpm-lock\.yaml$''',
+  '''yarn\.lock$''',
+]

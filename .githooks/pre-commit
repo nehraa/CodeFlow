@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Pre-commit hook: block commits that introduce secrets.
+#
+# Wired via: git config core.hooksPath .githooks
+# (Done automatically by `pnpm secrets:install-hook` once a root
+# package.json is in place, or run manually.)
+#
+# Scans only the staged changes (--staged --diff-filter=ACM) so the
+# hook is fast on large repos. The full-history scan is for CI and
+# manual audit (`pnpm secrets:scan:full`).
+
+set -euo pipefail
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "[gitleaks] not installed; skipping pre-commit scan."
+  echo "[gitleaks] install with: brew install gitleaks"
+  exit 0
+fi
+
+echo "[gitleaks] scanning staged changes..."
+
+# gitleaks protect --staged scopes the scan to the staged diff. This
+# runs in <1s for typical changes. If it finds anything, it prints
+# the file:line and exits non-zero, blocking the commit.
+gitleaks protect --staged --redact --verbose \
+  --config .gitleaks.toml
+
+echo "[gitleaks] clean."

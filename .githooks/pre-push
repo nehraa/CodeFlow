@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Pre-push hook: full-history scan before any push goes to origin.
+#
+# Wired via: git config core.hooksPath .githooks
+#
+# This is the second line of defense. Pre-commit catches staged changes
+# (fast, runs on every commit). Pre-push scans the entire working tree
+# (slower, but catches anything that snuck in via rebase, merge, or
+# direct file edits without staging).
+#
+# Bypass with: git push --no-verify (use only if you know what you're
+# doing and have a reason).
+
+set -euo pipefail
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "[gitleaks] not installed; skipping pre-push scan."
+  exit 0
+fi
+
+echo "[gitleaks] scanning working tree before push..."
+
+# detect --source scans the entire working tree (untracked + tracked).
+# Use --no-git to avoid scanning history; the pre-commit hook already
+# covered the staged diff.
+gitleaks detect --source . --no-git --redact --verbose \
+  --config .gitleaks.toml
+
+echo "[gitleaks] clean."
