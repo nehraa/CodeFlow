@@ -225,6 +225,12 @@ describe("TOOLS registry", () => {
  * present. When `MCP_ALLOWED_ORIGIN` is set (strict mode), only allowlisted
  * origins are echoed; untrusted or missing origins fall back to the first
  * entry in the allowlist.
+ *
+ * The credential-bearing headers `authorization` and `x-api-key` are
+ * intentionally OMITTED from `Access-Control-Allow-Headers` so a cross-origin
+ * attacker cannot make the browser send them via preflight. Non-credential
+ * headers (`Content-Type`, `x-request-id`) are retained so legitimate clients
+ * can still issue preflight requests.
  */
 describe("createHttpServer CORS handling", () => {
   let server: Server;
@@ -358,7 +364,7 @@ describe("createHttpServer CORS handling", () => {
     expect(res.allowOrigin).toBe(origin);
   });
 
-  it("still includes authorization in Access-Control-Allow-Headers (echoing Origin does not strip credentials headers)", async () => {
+  it("omits authorization and x-api-key from Access-Control-Allow-Headers to prevent cross-origin credential exposure", async () => {
     const res = await new Promise<{ allowHeaders: string | string[] | undefined }>((resolve, reject) => {
       const req = httpRequest(
         `${baseUrl}/`,
@@ -375,8 +381,16 @@ describe("createHttpServer CORS handling", () => {
       req.end();
     });
     const allowHeaders = Array.isArray(res.allowHeaders) ? res.allowHeaders.join(",") : res.allowHeaders ?? "";
-    expect(allowHeaders).toContain("authorization");
-    expect(allowHeaders).toContain("x-api-key");
+    const normalized = allowHeaders.toLowerCase();
+    // Credential-bearing headers must NOT be advertised cross-origin: a wildcard
+    // (or echoed) Origin combined with these in Allow-Headers would let any
+    // malicious site make the browser send Authorization / X-API-Key to this
+    // endpoint via a preflight.
+    expect(normalized).not.toContain("authorization");
+    expect(normalized).not.toContain("x-api-key");
+    // Non-credential headers must still be present so legitimate preflights succeed.
+    expect(normalized).toContain("content-type");
+    expect(normalized).toContain("x-request-id");
   });
 });
 

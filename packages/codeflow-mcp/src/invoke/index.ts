@@ -206,6 +206,11 @@ export async function startStdioServer(): Promise<void> {
  * `process.env` is read at call time so tests can stub the variable.
  */
 function buildCorsHeaders(requestOrigin?: string): Record<string, string> {
+  // We omit `authorization` and `x-api-key` from Allow-Headers so the server
+  // does not advertise acceptance of credentialed headers. Combined with the
+  // explicit origin allowlist / echoed-Origin behaviour above, this prevents
+  // a cross-origin attacker from making the browser send Authorization /
+  // X-API-Key to this endpoint.
   const allowedEnv = (process.env["MCP_ALLOWED_ORIGIN"] ?? "").trim();
   if (allowedEnv.length > 0) {
     const allowed = new Set(
@@ -222,14 +227,14 @@ function buildCorsHeaders(requestOrigin?: string): Record<string, string> {
     return {
       "Access-Control-Allow-Origin": allowOrigin,
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, authorization, x-api-key, x-request-id",
+      "Access-Control-Allow-Headers": "Content-Type, x-request-id",
     };
   }
   const allowOrigin = requestOrigin && requestOrigin.length > 0 ? requestOrigin : "*";
   return {
     "Access-Control-Allow-Origin": allowOrigin,
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, authorization, x-api-key, x-request-id",
+    "Access-Control-Allow-Headers": "Content-Type, x-request-id",
   };
 }
 
