@@ -37,6 +37,7 @@ const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 min — sessions idle this long ar
 const EXPIRED_OUTPUT_GRACE_MS = 60 * 1000; // 60 s — after exit, retain snapshot for this long before deletion
 const PURGE_INTERVAL_MS = 30 * 1000; // 30 s — background sweep cadence
 const SIGKILL_TIMEOUT_MS = 5 * 1000; // 5 s — SIGKILL escalation if SIGTERM is ignored
+const MAX_SESSIONS = 50; // hard cap on concurrent sessions to bound resource use
 
 const sessions = new Map<string, InternalTerminalSession>();
 let sessionCounter = 0;
@@ -245,6 +246,14 @@ export const createTerminalSession = async (options?: {
   cwd?: string;
   title?: string;
 }): Promise<TerminalSessionSnapshot> => {
+  // Reap idle/expired sessions first so the cap reflects live sessions only.
+  purgeIdleSessions();
+  if (sessions.size >= MAX_SESSIONS) {
+    throw new Error(
+      `Terminal session limit reached (${MAX_SESSIONS}). Close an existing session before opening a new one.`
+    );
+  }
+
   const cwd = await resolveInitialCwd(options?.cwd);
   const shell = getShellPath();
   const child = spawn(shell, [], {
